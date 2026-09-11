@@ -39,3 +39,7 @@ Helicopter blades rotate together around an authored rotor pivot. The tank's tur
 ## Remaining limits
 
 This is procedural articulated animation over Blender-authored rigid parts, not skinned animation, ragdoll physics, motion capture or exact foot IK. Falls are authored approximations, with bodies removed from collision immediately to preserve combat readability. Camera-scale limb motion is intentionally exaggerated. Physical phone performance and a broad cross-browser/human playtest remain unverified. No claims of those systems being complete are made.
+
+## Software-rendered CI follow-up
+
+The first cloud run exposed timing assumptions in browser tests: fixed keyboard/reload waits advanced too few simulation steps under slow software WebGL, and the three-mission test exhausted its time limit. Verification now waits for actual position/ammunition state, uses the existing low-graphics profile in CI, and allows a bounded longer cloud test timeout. Local visual checks retain full graphics. Geometry is also batched by material **within** each rigid joint, reducing draw calls without merging across animated limbs. The same pose, death-isolation, gameplay and campaign tests were rerun after this optimization.

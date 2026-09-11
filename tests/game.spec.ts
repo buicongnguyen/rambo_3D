@@ -11,19 +11,31 @@ test("renders Blender assets, accepts movement/fire, pauses and retries", async 
   await expect(page.locator("#hud")).toBeVisible();
   const z = await page.evaluate(() => (window as any).__nightfall.game.pos.z);
   await page.keyboard.down("KeyW");
-  await page.waitForTimeout(700);
+  await expect
+    .poll(() => page.evaluate(() => (window as any).__nightfall.game.pos.z), {
+      timeout: 15000,
+    })
+    .toBeLessThan(z - 1);
   await page.keyboard.up("KeyW");
   expect(
     await page.evaluate(() => (window as any).__nightfall.game.pos.z),
   ).toBeLessThan(z - 1);
   await page.keyboard.down("Space");
-  await page.waitForTimeout(500);
+  await expect
+    .poll(() => page.evaluate(() => (window as any).__nightfall.game.ammo), {
+      timeout: 15000,
+    })
+    .toBeLessThan(24);
   await page.keyboard.up("Space");
   expect(
     await page.evaluate(() => (window as any).__nightfall.game.ammo),
   ).toBeLessThan(24);
   await page.keyboard.press("KeyR");
-  await page.waitForTimeout(1400);
+  await expect
+    .poll(() => page.evaluate(() => (window as any).__nightfall.game.ammo), {
+      timeout: 15000,
+    })
+    .toBe(24);
   expect(await page.evaluate(() => (window as any).__nightfall.game.ammo)).toBe(
     24,
   );
@@ -41,7 +53,9 @@ test("renders Blender assets, accepts movement/fire, pauses and retries", async 
   await page.evaluate(() => {
     (window as any).__nightfall.game.hp = 0;
   });
-  await expect(page.locator("#result-primary")).toContainText("RETRY");
+  await expect(page.locator("#result-primary")).toContainText("RETRY", {
+    timeout: 20000,
+  });
   await page.locator("#result-primary").click();
   await expect(page.locator("#hud")).toBeVisible();
   expect(await page.evaluate(() => (window as any).__nightfall.game.hp)).toBe(

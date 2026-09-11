@@ -29,6 +29,42 @@ export async function loadAssets(progress: (n: number) => void) {
           o.receiveShadow = true;
         }
       });
+      // Batch rigid geometry inside each joint, never across animated pivots.
+      if (["commando", "rifleman", "captive"].includes(name)) {
+        const joints: T.Object3D[] = [];
+        g.scene.traverse((o) => {
+          if (o.userData.joint) joints.push(o);
+        });
+        for (const joint of joints) {
+          const groups = new Map<T.Material, T.Mesh[]>();
+          for (const child of joint.children) {
+            if (
+              child instanceof T.Mesh &&
+              !Array.isArray(child.material) &&
+              child.children.length === 0
+            ) {
+              const list = groups.get(child.material) ?? [];
+              list.push(child);
+              groups.set(child.material, list);
+            }
+          }
+          for (const [material, parts] of groups) {
+            if (parts.length < 2) continue;
+            const geometries = parts.map((part) => {
+              part.updateMatrix();
+              return part.geometry.clone().applyMatrix4(part.matrix);
+            });
+            const geometry = mergeGeometries(geometries);
+            for (const item of geometries) item.dispose();
+            if (!geometry) continue;
+            for (const part of parts) joint.remove(part);
+            const mesh = new T.Mesh(geometry, material);
+            mesh.castShadow = true;
+            mesh.receiveShadow = true;
+            joint.add(mesh);
+          }
+        }
+      }
       templates.set(name, g.scene);
       progress(++done / names.length);
     }),
