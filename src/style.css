@@ -1301,3 +1301,4 @@ input {
     scroll-behavior: auto !important;
   }
 }
+.settings select { max-width: 65%; padding: 8px; color: var(--cream, #edf0d7); background: #22382d; border: 1px solid #66705b; border-radius: 4px; font: inherit; }

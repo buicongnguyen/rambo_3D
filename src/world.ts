@@ -86,6 +86,7 @@ export function model(name: string, x = 0, z = 0, scale = 1) {
 }
 export class World {
   scene = new T.Scene();
+  lowDetail = false;
   private missionIndex = 0;
   private soilMap = surface("soil");
   private roadMap = surface("road");
@@ -275,6 +276,7 @@ export class World {
         continue;
       const g = model(i % 4 === 0 ? "rock" : "palm", x, z, 0.65 + rand() * 0.8);
       g.rotation.y = rand() * 6.28;
+      g.traverse((o) => (o.userData.highDetail = i % 3 !== 0));
       this.terrain.add(g);
     }
     const grass = this.mat(0x657644, { side: T.DoubleSide });
@@ -301,6 +303,7 @@ export class World {
       )
         continue;
       const o = this.mesh(grassGeometry(), grass, x, 0.01, z);
+      o.userData.highDetail = true;
       o.rotation.y = rand() * Math.PI * 2;
       o.scale.setScalar(0.7 + rand() * 0.8);
     }
@@ -313,6 +316,7 @@ export class World {
         3,
         Math.sin(a) * 75,
       );
+      hill.userData.highDetail = i % 2 === 0;
       hill.scale.set(13 + rand() * 14, 10 + rand() * 14, 12 + rand() * 15);
     }
     this.marker.position.set(mission.objective.x, 0.15, mission.objective.z);
@@ -354,20 +358,31 @@ export class World {
       this.mesh(new T.BoxGeometry(0.16, 0.03, 2), line, 20 + x, 0.075, -22);
     this.mesh(new T.BoxGeometry(2, 0.03, 0.16), line, 20, 0.075, -22);
     this.batchTerrain();
+    this.quality(this.lowDetail);
   }
   batchTerrain() {
     this.terrain.updateMatrixWorld(true);
     const batches = new Map<
       string,
-      { material: T.Material; geometries: T.BufferGeometry[] }
+      {
+        material: T.Material;
+        geometries: T.BufferGeometry[];
+        highDetail: boolean;
+      }
     >();
     this.terrain.traverse((o) => {
       if (!(o instanceof T.Mesh) || Array.isArray(o.material)) return;
       const key =
-        o.material.uuid + Object.keys(o.geometry.attributes).sort().join();
+        o.material.uuid +
+        Object.keys(o.geometry.attributes).sort().join() +
+        Boolean(o.userData.highDetail);
       let batch = batches.get(key);
       if (!batch) {
-        batch = { material: o.material, geometries: [] };
+        batch = {
+          material: o.material,
+          geometries: [],
+          highDetail: Boolean(o.userData.highDetail),
+        };
         batches.set(key, batch);
       }
       batch.geometries.push(o.geometry.clone().applyMatrix4(o.matrixWorld));
@@ -379,25 +394,52 @@ export class World {
       if (!geometry) throw new Error("Static terrain batch failed");
       this.ownedGeometries.push(geometry);
       const mesh = new T.Mesh(geometry, batch.material);
+      mesh.userData.highDetail = batch.highDetail;
       mesh.castShadow = true;
       mesh.receiveShadow = true;
       this.terrain.add(mesh);
     }
   }
   quality(low: boolean) {
+    this.lowDetail = low;
+    this.terrain.traverse((o) => {
+      if (o.userData.highDetail) o.visible = !low;
+    });
+    this.scene.traverse((o) => {
+      if (!(o instanceof T.Mesh)) return;
+      for (const m of Array.isArray(o.material) ? o.material : [o.material]) {
+        if (!(m instanceof T.MeshStandardMaterial)) continue;
+        if (m.bumpMap && !m.userData.detailBump)
+          m.userData.detailBump = m.bumpMap;
+        const map = low ? null : (m.userData.detailBump ?? m.bumpMap);
+        if (m.bumpMap !== map) {
+          m.bumpMap = map;
+          m.needsUpdate = true;
+        }
+      }
+    });
     this.renderer.shadowMap.enabled = !low;
-    this.renderer.setPixelRatio(Math.min(devicePixelRatio, low ? 1 : 1.6));
+
     this.resize();
   }
   resize() {
+    this.renderer.setPixelRatio(
+      this.lowDetail
+        ? Math.min(
+            devicePixelRatio,
+            1,
+            1280 / Math.max(innerWidth, innerHeight),
+          )
+        : Math.min(devicePixelRatio, 1.6),
+    );
     this.camera.aspect = innerWidth / innerHeight;
     this.camera.updateProjectionMatrix();
     this.renderer.setSize(innerWidth, innerHeight);
   }
   render(time: number, focus: T.Vector3, menu: boolean, reduced: boolean) {
-    this.wind.value = reduced ? 0 : time;
+    this.wind.value = reduced || this.lowDetail ? 0 : time;
     this.waterMap.offset.set(
-      reduced ? 0 : time * 0.012,
+      reduced || this.lowDetail ? 0 : time * 0.012,
       reduced ? 0 : time * 0.006,
     );
     const target = menu ? new T.Vector3(6, 0, 1) : focus;

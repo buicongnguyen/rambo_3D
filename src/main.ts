@@ -22,7 +22,10 @@ let save = validateSave(read("nightfall-campaign", freshSave()));
 const rawPrefs = read("nightfall-prefs", {}) as Record<string, unknown>;
 const prefs = {
   sound: rawPrefs.sound !== false,
-  low: rawPrefs.low === true,
+  low:
+    typeof rawPrefs.low === "boolean"
+      ? rawPrefs.low
+      : matchMedia("(pointer: coarse)").matches,
   reduced:
     rawPrefs.reduced === true ||
     matchMedia("(prefers-reduced-motion: reduce)").matches,
@@ -202,7 +205,7 @@ function pause() {
   mode = "paused";
   clearInput();
   showOverlay(
-    `<span class="eyebrow">SIGNAL ON HOLD</span><h2>Take a breath.</h2><p>The battlefield will wait.</p><button id="resume" class="primary">RESUME OPERATION <span>↗</span></button><div class="settings"><label><span>Sound effects</span><input id="setting-sound" type="checkbox" ${prefs.sound ? "checked" : ""}></label><label><span>Low graphics / battery saver</span><input id="setting-low" type="checkbox" ${prefs.low ? "checked" : ""}></label><label><span>Reduce camera motion</span><input id="setting-motion" type="checkbox" ${prefs.reduced ? "checked" : ""}></label></div><div class="modal-actions"><button id="restart">RESTART MISSION</button><button id="to-menu">MISSION BRIEFING</button></div><p class="small-note">WASD / arrows move · Mouse aims · Click / Space fires<br>R reload · Q switch · E interact · Shift dodge · Esc pause</p>`,
+    `<span class="eyebrow">SIGNAL ON HOLD</span><h2>Take a breath.</h2><p>The battlefield will wait.</p><button id="resume" class="primary">RESUME OPERATION <span>↗</span></button><div class="settings"><label><span>Sound effects</span><input id="setting-sound" type="checkbox" ${prefs.sound ? "checked" : ""}></label><label><span>Graphics detail</span><select id="setting-low" aria-label="Graphics detail"><option value="low" ${prefs.low ? "selected" : ""}>Low · Mobile / battery saver</option><option value="high" ${!prefs.low ? "selected" : ""}>High · PC / detailed visuals</option></select></label><label><span>Reduce camera motion</span><input id="setting-motion" type="checkbox" ${prefs.reduced ? "checked" : ""}></label></div><div class="modal-actions"><button id="restart">RESTART MISSION</button><button id="to-menu">MISSION BRIEFING</button></div><p class="small-note">WASD / arrows move · Mouse aims · Click / Space fires<br>R reload · Q switch · E interact · Shift dodge · Esc pause</p>`,
   );
   $("#resume").onclick = resume;
   $("#restart").onclick = start;
@@ -211,8 +214,8 @@ function pause() {
     prefs.sound = (e.target as HTMLInputElement).checked;
     syncSound();
   };
-  $<HTMLInputElement>("#setting-low").onchange = (e) => {
-    prefs.low = (e.target as HTMLInputElement).checked;
+  $<HTMLSelectElement>("#setting-low").onchange = (e) => {
+    prefs.low = (e.target as HTMLSelectElement).value === "low";
     world.quality(prefs.low);
     write("nightfall-prefs", prefs);
   };

@@ -218,7 +218,11 @@ export class Game {
     });
   }
   spark(x: number, z: number, big = false) {
-    for (let i = 0; i < (big ? 12 : 3); i++) {
+    for (
+      let i = 0;
+      i < (this.world.lowDetail ? (big ? 4 : 1) : big ? 12 : 3);
+      i++
+    ) {
       const mesh = new T.Mesh(this.effectGeo, this.effectMat.clone());
       mesh.position.set(
         x + (Math.random() - 0.5) * (big ? 2 : 0.5),
@@ -239,7 +243,7 @@ export class Game {
       });
     }
     if (big)
-      for (let i = 0; i < 8; i++) {
+      for (let i = 0; i < (this.world.lowDetail ? 2 : 8); i++) {
         const mesh = new T.Mesh(this.effectGeo, this.effectMat.clone());
         mesh.material.color.setHex(0x55534d);
         mesh.material.depthWrite = false;
