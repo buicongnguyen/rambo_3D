@@ -9,6 +9,8 @@ export type Box = {
   kind?: string;
   hp?: number;
   asset?: string;
+  originalW?: number;
+  originalD?: number;
 };
 export type Patch = { x: number; z: number; radius: number; kind: string };
 export type Mission = {

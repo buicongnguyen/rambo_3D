@@ -197,3 +197,40 @@ test("heavy laser warning matches its wide hit zone and concrete blocks damage",
     lockedFacing: true,
   });
 });
+
+test("rotated crates, tents and towers remain inside their collision footprint", async ({
+  page,
+}) => {
+  await ready(page);
+  const result = await page.evaluate(async () => {
+    const { coverModel } = await import("/src/world.ts");
+    const { routeBox } = await import("/src/routes.mjs");
+    const T = await import("/tests/scene-fixtures.ts");
+    return [0, 1, 2, 3].flatMap((layout) =>
+      ["crate", "tent", "tower"].map((asset) => {
+        const box = routeBox(layout, {
+          x: 4,
+          z: 12,
+          w: asset === "tent" ? 4 : 3,
+          d: asset === "tent" ? 4 : asset === "tower" ? 3 : 2,
+          asset,
+        });
+        const root = coverModel(box, layout),
+          bounds = new T.Box3().setFromObject(root);
+        return {
+          layout,
+          asset,
+          inside:
+            bounds.min.x >= box.x - box.w / 2 - 0.05 &&
+            bounds.max.x <= box.x + box.w / 2 + 0.05 &&
+            bounds.min.z >= box.z - box.d / 2 - 0.05 &&
+            bounds.max.z <= box.z + box.d / 2 + 0.05,
+        };
+      }),
+    );
+  });
+  expect(
+    result.every((r) => r.inside),
+    JSON.stringify(result),
+  ).toBe(true);
+});

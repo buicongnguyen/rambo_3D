@@ -37,7 +37,7 @@ Bosses do not initiate volleys during spider rest or helicopter rearming. The he
 ## Review findings and fixes
 
 - Replaced the fixed northbound start, road, vehicle placements and tactical-map coordinates with shared route geometry. Updated boss clamps and rotated boss formations so eastbound and diagonal missions cannot strand bosses or place vehicles outside the map.
-- Kept prop model selection independent of rotated collision dimensions, and centered briefing camera views on the selected route.
+- Kept prop model selection independent of rotated collision dimensions, rotated paired crates and cover prefabs with their collision footprints, and centered briefing camera views on the selected route.
 - Carved a minimum 7.2-metre clear road corridor; concrete chicanes never close the tank route. The relay sits on the road and all extraction positions remain in bounds.
 - Supply placement checks the whole polyline, including adjacent road arms at bends. Crates sit 4.4–6.4 metres from their sampled centerline and at least 4.2 metres from every road segment. Their approach has 2.5-metre clearance, avoids parked vehicles, and keeps medical supplies out of sand traps and mud holes.
 - Kept shield capacity and overflow damage separate from vehicle armor; restarting clears temporary shields. Full crates remain collectable later.
@@ -48,7 +48,7 @@ Bosses do not initiate volleys during spider rest or helicopter rearming. The he
 ## Validation results
 
 - 20 Node checks passed, including tank traversal on all 21 layouts and supply quotas, safe approaches, off-road distance, hazard avoidance and seed variation across 630 generated distributions.
-- All 30 browser regression checks passed during implementation. A fresh-server run of the 14 affected campaign, supply, boss, UI and completion checks passed after the final layout and visual changes. Five final boss and supply checks also passed after aligning the laser model with its locked aim. GitHub Actions requires the full suite to pass again before deployment.
+- All 30 browser regression checks passed during implementation. A fresh-server run of the 14 affected campaign, supply, boss, UI and completion checks passed after the final layout and visual changes. Five final boss and supply checks also passed after aligning the laser model with its locked aim. An additional geometry regression verifies crates, tents and towers against their collision footprints in all four directions. GitHub Actions requires the full suite to pass again before deployment.
 - A simulated Easy level completed using movement, aiming and normal weapon damage.
 - Desktop High views checked for all four directions. Mobile Low checked at 390 × 844 with touch controls, shield HUD and no horizontal overflow. No page errors in the visual checks. These browser checks do not measure frame rates on physical devices.
 

@@ -26,6 +26,8 @@ export function routeBox(level, box) {
   return {
     ...box,
     ...p,
+    originalW: box.w,
+    originalD: box.d,
     w: box.w * Math.abs(Math.cos(a)) + box.d * Math.abs(Math.sin(a)),
     d: box.d * Math.abs(Math.cos(a)) + box.w * Math.abs(Math.sin(a)),
   };

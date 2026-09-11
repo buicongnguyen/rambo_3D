@@ -100,6 +100,26 @@ export function model(name: string, x = 0, z = 0, scale = 1) {
   g.scale.setScalar(scale);
   return g;
 }
+/** Rotate asymmetric cover with the collision layout, including paired crates. */
+export function coverModel(box: Box, layout: number) {
+  const root = new T.Group(),
+    parts = new T.Group();
+  if (box.asset === "tent" || box.asset === "tower")
+    parts.add(model(box.asset));
+  else for (const x of [-0.8, 0.8]) parts.add(model("crate", x, 0, 1.1));
+  const bounds = new T.Box3().setFromObject(parts),
+    size = bounds.getSize(new T.Vector3()),
+    center = bounds.getCenter(new T.Vector3());
+  const width = box.originalW ?? box.w,
+    depth = box.originalD ?? box.d;
+  parts.scale.set(width / size.x, 1, depth / size.z);
+  parts.position.set(-center.x * parts.scale.x, 0, -center.z * parts.scale.z);
+  root.add(parts);
+  root.position.set(box.x, 0, box.z);
+  root.rotation.y = -([0, Math.PI / 2, Math.PI / 4, Math.PI][layout] ?? 0);
+  return root;
+}
+
 export class World {
   scene = new T.Scene();
   lowDetail = false;
@@ -353,13 +373,7 @@ export class World {
         const house = model("house", box.x, box.z);
         house.scale.set(box.w / 5, 1 + (index % 3) * 0.15, box.d / 7);
         this.terrain.add(house);
-      } else if (box.asset === "tent")
-        this.terrain.add(model("tent", box.x, box.z));
-      else if (box.asset === "tower")
-        this.terrain.add(model("tower", box.x, box.z));
-      else
-        for (const x of [-0.8, 0.8])
-          this.terrain.add(model("crate", box.x + x, box.z, 1.1));
+      } else this.terrain.add(coverModel(box, mission.layout));
     }
     let seed = 19 + mission.stage * 13 + mission.level * 7;
     const rand = () => {
