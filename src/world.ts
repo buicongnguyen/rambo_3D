@@ -1,4 +1,5 @@
 import * as T from "three";
+import { RoomEnvironment } from "three/addons/environments/RoomEnvironment.js";
 import { GLTFLoader } from "three/addons/loaders/GLTFLoader.js";
 import { mergeGeometries } from "three/addons/utils/BufferGeometryUtils.js";
 import { COVER, MISSIONS } from "./missions";
@@ -30,25 +31,29 @@ export async function loadAssets(progress: (n: number) => void) {
         }
       });
       // Batch rigid geometry inside each joint, never across animated pivots.
-      if (["commando", "rifleman", "captive"].includes(name)) {
-        const joints: T.Object3D[] = [];
+      {
+        const joints: T.Object3D[] = [g.scene];
         g.scene.traverse((o) => {
           if (o.userData.joint) joints.push(o);
         });
         for (const joint of joints) {
-          const groups = new Map<T.Material, T.Mesh[]>();
+          const groups = new Map<string, T.Mesh[]>();
           for (const child of joint.children) {
             if (
               child instanceof T.Mesh &&
               !Array.isArray(child.material) &&
               child.children.length === 0
             ) {
-              const list = groups.get(child.material) ?? [];
+              const key =
+                child.material.uuid +
+                Object.keys(child.geometry.attributes).sort().join();
+              const list = groups.get(key) ?? [];
               list.push(child);
-              groups.set(child.material, list);
+              groups.set(key, list);
             }
           }
-          for (const [material, parts] of groups) {
+          for (const parts of groups.values()) {
+            const material = parts[0].material;
             if (parts.length < 2) continue;
             const geometries = parts.map((part) => {
               part.updateMatrix();
@@ -103,8 +108,14 @@ export class World {
     this.renderer.shadowMap.type = T.PCFSoftShadowMap;
     this.renderer.outputColorSpace = T.SRGBColorSpace;
     this.renderer.toneMapping = T.ACESFilmicToneMapping;
-    this.renderer.toneMappingExposure = 1.22;
-    this.scene.add(new T.HemisphereLight(0xdfeddf, 0x384332, 2.3));
+    this.renderer.toneMappingExposure = 1.05;
+    const pmrem = new T.PMREMGenerator(this.renderer);
+    const studio = new RoomEnvironment();
+    this.scene.environment = pmrem.fromScene(studio, 0.04).texture;
+    this.scene.environmentIntensity = 0.35;
+    studio.dispose();
+    pmrem.dispose();
+    this.scene.add(new T.HemisphereLight(0xdfeddf, 0x384332, 1.3));
     this.sun = new T.DirectionalLight(0xffe3b0, 3.4);
     this.sun.position.set(-20, 35, 12);
     this.sun.castShadow = true;
@@ -343,7 +354,7 @@ export class World {
     const target = menu ? new T.Vector3(6, 0, 1) : focus;
     const desired = menu
       ? new T.Vector3(40 + (reduced ? 0 : Math.sin(time * 0.07) * 2), 43, 51)
-      : new T.Vector3(focus.x, focus.y + 31, focus.z + 28);
+      : new T.Vector3(focus.x, focus.y + 27, focus.z + 25);
     this.camera.position.lerp(desired, menu ? 0.025 : 0.09);
     this.camera.lookAt(target);
     this.marker.rotation.z = time * 0.6;
