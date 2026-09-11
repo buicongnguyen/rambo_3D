@@ -179,3 +179,47 @@ test("empty special weapon falls back and laser cannot penetrate solid cover", a
   expect(r.blocked).toBe(500);
   expect(r.clear).toBeLessThan(500);
 });
+
+test("riders collect nearby weapons and supplies without losing mounted ammo", async ({
+  page,
+}) => {
+  await ready(page);
+  const results = await page.evaluate(() => {
+    const { game: g, input } = (window as any).__nightfall;
+    const results = [];
+    for (let index = 0; index < 3; index++) {
+      g.start(0, { armor: 0, power: 0, mobility: 0 }, "story");
+      g.enemies.forEach((e: any) => (e.hp = 0));
+      const v = g.rides[index];
+      v.mesh.position.set(15, 0, 20);
+      g.pos.copy(v.mesh.position);
+      g.useRide();
+      const drop = g.weaponDrops[0],
+        weapon = drop.index;
+      drop.mesh.position.set(15 + v.spec.radius + 0.4, 0.7, 20);
+      const supply = drop.mesh.clone();
+      g.world.actors.add(supply);
+      g.pickups.push(supply);
+      const ammo = v.ammo;
+      const cmd = { ...input, x: 0, z: 0, fire: false, interact: false };
+      g.update(1 / 60, { ...cmd });
+      const keptAtFull = g.pickups.includes(supply);
+      v.hp -= 20;
+      g.hp -= 15;
+      g.update(1 / 60, { ...cmd });
+      results.push({
+        collected:
+          g.inventory.includes(weapon) && !g.weaponDrops.includes(drop),
+        keptAtFull,
+        repaired: v.hp === v.spec.hp,
+        healed: g.hp === g.maxHp,
+        consumed: !g.pickups.includes(supply),
+        mountedAmmo: v.ammo === ammo,
+        stillRiding: g.riding === v,
+      });
+    }
+    return results;
+  });
+  for (const r of results)
+    for (const value of Object.values(r)) expect(value).toBe(true);
+});

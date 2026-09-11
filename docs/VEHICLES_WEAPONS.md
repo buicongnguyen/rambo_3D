@@ -10,7 +10,7 @@ Reviewed the original 2D BattleScene weapon definitions, vehicle specs, driving,
 - Tank: slow, heavy armor; independently aimed turret and five explosive missiles.
 - HUD shows vehicle armor and mounted ammunition. Vehicle ammunition persists across exits. Enemy fire damages the vehicle before the player; destruction ejects the player with brief protection and a damage penalty, while the wreck settles and fades.
 - Solid cover, other vehicles, and world bounds stop driving. River vehicles must use the bridge. Objectives/extraction require dismounting. Rescued Mara travels with the player and resumes following after exit.
-- Purple minimap dots are weapon pickups. Walk over them, then Q / WEAPON cycles collected weapons. Special weapons have finite reserve ammunition. Exhaustion automatically selects another usable weapon; rifle and shotgun retain the prototype's unlimited reserve.
+- Purple minimap dots are weapon pickups. Walk or drive over them, then Q / WEAPON cycles collected weapons. Riding collection uses the vehicle footprint plus a short reach, and solid cover blocks collection. Collected personal weapons remain available after dismounting; jeep/tank mounted ammunition is unchanged. Special weapons have finite reserve ammunition. Exhaustion automatically selects another usable weapon; rifle and shotgun retain the prototype's unlimited reserve.
 
 ## Weapon behavior
 | Weapon | 3D behavior and visual |
@@ -36,3 +36,5 @@ Vehicle collisions now participate in follower/enemy navigation. Reinforcement s
 Automated tests cover all three vehicle types, moving wheels, mounted fire, armor, dismounting, destruction, water boundaries, restart, all eleven weapon pickups and damage, finite reload reserves, empty-weapon fallback and laser cover blocking. Existing mobile and campaign tests remain part of validation. The rescue simulation finishes with normal weapon damage. docs/vehicles-weapons.png is an in-engine visual inspection image.
 
 This is arcade vehicle handling, not a suspension/rigid-body simulator. Unlike 2D, jeep fire is player-triggered and tank missiles fire individually, making the mobile FIRE control predictable. No vehicle ramming damage, destructible cover, missile homing, or multiplayer passenger seats are claimed. Mara follows the transport state without an additional visible passenger mesh. Models remain browser-oriented, not AAA production assets. Hardware-phone frame-rate profiling remains outstanding.
+
+Green supplies heal the player and repair the occupied vehicle by up to 30 each. They remain available when both are full. Regression coverage checks nearby weapon and supply collection on all three rides, full-health retention, repairs, inventory and mounted ammo preservation.

@@ -319,6 +319,18 @@ export class Game {
     }
     this.shownWeapon = this.weapon;
   }
+  private canCollect(position: T.Vector3, footRange: number) {
+    const range = this.riding ? this.riding.spec.radius + 0.8 : footRange;
+    return (
+      this.hp > 0 &&
+      Math.hypot(position.x - this.pos.x, position.z - this.pos.z) < range &&
+      !COVER.some((box) =>
+        Number.isFinite(
+          segmentBox(this.pos.x, this.pos.z, position.x, position.z, box),
+        ),
+      )
+    );
+  }
   useRide() {
     if (this.riding) {
       const v = this.riding,
@@ -784,13 +796,7 @@ export class Game {
     for (let i = this.weaponDrops.length - 1; i >= 0; i--) {
       const drop = this.weaponDrops[i];
       drop.mesh.rotation.y += dt * 0.7;
-      if (
-        !this.riding &&
-        Math.hypot(
-          drop.mesh.position.x - this.pos.x,
-          drop.mesh.position.z - this.pos.z,
-        ) < 1.5
-      ) {
+      if (this.canCollect(drop.mesh.position, 1.5)) {
         this.magazines[this.weapon] = this.ammo;
         if (!this.inventory.includes(drop.index))
           this.inventory.push(drop.index);
@@ -1232,12 +1238,18 @@ export class Game {
       p.rotation.y += dt * 2;
       p.position.y = 0.7 + Math.sin(this.elapsed * 3) * 0.12;
       if (
-        Math.hypot(p.position.x - this.pos.x, p.position.z - this.pos.z) <
-          1.1 &&
-        this.hp > 0 &&
-        this.hp < this.maxHp
+        this.canCollect(p.position, 1.1) &&
+        (this.hp < this.maxHp ||
+          (this.riding && this.riding.hp < this.riding.spec.hp))
       ) {
         this.hp = Math.min(this.maxHp, this.hp + 30);
+        if (this.riding)
+          this.riding.hp = Math.min(this.riding.spec.hp, this.riding.hp + 30);
+        this.onRadio(
+          this.riding
+            ? "Supplies collected. Health and vehicle armor restored."
+            : "Medical supplies collected.",
+        );
         this.world.actors.remove(p);
         this.pickups.splice(i, 1);
         this.onSound("objective");
