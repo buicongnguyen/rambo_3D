@@ -74,3 +74,41 @@ test("completed saves cannot bypass unfinished missions", () => {
     freshSave(),
   );
 });
+
+test("fractional starts route around corners without crossing cover", () => {
+  const boxes = [{ x: 0, z: 0, w: 2, d: 6 }];
+  for (const start of [
+    { x: -1.57, z: 0.3 },
+    { x: -1.57, z: 2.8 },
+    { x: -4.2, z: -0.2 },
+  ]) {
+    let p = { ...start };
+    for (
+      let i = 0;
+      i < 700 &&
+      Math.hypot(p.x - 4, p.z) < 100 &&
+      Math.hypot(p.x - 4, p.z) > 0.2;
+      i++
+    ) {
+      const next = routeStep(p.x, p.z, 4, 0, boxes, 0.55);
+      const d = Math.hypot(next.x - p.x, next.z - p.z),
+        step = Math.min(d, 0.1);
+      if (d > 0)
+        p = moveCircle(
+          p.x,
+          p.z,
+          ((next.x - p.x) / d) * step,
+          ((next.z - p.z) / d) * step,
+          0.55,
+          boxes,
+        );
+    }
+    assert.ok(Math.hypot(p.x - 4, p.z) < 0.25, JSON.stringify({ start, p }));
+  }
+});
+test("unreachable paths hold position and a target hugging cover remains approachable", () => {
+  const wall = { x: 0, z: 0, w: 2, d: 60 };
+  assert.deepEqual(routeStep(-3, 0, 3, 0, [wall]), { x: -3, z: 0 });
+  const next = routeStep(-4, 0, 1.49, 0, [{ x: 0, z: 0, w: 2, d: 6 }], 0.55);
+  assert.ok(Math.hypot(next.x + 4, next.z) > 0.1);
+});

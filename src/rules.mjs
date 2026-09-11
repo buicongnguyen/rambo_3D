@@ -99,32 +99,61 @@ export function advanceCampaign(save, upgrade, score) {
   next.mission++;
   return next;
 }
-/** Grid A* steering for followers. */
+/** Clearance-aware A* with visible start connections and smoothed waypoints. */
 export function routeStep(x, z, tx, tz, boxes, r = 0.45) {
-  const blocked = (px, pz) =>
-    Math.abs(px) > 28 ||
-    Math.abs(pz) > 28 ||
-    boxes.some(
-      (b) =>
-        px > b.x - b.w / 2 - r &&
-        px < b.x + b.w / 2 + r &&
-        pz > b.z - b.d / 2 - r &&
-        pz < b.z + b.d / 2 + r,
-    );
-  if (!boxes.some((b) => segmentBox(x, z, tx, tz, b, r) < 1))
-    return { x: tx, z: tz };
-  const sx = Math.round(x),
-    sz = Math.round(z),
-    gx = Math.round(tx),
-    gz = Math.round(tz),
-    key = (a, b) => `${a},${b}`;
-  const open = [{ x: sx, z: sz, g: 0, f: 0, parent: null }],
-    best = new Map([[key(sx, sz), 0]]);
+  const clear = (ax, az, bx, bz) =>
+    !boxes.some((b) => {
+      // Match moveCircle's rounded corners, including starts already touching cover.
+      const pad = r - 0.000001;
+      if (
+        segmentBox(ax, az, bx, bz, { ...b, w: b.w + 2 * pad }) !== Infinity ||
+        segmentBox(ax, az, bx, bz, { ...b, d: b.d + 2 * pad }) !== Infinity
+      )
+        return true;
+      return [-1, 1].some((sx) =>
+        [-1, 1].some(
+          (sz) =>
+            segmentCircle(
+              ax,
+              az,
+              bx,
+              bz,
+              b.x + (sx * b.w) / 2,
+              b.z + (sz * b.d) / 2,
+              pad,
+            ) !== Infinity,
+        ),
+      );
+    });
+  if (clear(x, z, tx, tz)) return { x: tx, z: tz };
+  const valid = (px, pz) =>
+    Math.abs(px) <= 28 - r && Math.abs(pz) <= 28 - r && clear(px, pz, px, pz);
+  const key = (a, b) => a + "," + b;
+  const open = [],
+    best = new Map();
+  // Rounding the start into cover used to create unreachable first waypoints.
+  for (let a = Math.floor(x) - 1; a <= Math.ceil(x) + 1; a++)
+    for (let b = Math.floor(z) - 1; b <= Math.ceil(z) + 1; b++) {
+      if (!valid(a, b) || !clear(x, z, a, b)) continue;
+      const g = Math.hypot(a - x, b - z);
+      open.push({
+        x: a,
+        z: b,
+        g,
+        f: g + Math.hypot(a - tx, b - tz),
+        parent: null,
+      });
+      best.set(key(a, b), g);
+    }
   let found = null;
-  for (let i = 0; i < 2200 && open.length; i++) {
+  for (let i = 0; i < 4000 && open.length; i++) {
     open.sort((a, b) => a.f - b.f);
     const n = open.shift();
-    if (Math.hypot(n.x - gx, n.z - gz) < 1.5) {
+    if (n.g !== best.get(key(n.x, n.z))) continue;
+    if (
+      Math.hypot(n.x - tx, n.z - tz) < 1.5 &&
+      !boxes.some((b) => segmentBox(n.x, n.z, tx, tz, b) !== Infinity)
+    ) {
       found = n;
       break;
     }
@@ -133,23 +162,33 @@ export function routeStep(x, z, tx, tz, boxes, r = 0.45) {
       [-1, 0],
       [0, 1],
       [0, -1],
+      [1, 1],
+      [1, -1],
+      [-1, 1],
+      [-1, -1],
     ]) {
       const nx = n.x + dx,
         nz = n.z + dz,
         k = key(nx, nz),
-        cost = n.g + 1;
-      if (blocked(nx, nz) || cost >= (best.get(k) ?? Infinity)) continue;
-      best.set(k, cost);
+        g = n.g + Math.hypot(dx, dz);
+      if (
+        !valid(nx, nz) ||
+        !clear(n.x, n.z, nx, nz) ||
+        g >= (best.get(k) ?? Infinity)
+      )
+        continue;
+      best.set(k, g);
       open.push({
         x: nx,
         z: nz,
-        g: cost,
-        f: cost + Math.abs(nx - gx) + Math.abs(nz - gz),
+        g,
+        f: g + Math.hypot(nx - tx, nz - tz),
         parent: n,
       });
     }
   }
   if (!found) return { x, z };
-  while (found.parent?.parent) found = found.parent;
-  return { x: found.x, z: found.z };
+  // Choose the furthest reachable waypoint to avoid grid-node oscillation.
+  while (found && !clear(x, z, found.x, found.z)) found = found.parent;
+  return found ? { x: found.x, z: found.z } : { x, z };
 }

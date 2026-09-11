@@ -535,36 +535,67 @@ export class Game {
       }
       const a = Math.atan2(this.pos.x - e.x, this.pos.z - e.z);
       if (!e.boss || this.index !== 2) e.mesh.rotation.y = a;
-      e.cool -= dt;
-      e.warn.visible = e.cool < 0.6;
-      e.warn.position.set(e.x, 0.08, e.z);
+      const hasSight = !COVER.some(
+        (b) =>
+          segmentBox(e.x, e.z, this.pos.x, this.pos.z, b, 0.06) !== Infinity,
+      );
+      // Keep a readable windup after an enemy emerges from cover.
+      e.cool = hasSight ? e.cool - dt : Math.max(e.cool, 0.6);
+      e.warn.visible = hasSight && e.cool < 0.6;
+      e.warn.position.set(e.x, this.world.groundHeight(e.x, e.z) + 0.08, e.z);
       e.warn.scale.setScalar(e.boss ? 3.5 : 1.2);
-      if (!e.boss && e.index % 3 !== 0 && distance > 7) {
-        e.routeTime = (e.routeTime ?? 0) - dt;
-        if (e.routeTime <= 0) {
-          e.routeTarget = routeStep(
-            e.x,
-            e.z,
-            this.pos.x,
-            this.pos.z,
-            COVER,
-            0.55,
-          );
-          e.routeTime = 0.4;
+      if (!e.boss) {
+        let vx = 0,
+          vz = 0;
+        if (!hasSight) {
+          e.routeTime = (e.routeTime ?? 0) - dt;
+          if (e.routeTime <= 0 || !e.routeTarget) {
+            e.routeTarget = routeStep(
+              e.x,
+              e.z,
+              this.pos.x,
+              this.pos.z,
+              COVER,
+              0.55,
+            );
+            e.routeTime = 0.4;
+          }
+          const rx = e.routeTarget!.x - e.x,
+            rz = e.routeTarget!.z - e.z;
+          const d = Math.hypot(rx, rz);
+          const step = Math.min(d, dt * 1.9);
+          if (d > 0.001) {
+            vx = (rx / d) * step;
+            vz = (rz / d) * step;
+          }
+        } else {
+          // Adapt the original 2D range keeping and strafing to world meters.
+          const desired = e.index % 3 === 0 ? 11 : 7;
+          const advance =
+            distance > desired + 1 ? 1 : distance < desired * 0.55 ? -0.7 : 0;
+          const strafe = Math.sin(this.elapsed * 1.2 + e.index * 2.4) * 0.45;
+          vx = (Math.sin(a) * advance + Math.cos(a) * strafe) * dt * 1.9;
+          vz = (Math.cos(a) * advance - Math.sin(a) * strafe) * dt * 1.9;
+          e.routeTime = 0;
         }
-        const direction = Math.atan2(
-          e.routeTarget!.x - e.x,
-          e.routeTarget!.z - e.z,
-        );
-        const move = moveCircle(
-          e.x,
-          e.z,
-          Math.sin(direction) * dt * 1.9,
-          Math.cos(direction) * dt * 1.9,
-          0.55,
-          COVER,
-          28,
-        );
+        // Local spacing keeps riflemen from collapsing into one visible body.
+        for (const other of this.enemies) {
+          if (other === e || other.hp <= 0 || other.boss) continue;
+          const ox = e.x - other.x,
+            oz = e.z - other.z,
+            d = Math.hypot(ox, oz);
+          if (d < 1.3) {
+            const angle =
+              d > 0.001
+                ? Math.atan2(ox, oz)
+                : e.index < other.index
+                  ? -Math.PI / 2
+                  : Math.PI / 2;
+            vx += Math.sin(angle) * (1.3 - d) * dt * 2;
+            vz += Math.cos(angle) * (1.3 - d) * dt * 2;
+          }
+        }
+        const move = moveCircle(e.x, e.z, vx, vz, 0.55, COVER, 28);
         e.x = move.x;
         e.z = move.z;
       } else if (e.boss) {
@@ -577,6 +608,7 @@ export class Game {
       }
       e.mesh.position.x = e.x;
       e.mesh.position.z = e.z;
+      e.warn.position.set(e.x, this.world.groundHeight(e.x, e.z) + 0.08, e.z);
       e.vehicleMotion?.update(dt, (e.x - beforeX) / dt, a, this.elapsed);
       if (!e.boss) e.mesh.position.y = this.world.groundHeight(e.x, e.z);
       e.motion?.update(dt, {
@@ -602,7 +634,8 @@ export class Game {
             this.shoot(
               e.x,
               e.z,
-              a + (i - (count - 1) / 2) * (this.index === 1 ? 0.07 : 0.15),
+              Math.atan2(this.pos.x - e.x, this.pos.z - e.z) +
+                (i - (count - 1) / 2) * (this.index === 1 ? 0.07 : 0.15),
               true,
               (e.boss ? 14 : 9) * (this.difficulty === "story" ? 0.65 : 1),
               e.boss ? (this.index === 1 ? 16 : 12) : 10,
