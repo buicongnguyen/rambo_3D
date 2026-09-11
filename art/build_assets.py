@@ -54,6 +54,10 @@ def beam(name,a,b,width,material):
     o.rotation_euler=d.to_track_quat('Z','Y').to_euler(); return o
 def export(name):
     detail_asset(name)
+    if name=='tank':
+        for i,o in enumerate(list(current)):
+            if o.type=='MESH' and (o.name.startswith('Road wheel') or o.name.startswith('Wheel hub')):
+                pivot=joint('tank_Wheel'+str(i),o.location.copy());attach(o,pivot)
     bpy.ops.object.select_all(action='DESELECT')
     for o in current: o.select_set(True)
     bpy.ops.export_scene.gltf(filepath=os.path.join(OUT,name+'.glb'),export_format='GLB',use_selection=True,export_yup=True,export_extras=True,export_apply=True)
@@ -307,6 +311,90 @@ box('Cabin window',(0,.07,2.2),(1.9,.05,.6),glass)
 box('Barge turret',(0,-1.9,1.6),(1.3,1.5,.8),olive,.1)
 beam('Barge gun',(0,-2,1.8),(0,-4,1.8),.17,dark)
 export('barge')
+# Player transport: independent wheel pivots, seats and readable silhouettes.
+for vehicle in ['motorcycle','jeep']:
+    if vehicle=='motorcycle':
+        box('Fuel tank',(0,0,1.03),(.48,.70,.38),olive,.12)
+        box('Saddle',(0,.42,1.1),(.44,.76,.14),dark,.06)
+        beam('Chassis',(0,-.70,.45),(0,.80,.50),.15,dark)
+        for x in [-.18,.18]:
+            beam('Front fork',(x,-.85,.40),(x,-.40,1.30),.06,stone)
+            beam('Rear suspension',(x,.78,.40),(x,.20,.90),.07,stone)
+        beam('Handlebar',(-.48,-.4,1.38),(.48,-.4,1.38),.065,dark)
+        lamp=cyl('Headlamp',(0,-.55,1.22),.16,.12,light);lamp.rotation_euler.x=math.pi/2
+        box('Engine',(0,.12,.64),(.42,.43,.38),dark,.06)
+        for z in [.51,.58,.65,.72]: box('Cooling fin',(0,.12,z),(.47,.44,.028),stone,.008)
+        beam('Exhaust',(.27,.1,.5),(.27,1,.5),.09,stone)
+        positions=[(0,-.85,.4),(0,.85,.4)]
+    else:
+        box('Chassis',(0,0,.65),(1.9,3.3,.36),olive,.10)
+        box('Engine hood',(0,-.95,1.13),(1.72,1.1,.58),olive,.08)
+        box('Rear cargo',(0,1.2,1.12),(1.8,.7,.65),olive,.06)
+        box('Grille',(0,-1.53,1.1),(1.4,.06,.42),dark,.03)
+        for x in [-.52,-.26,0,.26,.52]:box('Grille slat',(x,-1.57,1.1),(.08,.025,.36),stone,.008)
+        for x in [-.72,.72]:
+            box('Headlight',(x,-1.57,1.23),(.24,.04,.20),light,.04)
+            box('Seat',(x*.65,.28,1.02),(.58,.64,.18),dark,.07)
+            box('Seat back',(x*.65,.60,1.35),(.58,.16,.58),dark,.07)
+            beam('Roll cage front',(x,-.45,.86),(x,-.45,2),.075,dark)
+            beam('Roll cage rear',(x,.85,.86),(x,.85,2),.075,dark)
+            beam('Roll cage roof',(x,-.45,2),(x,.85,2),.075,dark)
+        beam('Roll cage cross',(-.72,.85,2),(.72,.85,2),.075,dark)
+        box('Windscreen',(0,-.44,1.65),(1.36,.035,.51),glass,.04)
+        box('Bumper',(0,-1.72,.7),(2.0,.16,.18),dark,.04)
+        mount=joint('jeep_Turret',(0,.65,1.73))
+        attach(cyl('Weapon pedestal',(0,.65,1.55),.07,.5,dark),mount)
+        attach(box('Mounted shotgun',(0,.20,1.82),(.16,.65,.17),dark,.025),mount)
+        attach(beam('Mounted barrel',(0,.0,1.85),(0,-.65,1.85),.06,dark),mount)
+        attach(box('Mounted ammunition',(.16,.38,1.73),(.23,.24,.24),olive,.025),mount)
+        positions=[(x,y,.48) for x in [-1,1] for y in [-1.03,1.03]]
+    for i,(x,y,z) in enumerate(positions):
+        pivot=joint(vehicle+'_Wheel'+str(i),(x,y,z))
+        tire=cyl('Rubber tire',(x,y,z),.40,.22,dark,24);tire.rotation_euler.y=math.pi/2;attach(tire,pivot)
+        rim=cyl('Wheel rim',(x+(.12 if x>=0 else -.12),y,z),.24,.025,stone,16);rim.rotation_euler.y=math.pi/2;attach(rim,pivot)
+        for j in range(8):
+            a=j*math.tau/8
+            attach(beam('Wheel spoke',(x,y,z),(x,y+math.sin(a)*.24,z+math.cos(a)*.24),.025,dark),pivot)
+    export(vehicle)
+# Weapon models exported around a common grip origin for swapping at the hand joint.
+for weapon in ['rifle','shotgun','machineGun','sniper','flame','launcher','explosiveArrow','missile','laser','throwBomb','poisonBomb']:
+    if weapon in ['throwBomb','poisonBomb']:
+        ico('Grenade body',(0,-.08,0),(.09,.10,.12),leaf if weapon=='poisonBomb' else olive,3)
+        box('Safety lever',(0,-.08,.12),(.055,.15,.035),dark,.01)
+    elif weapon=='explosiveArrow':
+        beam('Bow grip',(0,0,-.18),(0,0,.18),.055,bark)
+        for side in [-1,1]:
+            beam('Bow limb',(0,0,side*.15),(0,-.12,side*.52),.045,olive)
+            beam('Bow string',(0,-.12,side*.52),(0,.10,0),.009,dark)
+        beam('Nocked arrow',(0,.15,0),(0,-.65,0),.015,sand)
+    elif weapon=='missile':
+        tube=cyl('Launcher tube',(0,-.23,.03),.13,.95,olive);tube.rotation_euler.x=math.pi/2
+        box('Shoulder rest',(0,.1,-.14),(.18,.25,.12),dark,.04)
+        box('Optic',(.13,-.25,.10),(.09,.15,.08),dark,.02)
+    else:
+        box('Receiver',(0,-.10,.02),(.13,.32,.15),dark,.02)
+        box('Stock',(0,.13,.01),(.11,.24,.13),olive,.025)
+        barrelLength=.75 if weapon=='sniper' else .45
+        barrel=cyl('Barrel',(0,-.30-barrelLength/2,.045),.025,barrelLength,dark);barrel.rotation_euler.x=math.pi/2
+        box('Grip',(0,-.05,-.11),(.075,.1,.18),dark,.012)
+        box('Magazine',(0,-.20,-.10),(.09,.11,.20),olive,.02)
+        if weapon in ['sniper','laser']:
+            scope=cyl('Optic',(0,-.15,.17),.055,.25,glass if weapon=='laser' else dark);scope.rotation_euler.x=math.pi/2
+        if weapon=='machineGun':box('Ammo box',(.11,-.17,-.07),(.21,.2,.25),olive,.025)
+        if weapon=='shotgun':box('Pump',(0,-.37,.01),(.15,.20,.16),bark,.03)
+        if weapon=='launcher':
+            drum=cyl('Grenade cylinder',(0,-.27,-.07),.12,.20,olive);drum.rotation_euler.x=math.pi/2
+        if weapon=='flame':
+            tank=cyl('Fuel cylinder',(.12,-.09,-.06),.09,.35,red);tank.rotation_euler.x=math.pi/2
+            nozzle=cyl('Flame nozzle',(0,-.66,.045),.06,.15,dark);nozzle.rotation_euler.x=math.pi/2
+    export('weapon_'+weapon)
+for projectile in ['rocket','arrow','grenade']:
+    if projectile=='grenade':ico('Grenade',(0,0,0),(.10,.13,.10),olive,2)
+    else:
+        shaft=cyl('Projectile shaft',(0,0,0),.065 if projectile=='rocket' else .015,.55 if projectile=='rocket' else .75,olive if projectile=='rocket' else bark);shaft.rotation_euler.x=math.pi/2
+        ico('Warhead',(0,-.30,0),(.075,.18,.075) if projectile=='rocket' else (.035,.07,.035),stone,2)
+        for x in [-1,1]:box('Stabilizer',(x*.065,.21,0),(.12,.12,.015),olive)
+    export('projectile_'+projectile)
 # Arrange the editable source as an asset gallery. GLBs above retain origin pivots.
 for i,(name,objects) in enumerate(assets.items()):
     collection=bpy.data.collections.new(name); bpy.context.scene.collection.children.link(collection)

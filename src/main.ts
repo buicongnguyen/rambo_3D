@@ -241,7 +241,7 @@ $("#home").onclick = (e) => {
 };
 $("#controls-open").onclick = () => {
   showOverlay(
-    `<span class="eyebrow">FIELD MANUAL / 01</span><h2>Get in. Get them out.</h2><p>Move through cover, complete the yellow objective, defeat the boss, then reach the green extraction pad.</p><div class="manual-grid"><span>WASD / ARROWS</span><b>Move</b><span>MOUSE + CLICK</span><b>Aim and fire</b><span>HOLD SPACE</span><b>Assisted aim and fire</b><span>SHIFT + MOVE</span><b>Dodge incoming fire</b><span>E / R / Q</span><b>Interact / reload / switch</b><span>ESCAPE</span><b>Pause and settings</b></div><p>Orange rings warn of an attack. Crates stop bullets. Green pickups restore health. The scattergun excels at close range. Touch controls appear on touch devices.</p><button id="close-manual" class="primary">READY FOR THE FIELD <span>↗</span></button>`,
+    `<span class="eyebrow">FIELD MANUAL / 01</span><h2>Get in. Get them out.</h2><p>Move through cover, complete the yellow objective, defeat the boss, then reach the green extraction pad.</p><div class="manual-grid"><span>WASD / ARROWS</span><b>Move</b><span>MOUSE + CLICK</span><b>Aim and fire</b><span>HOLD SPACE</span><b>Assisted aim and fire</b><span>SHIFT + MOVE</span><b>Dodge incoming fire</b><span>E / R / Q</span><b>Interact / reload / switch</b><span>ESCAPE</span><b>Pause and settings</b></div><p>Orange rings warn of an attack. Crates stop bullets. Green pickups restore health. The scattergun excels at close range. Blue map dots mark vehicles: E / USE boards or exits. Purple dots mark weapons: walk over them to collect, then Q / WEAPON cycles your loadout. Motorcycles use your selected weapon; jeeps have 20 shotgun rounds and tanks have five missiles. Exit to use objectives or extract. Touch controls appear on touch devices.</p><button id="close-manual" class="primary">READY FOR THE FIELD <span>↗</span></button>`,
   );
   $("#close-manual").onclick = () => {
     $("#overlay").hidden = true;
@@ -310,15 +310,40 @@ function updateHud() {
     game.dashCooldown > 0
       ? `DODGE ${game.dashCooldown.toFixed(1)}s`
       : "DODGE READY";
+  if (game.riding)
+    $("#dash-text").textContent =
+      "VEHICLE ARMOR " +
+      Math.ceil(game.riding.hp) +
+      " / " +
+      game.riding.spec.hp;
   $("#score").textContent = `${game.score.toString().padStart(6, "0")} PTS`;
-  $("#weapon-name").textContent = game.weapon
-    ? "M870 / SCATTERGUN"
-    : "M4 / ASSAULT RIFLE";
-  $("#ammo").textContent = game.ammo.toString().padStart(2, "0");
+  const ride = game.riding;
+  $("#weapon-name").textContent = ride
+    ? ride.spec.name +
+      " / " +
+      (ride.kind === "tank"
+        ? "MISSILES"
+        : ride.kind === "jeep"
+          ? "MOUNTED SHOTGUN"
+          : game.weaponSpec.name)
+    : game.weaponSpec.name;
+  $("#ammo-reserve").textContent =
+    ride && ride.kind !== "motorcycle"
+      ? "/ VEHICLE AMMO"
+      : Number.isFinite(game.reserves[game.weapon])
+        ? "/ " + game.reserves[game.weapon]
+        : "/ ∞";
+  $("#ammo").textContent = (
+    ride && ride.kind !== "motorcycle" ? ride.ammo : game.ammo
+  )
+    .toString()
+    .padStart(2, "0");
   $("#reload-label").textContent =
     game.reloadTime > 0
       ? `RELOADING ${game.reloadTime.toFixed(1)}s`
-      : "R RELOAD · Q SWITCH";
+      : ride && ride.kind !== "motorcycle"
+        ? "LIMITED AMMO · USE TO EXIT"
+        : "R RELOAD · Q SWITCH";
   const boss = game.boss;
   $("#boss-panel").hidden = !boss;
   if (boss) {
@@ -331,6 +356,17 @@ function updateHud() {
     prompt = $("#interact-prompt");
   prompt.hidden = game.objective || d >= 3;
   prompt.innerHTML = `<kbd>E</kbd> ${m.action.toUpperCase()} <span>/ TAP USE</span>`;
+  if (game.interaction) {
+    prompt.hidden = false;
+    prompt.innerHTML =
+      "<kbd>E</kbd> " + game.interaction + " <span>/ TAP USE</span>";
+  }
+  const useButton = $('[data-action="interact"]');
+  useButton.textContent = game.riding
+    ? "EXIT"
+    : game.nearestRide
+      ? "BOARD"
+      : "USE";
   if (
     game.bossDead &&
     game.companion &&
@@ -364,6 +400,10 @@ function updateHud() {
   };
   for (const e of game.enemies)
     if (e.hp > 0) point(e.x, e.z, "#f29b68", e.boss ? 4 : 2);
+  for (const v of game.rides)
+    if (v.hp > 0) point(v.mesh.position.x, v.mesh.position.z, "#7ccef2", 3);
+  for (const d of game.weaponDrops)
+    point(d.mesh.position.x, d.mesh.position.z, "#dab3f4", 2);
   point(game.pos.x, game.pos.z, "#f6f5da", 3);
   if (!game.objective) point(m.objective.x, m.objective.z, "#e1ee93", 4);
   if (game.bossDead) point(m.extract.x, m.extract.z, "#88e9cd", 4);
@@ -371,7 +411,7 @@ function updateHud() {
 window.addEventListener("keydown", (e) => {
   if (e.code === "Tab" && !$("#overlay").hidden) {
     const buttons = Array.from(
-      $("#overlay").querySelectorAll<HTMLElement>("button,input"),
+      $("#overlay").querySelectorAll<HTMLElement>("button,input,select"),
     );
     const first = buttons[0],
       last = buttons.at(-1);

@@ -8,7 +8,7 @@ The game is hosted privately with Sites. The GitHub source repository stays priv
 
 ## Included
 
-- Three real 3D maps, 11 original Blender-authored GLB assets, and editable `art/nightfall.blend` source.
+- Three real 3D maps, 27 original Blender-authored GLB assets, and editable `art/nightfall.blend` source.
 - Jungle rescue and following companion with cover-aware navigation; river crossing and archive recovery; final launch-relay sabotage.
 - Gunship fan attacks, fast barge volleys, and a tank with marked mortar strikes. Bosses escalate and call flank reinforcements at half health.
 - Mouse aim and assisted aim, rifle/scattergun, reload, dodge, bullet-blocking cover, and health pickups.
@@ -82,3 +82,7 @@ Built separately from `buicongnguyen/rambo_game`. No changes to the original che
 ## Animation and logic review
 
 See [the resolved review findings](docs/ANIMATION_REVIEW.md) and [the pose reference](docs/animation-poses.png). Movement automatically runs; firing while moving slows to an aimed walk. Death animations complete before the retry screen.
+
+## Playable vehicles and weapons
+
+Motorcycles, jeeps and tanks can be boarded with E / BOARD and exited with E / EXIT. Collect the purple weapon pickups and use Q / WEAPON to cycle eleven weapon types. See [controls, behavior and validation](docs/VEHICLES_WEAPONS.md).

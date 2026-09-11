@@ -1,3 +1,5 @@
+import { WEAPONS, type WeaponSpec } from "./arsenal";
+import { Ride } from "./rides";
 import * as T from "three";
 import { CharacterMotion, FallenBody, VehicleMotion } from "./animation";
 import { World, model } from "./world";
@@ -38,7 +40,11 @@ type Hazard = {
   time: number;
 };
 type Bullet = {
-  mesh: T.Mesh;
+  mesh: T.Object3D;
+  spec?: WeaponSpec;
+  age: number;
+  maxLife: number;
+  hits: Set<Actor>;
   x: number;
   z: number;
   vx: number;
@@ -48,7 +54,7 @@ type Bullet = {
   enemy: boolean;
 };
 type Effect = {
-  mesh: T.Mesh<T.IcosahedronGeometry, T.MeshBasicMaterial>;
+  mesh: T.Mesh<T.BufferGeometry, T.MeshBasicMaterial>;
   life: number;
   max: number;
   velocity?: T.Vector3;
@@ -74,7 +80,36 @@ export class Game {
   hp = 150;
   maxHp = 150;
   ammo = 24;
-  private magazines = [24, 6];
+  private magazines: number[] = WEAPONS.map((w) => w.mag);
+  reserves: number[] = WEAPONS.map((w, i) => (i < 2 ? Infinity : w.mag * 3));
+  inventory = [0, 1];
+  rides: Ride[] = [];
+  riding?: Ride;
+  weaponDrops: { mesh: T.Group; index: number }[] = [];
+  gas: { x: number; z: number; time: number; tick: number; mesh: T.Mesh }[] =
+    [];
+  private shownWeapon = -1;
+  get weaponSpec() {
+    return WEAPONS[this.weapon];
+  }
+  get nearestRide() {
+    return this.rides.find(
+      (v) =>
+        v.hp > 0 &&
+        Math.hypot(
+          v.mesh.position.x - this.pos.x,
+          v.mesh.position.z - this.pos.z,
+        ) <
+          v.spec.radius + 1.8,
+    );
+  }
+  get interaction() {
+    return this.riding
+      ? "EXIT " + this.riding.spec.name
+      : this.nearestRide
+        ? "BOARD " + this.nearestRide.spec.name
+        : "";
+  }
   weapon = 0;
   reloadTime = 0;
   shotTime = 0;
@@ -118,7 +153,7 @@ export class Game {
     this.player = model("commando");
   }
   get mag() {
-    return this.weapon === 0 ? 24 : 6;
+    return this.weaponSpec.mag;
   }
   get pos() {
     return this.player.position;
@@ -144,7 +179,10 @@ export class Game {
     this.maxHp = (difficulty === "story" ? 230 : 150) + save.armor * 35;
     this.hp = this.maxHp;
     this.ammo = 24;
-    this.magazines = [24, 6];
+    this.magazines = WEAPONS.map((w) => w.mag);
+    this.reserves = WEAPONS.map((w, i) => (i < 2 ? Infinity : w.mag * 3));
+    this.inventory = [0, 1];
+    this.shownWeapon = -1;
     this.weapon = 0;
     this.reloadTime = 0;
     this.shotTime = 0;
@@ -164,11 +202,35 @@ export class Game {
       this.companionMotion = new CharacterMotion(this.companion);
       this.world.actors.add(this.companion);
     }
+    this.rides = [
+      new Ride("motorcycle", -4, 23),
+      new Ride("jeep", 7, 21),
+      new Ride("tank", -14, 21),
+    ];
+    for (const v of this.rides) this.world.actors.add(v.mesh);
+    for (let i = 2; i < WEAPONS.length; i++) {
+      const x = i % 2 ? 13 : -13,
+        z = 15 - Math.floor((i - 2) / 2) * 5;
+      const mesh = model("weapon_" + WEAPONS[i].id, x, z, 1.7);
+      mesh.position.y = 0.85;
+      this.world.actors.add(mesh);
+      this.weaponDrops.push({ mesh, index: i });
+    }
+    this.showWeapon();
   }
   cleanup() {
     for (const corpse of this.corpses) corpse.dispose();
     this.corpses = [];
     this.companionMotion = undefined;
+    this.riding = undefined;
+    this.rides = [];
+    this.weaponDrops = [];
+    for (const cloud of this.gas) {
+      cloud.mesh.geometry.dispose();
+      (cloud.mesh.material as T.Material).dispose();
+      this.world.actors.remove(cloud.mesh);
+    }
+    this.gas = [];
     for (const b of this.bullets) this.world.actors.remove(b.mesh);
     for (const e of this.effects) {
       e.mesh.material.dispose();
@@ -188,6 +250,32 @@ export class Game {
     this.companion = undefined;
   }
   spawn(x: number, z: number, boss: boolean, index: number) {
+    if (!boss) {
+      const obstacles = [
+        ...COVER,
+        ...this.rides.filter((v) => v.hp > 0).map((v) => v.box),
+      ];
+      const clear = (px: number, pz: number) =>
+        Math.abs(px) < 27 &&
+        Math.abs(pz) < 27 &&
+        !obstacles.some((b) => segmentBox(px, pz, px, pz, b, 0.6) !== Infinity);
+      if (!clear(x, z)) {
+        let found = false;
+        for (let r = 1; r <= 6 && !found; r++)
+          for (let i = 0; i < 16; i++) {
+            const a = (i * Math.PI) / 8,
+              px = x + Math.sin(a) * r,
+              pz = z + Math.cos(a) * r;
+            if (clear(px, pz)) {
+              x = px;
+              z = pz;
+              found = true;
+              break;
+            }
+          }
+        if (!found) return;
+      }
+    }
     const mesh = model(
       boss ? MISSIONS[this.index].bossModel : "rifleman",
       x,
@@ -216,6 +304,128 @@ export class Game {
       index,
       warn,
     });
+  }
+  showWeapon() {
+    if (this.riding?.kind === "motorcycle")
+      this.riding.showWeapon(this.weaponSpec.id);
+    if (this.shownWeapon === this.weapon) return;
+    let grip: T.Object3D | undefined;
+    this.player.traverse((o) => {
+      if (o.userData.joint === "Weapon") grip = o;
+    });
+    if (grip) {
+      grip.clear();
+      grip.add(model("weapon_" + this.weaponSpec.id));
+    }
+    this.shownWeapon = this.weapon;
+  }
+  useRide() {
+    if (this.riding) {
+      const v = this.riding,
+        exit = v.exitPoint(this.rides, this.index === 1);
+      if (!exit) {
+        this.onRadio("Exit blocked. Move into open ground first.");
+        return;
+      }
+      this.riding = undefined;
+      v.rider.visible = false;
+      v.speed = 0;
+      this.player.visible = true;
+      this.pos.set(exit.x, this.world.groundHeight(exit.x, exit.z), exit.z);
+      this.invincible = Math.max(this.invincible, 0.6);
+      this.onRadio("On foot. Weapon ready.");
+      return;
+    }
+    const v = this.nearestRide;
+    if (!v) return;
+    this.riding = v;
+    v.rider.visible = true;
+    this.player.visible = false;
+    this.dashTime = 0;
+    this.reloadTime = 0;
+    this.pos.copy(v.mesh.position);
+    this.onRadio(
+      v.spec.name + " boarded. Move to drive, FIRE to shoot, USE to exit.",
+    );
+  }
+  takeDamage(damage: number) {
+    if (this.riding) {
+      const v = this.riding;
+      v.hp = Math.max(0, v.hp - damage);
+      if (v.hp === 0) {
+        const exit = v.exitPoint(this.rides, this.index === 1);
+        this.riding = undefined;
+        v.rider.visible = false;
+        this.player.visible = true;
+        v.speed = 0;
+        if (exit) this.pos.set(exit.x, 0, exit.z);
+        this.hp = Math.max(0, this.hp - 25);
+        this.spark(v.mesh.position.x, v.mesh.position.z, true);
+        this.corpses.push(new FallenBody(v.mesh, undefined, v.kind));
+        this.invincible = 1;
+        this.onRadio("Vehicle destroyed! Emergency evacuation.");
+      }
+    } else this.hp = Math.max(0, this.hp - damage);
+  }
+  blast(x: number, z: number, spec: WeaponSpec, damage: number) {
+    this.spark(x, z, true);
+    for (const enemy of this.enemies) {
+      const d = Math.hypot(enemy.x - x, enemy.z - z);
+      if (
+        enemy.hp > 0 &&
+        d < spec.splash + enemy.radius &&
+        !COVER.some((b) => segmentBox(x, z, enemy.x, enemy.z, b) !== Infinity)
+      )
+        this.hurt(
+          enemy,
+          damage * Math.max(0.25, 1 - d / (spec.splash + enemy.radius)),
+        );
+    }
+    if (spec.id === "poisonBomb") {
+      const mesh = new T.Mesh(
+        new T.SphereGeometry(1, 12, 8),
+        new T.MeshBasicMaterial({
+          color: 0x9aae46,
+          transparent: true,
+          opacity: 0.18,
+          depthWrite: false,
+        }),
+      );
+      mesh.scale.set(spec.splash, 0.5, spec.splash);
+      mesh.position.set(x, 0.45, z);
+      this.world.actors.add(mesh);
+      this.gas.push({ x, z, time: 4, tick: 0, mesh });
+    }
+  }
+  fireWeapon(spec: WeaponSpec, angle: number, mounted = false) {
+    const x = this.pos.x,
+      z = this.pos.z,
+      damage = spec.damage * (1 + this.power * 0.2);
+    if (spec.visual === "laser") {
+      const tx = x + Math.sin(angle) * 40,
+        tz = z + Math.cos(angle) * 40;
+      let t = 1;
+      for (const b of COVER) t = Math.min(t, segmentBox(x, z, tx, tz, b));
+      for (const e of this.enemies)
+        if (e.hp > 0 && segmentCircle(x, z, tx, tz, e.x, e.z, e.radius) < t)
+          this.hurt(e, damage);
+      const beam = new T.Mesh(this.bulletGeo, this.effectMat.clone());
+      beam.material.color.setHex(0x8efaff);
+      beam.position.set(x + ((tx - x) * t) / 2, 1.1, z + ((tz - z) * t) / 2);
+      beam.rotation.y = angle;
+      beam.scale.set(0.5, 0.5, (40 * t) / 0.65);
+      this.world.actors.add(beam);
+      this.effects.push({ mesh: beam, life: 0.13, max: 0.13 });
+    } else
+      for (let i = 0; i < spec.pellets; i++) {
+        const spread =
+          spec.pellets > 1
+            ? (i - (spec.pellets - 1) / 2) * spec.spread
+            : (Math.random() - 0.5) * spec.spread;
+        this.shoot(x, z, angle + spread, false, damage, spec.speed, spec);
+      }
+    if (!mounted) this.playerMotion.kick();
+    this.onSound(spec.splash ? "explosion" : "shot");
   }
   spark(x: number, z: number, big = false) {
     for (
@@ -271,6 +481,7 @@ export class Game {
     enemy: boolean,
     damage: number,
     speed = enemy ? 11 : 45,
+    spec?: WeaponSpec,
   ) {
     const flash = new T.Mesh(this.effectGeo, this.effectMat.clone());
     flash.position.set(
@@ -283,20 +494,41 @@ export class Game {
     flash.material.color.setHex(0xffe8a5);
     this.world.actors.add(flash);
     this.effects.push({ mesh: flash, life: 0.055, max: 0.055 });
-    const mesh = new T.Mesh(
-      this.bulletGeo,
-      enemy ? this.bulletEnemy : this.bulletFriendly,
-    );
+    let mesh: T.Object3D;
+    const visual = spec?.visual;
+    if (
+      visual === "rocket" ||
+      visual === "arrow" ||
+      visual === "grenade" ||
+      visual === "gas"
+    )
+      mesh = model("projectile_" + (visual === "gas" ? "grenade" : visual));
+    else {
+      mesh = new T.Mesh(
+        visual === "flame" ? this.effectGeo : this.bulletGeo,
+        visual === "flame"
+          ? this.effectMat
+          : enemy
+            ? this.bulletEnemy
+            : this.bulletFriendly,
+      );
+      if (visual === "sniper") mesh.scale.z = 3;
+    }
+
     mesh.position.set(x, 0.95, z);
     mesh.rotation.y = angle;
     this.world.actors.add(mesh);
     this.bullets.push({
       mesh,
+      spec,
+      age: 0,
+      maxLife: enemy ? 4 : (spec?.life ?? 1.05),
+      hits: new Set(),
       x,
       z,
       vx: Math.sin(angle) * speed,
       vz: Math.cos(angle) * speed,
-      life: enemy ? 4 : this.weapon ? 0.42 : 1.05,
+      life: enemy ? 4 : (spec?.life ?? 1.05),
       damage,
       enemy,
     });
@@ -375,22 +607,62 @@ export class Game {
     this.dashTime = Math.max(0, this.dashTime - dt);
     if (this.reloadTime > 0) {
       this.reloadTime = Math.max(0, this.reloadTime - dt);
-      if (this.reloadTime === 0) this.ammo = this.mag;
+      if (this.reloadTime === 0) {
+        const add = Math.min(this.mag - this.ammo, this.reserves[this.weapon]);
+        this.ammo += add;
+        this.reserves[this.weapon] -= add;
+      }
     }
-    if (input.swap) {
+    if (input.swap && (!this.riding || this.riding.kind === "motorcycle")) {
       this.magazines[this.weapon] = this.ammo;
-      this.weapon = 1 - this.weapon;
+      this.weapon =
+        this.inventory[
+          (this.inventory.indexOf(this.weapon) + 1) % this.inventory.length
+        ];
       this.ammo = this.magazines[this.weapon];
       this.reloadTime = 0;
       this.shotTime = Math.max(this.shotTime, 0.25);
       input.swap = false;
       this.onSound("reload");
     }
-    if (input.reload && this.ammo < this.mag && this.reloadTime === 0) {
-      this.reloadTime = this.weapon ? 1.7 : 1.25;
+    input.swap = false;
+    if (
+      (!this.riding || this.riding.kind === "motorcycle") &&
+      this.ammo === 0 &&
+      this.reserves[this.weapon] === 0
+    ) {
+      this.magazines[this.weapon] = 0;
+      const at = this.inventory.indexOf(this.weapon);
+      for (let step = 1; step <= this.inventory.length; step++) {
+        const next = this.inventory[(at + step) % this.inventory.length];
+        if (this.magazines[next] > 0 || this.reserves[next] > 0) {
+          this.weapon = next;
+          this.ammo = this.magazines[next];
+          this.reloadTime = 0;
+          this.shotTime = Math.max(this.shotTime, 0.25);
+          this.onRadio(
+            "Ammunition depleted. Switched to " + this.weaponSpec.name + ".",
+          );
+          break;
+        }
+      }
+    }
+    if (
+      (!this.riding || this.riding.kind === "motorcycle") &&
+      input.reload &&
+      this.ammo < this.mag &&
+      this.reloadTime === 0 &&
+      this.reserves[this.weapon] > 0
+    ) {
+      this.reloadTime = this.weaponSpec.reload;
       this.onSound("reload");
     }
     input.reload = false;
+    if (input.interact && (this.riding || this.nearestRide)) {
+      this.useRide();
+      input.interact = false;
+    }
+    this.showWeapon();
     let dx = input.x,
       dz = input.z;
     const length = Math.hypot(dx, dz);
@@ -398,7 +670,7 @@ export class Game {
       dx /= length;
       dz /= length;
     }
-    if (input.dodge && this.dashCooldown === 0 && length > 0) {
+    if (!this.riding && input.dodge && this.dashCooldown === 0 && length > 0) {
       this.dodgeVector = {
         x: dx / Math.min(length, 1),
         z: dz / Math.min(length, 1),
@@ -422,15 +694,20 @@ export class Game {
       Math.abs(this.pos.x) > 3.5
         ? 0.56
         : 1;
-    const moved = moveCircle(
-      this.pos.x,
-      this.pos.z,
-      dx * dt * (this.dashTime > 0 ? 23 : movementSpeed) * terrainSpeed,
-      dz * dt * (this.dashTime > 0 ? 23 : movementSpeed) * terrainSpeed,
-      0.48,
-      COVER,
-      28.5,
-    );
+    const parked = this.rides
+      .filter((v) => v.hp > 0 && v !== this.riding)
+      .map((v) => v.box);
+    const moved = this.riding
+      ? { x: this.pos.x, z: this.pos.z }
+      : moveCircle(
+          this.pos.x,
+          this.pos.z,
+          dx * dt * (this.dashTime > 0 ? 23 : movementSpeed) * terrainSpeed,
+          dz * dt * (this.dashTime > 0 ? 23 : movementSpeed) * terrainSpeed,
+          0.48,
+          [...COVER, ...parked],
+          28.5,
+        );
     this.pos.x = moved.x;
     this.pos.z = moved.z;
     // Root remains grounded; articulated joints provide all locomotion motion.
@@ -441,7 +718,7 @@ export class Game {
         (e) =>
           e.hp > 0 &&
           Math.hypot(e.x - this.pos.x, e.z - this.pos.z) <
-            (this.weapon ? 18 : 27) &&
+            (this.weaponSpec.visual === "flame" ? 8 : 38) &&
           !COVER.some(
             (b) => segmentBox(this.pos.x, this.pos.z, e.x, e.z, b) < 1,
           ),
@@ -467,26 +744,66 @@ export class Game {
         this.pos.x - previousX,
         this.pos.z - previousZ,
       );
-    if (input.fire && this.shotTime === 0 && this.reloadTime === 0) {
-      if (this.ammo === 0) {
-        this.reloadTime = this.weapon ? 1.7 : 1.25;
+    if (
+      !this.riding &&
+      input.fire &&
+      this.shotTime === 0 &&
+      this.reloadTime === 0
+    ) {
+      if (this.ammo === 0 && this.reserves[this.weapon] > 0) {
+        this.reloadTime = this.weaponSpec.reload;
         this.onSound("reload");
-      } else {
+      } else if (this.ammo > 0) {
         this.playerMotion.kick();
         this.ammo--;
-        this.shotTime = this.weapon ? 0.57 : 0.14;
-        const pellets = this.weapon ? 5 : 1;
-        for (let i = 0; i < pellets; i++) {
-          const a = angle + (i - (pellets - 1) / 2) * 0.085;
-          this.shoot(
-            this.pos.x,
-            this.pos.z,
-            a,
-            false,
-            (this.weapon ? 17 : 26) * (1 + this.power * 0.2),
-          );
-        }
-        this.onSound("shot");
+        this.shotTime = this.weaponSpec.cool;
+        this.fireWeapon(this.weaponSpec, angle);
+      }
+    }
+    if (this.riding) {
+      const v = this.riding;
+      v.drive(dt, dx, dz, angle, this.rides, this.index === 1);
+      v.mesh.position.y = this.world.groundHeight(
+        v.mesh.position.x,
+        v.mesh.position.z,
+      );
+      this.pos.copy(v.mesh.position);
+      v.cool = Math.max(0, v.cool - dt);
+      if (input.fire && v.cool === 0 && this.reloadTime === 0) {
+        const spec =
+          v.kind === "motorcycle" ? this.weaponSpec : WEAPONS[v.spec.weapon];
+        if (v.kind === "motorcycle" ? this.ammo > 0 : v.ammo > 0) {
+          this.fireWeapon(spec, angle, true);
+          v.cool = spec.cool;
+          if (v.kind === "motorcycle") this.ammo--;
+          else v.ammo--;
+        } else if (v.kind === "motorcycle" && this.reserves[this.weapon] > 0)
+          this.reloadTime = this.weaponSpec.reload;
+      }
+    }
+    for (let i = this.weaponDrops.length - 1; i >= 0; i--) {
+      const drop = this.weaponDrops[i];
+      drop.mesh.rotation.y += dt * 0.7;
+      if (
+        !this.riding &&
+        Math.hypot(
+          drop.mesh.position.x - this.pos.x,
+          drop.mesh.position.z - this.pos.z,
+        ) < 1.5
+      ) {
+        this.magazines[this.weapon] = this.ammo;
+        if (!this.inventory.includes(drop.index))
+          this.inventory.push(drop.index);
+        this.weapon = drop.index;
+        this.ammo = this.magazines[this.weapon];
+        this.reloadTime = 0;
+        this.showWeapon();
+        this.world.actors.remove(drop.mesh);
+        this.weaponDrops.splice(i, 1);
+        this.onRadio(
+          WEAPONS[drop.index].name +
+            " acquired. WEAPON / Q cycles your loadout.",
+        );
       }
     }
     this.playerMotion.update(dt, {
@@ -494,14 +811,13 @@ export class Game {
       vz: (this.pos.z - previousZ) / dt,
       aiming: input.fire,
       reload:
-        this.reloadTime > 0
-          ? 1 - this.reloadTime / (this.weapon ? 1.7 : 1.25)
-          : 0,
+        this.reloadTime > 0 ? 1 - this.reloadTime / this.weaponSpec.reload : 0,
       dodging: this.dashTime > 0,
     });
     const mission = MISSIONS[this.index];
     if (
       input.interact &&
+      !this.riding &&
       !this.objective &&
       Math.hypot(
         this.pos.x - mission.objective.x,
@@ -521,8 +837,13 @@ export class Game {
       this.onSound("objective");
     }
     input.interact = false;
+    if (this.companion) {
+      this.companion.visible = !(this.riding && this.objective);
+      if (this.riding && this.objective) this.companion.position.copy(this.pos);
+    }
+    const navigationCover = [...COVER, ...parked];
     const companionBefore = this.companion?.position.clone();
-    if (this.companion && this.objective) {
+    if (this.companion && this.objective && !this.riding) {
       const p = this.companion.position,
         d = p.distanceTo(this.pos);
       if (d > 2) {
@@ -533,7 +854,7 @@ export class Game {
             p.z,
             this.pos.x,
             this.pos.z,
-            COVER,
+            navigationCover,
           );
           this.followClock = 0.35;
         }
@@ -547,7 +868,7 @@ export class Game {
           ((this.followTarget.x - p.x) / fd) * Math.min(fd, dt * 6.6),
           ((this.followTarget.z - p.z) / fd) * Math.min(fd, dt * 6.6),
           0.4,
-          COVER,
+          navigationCover,
           28.5,
         );
         p.x = next.x;
@@ -581,7 +902,7 @@ export class Game {
       }
       const a = Math.atan2(this.pos.x - e.x, this.pos.z - e.z);
       if (!e.boss || this.index !== 2) e.mesh.rotation.y = a;
-      const hasSight = !COVER.some(
+      const hasSight = !navigationCover.some(
         (b) =>
           segmentBox(e.x, e.z, this.pos.x, this.pos.z, b, 0.06) !== Infinity,
       );
@@ -601,7 +922,7 @@ export class Game {
               e.z,
               this.pos.x,
               this.pos.z,
-              COVER,
+              navigationCover,
               0.55,
             );
             e.routeTime = 0.4;
@@ -641,7 +962,15 @@ export class Game {
             vz += Math.cos(angle) * (1.3 - d) * dt * 2;
           }
         }
-        const move = moveCircle(e.x, e.z, vx, vz, 0.55, COVER, 28);
+        const move = moveCircle(
+          e.x,
+          e.z,
+          vx,
+          vz,
+          0.55,
+          [...COVER, ...this.rides.filter((v) => v.hp > 0).map((v) => v.box)],
+          28,
+        );
         e.x = move.x;
         e.z = move.z;
       } else if (e.boss) {
@@ -719,13 +1048,32 @@ export class Game {
     for (let i = this.bullets.length - 1; i >= 0; i--) {
       const b = this.bullets[i];
       b.life -= dt;
+      b.age += dt;
       const nx = b.x + b.vx * dt,
         nz = b.z + b.vz * dt;
       let t = Infinity;
       let victim: Actor | undefined;
+      let parkedVictim: Ride | undefined;
       let hitPlayer = false;
       for (const box of COVER)
         t = Math.min(t, segmentBox(b.x, b.z, nx, nz, box, 0.06));
+      if (b.enemy)
+        for (const v of this.rides) {
+          if (v === this.riding || v.hp <= 0) continue;
+          const vt = segmentCircle(
+            b.x,
+            b.z,
+            nx,
+            nz,
+            v.mesh.position.x,
+            v.mesh.position.z,
+            v.spec.radius,
+          );
+          if (vt < t) {
+            t = vt;
+            parkedVictim = v;
+          }
+        }
       if (b.enemy) {
         const pt = segmentCircle(
           b.x,
@@ -734,15 +1082,16 @@ export class Game {
           nz,
           this.pos.x,
           this.pos.z,
-          0.52,
+          this.riding?.spec.radius ?? 0.52,
         );
         if (pt < t) {
           t = pt;
           hitPlayer = true;
+          parkedVictim = undefined;
         }
       } else
         for (const e of this.enemies) {
-          if (e.hp <= 0) continue;
+          if (e.hp <= 0 || b.hits.has(e)) continue;
           const et = segmentCircle(b.x, b.z, nx, nz, e.x, e.z, e.radius);
           if (et < t) {
             t = et;
@@ -750,22 +1099,95 @@ export class Game {
           }
         }
       if (t !== Infinity) {
-        if (victim) this.hurt(victim, b.damage);
+        if (parkedVictim) {
+          parkedVictim.hp = Math.max(0, parkedVictim.hp - b.damage);
+          if (parkedVictim.hp === 0) {
+            this.spark(
+              parkedVictim.mesh.position.x,
+              parkedVictim.mesh.position.z,
+              true,
+            );
+            this.corpses.push(
+              new FallenBody(parkedVictim.mesh, undefined, parkedVictim.kind),
+            );
+          }
+        }
+        if (victim) {
+          this.hurt(victim, b.damage);
+          b.hits.add(victim);
+        }
         if (hitPlayer && this.invincible === 0) {
-          this.hp = Math.max(0, this.hp - b.damage);
+          this.takeDamage(b.damage);
           this.playerMotion.hit();
-          this.invincible = 0.18;
+          this.invincible = Math.max(this.invincible, 0.18);
           this.spark(this.pos.x, this.pos.z);
           this.onSound("damage");
         }
-        b.life = 0;
+        if (b.spec?.visual !== "sniper" || !victim || b.hits.size >= 4)
+          b.life = 0;
       }
       b.x = nx;
       b.z = nz;
-      b.mesh.position.set(nx, 0.95, nz);
+      if (b.life <= 0 && b.spec && b.spec.splash > 0) {
+        const at = t === Infinity ? 1 : Math.max(0, t - 0.005);
+        this.blast(
+          b.x - b.vx * dt + b.vx * dt * at,
+          b.z - b.vz * dt + b.vz * dt * at,
+          b.spec,
+          b.damage * 0.8,
+        );
+      }
+      b.mesh.position.set(
+        nx,
+        0.95 +
+          (b.spec?.visual === "grenade" || b.spec?.visual === "gas"
+            ? Math.sin(Math.min(1, b.age / b.maxLife) * Math.PI) * 2
+            : 0),
+        nz,
+      );
+      if (b.spec?.visual === "flame") b.mesh.scale.setScalar(0.3 + b.age * 4);
+      if (
+        b.spec?.visual === "rocket" &&
+        Math.floor(b.age * 15) !== Math.floor((b.age - dt) * 15)
+      ) {
+        const puff = new T.Mesh(this.effectGeo, this.effectMat.clone());
+        puff.material.color.setHex(0x9c998d);
+        puff.material.depthWrite = false;
+        puff.position.copy(b.mesh.position);
+        puff.scale.setScalar(0.5);
+        this.world.actors.add(puff);
+        this.effects.push({ mesh: puff, life: 0.4, max: 0.4, smoke: true });
+      }
       if (b.life <= 0) {
         this.world.actors.remove(b.mesh);
         this.bullets.splice(i, 1);
+      }
+    }
+    for (let i = this.gas.length - 1; i >= 0; i--) {
+      const cloud = this.gas[i];
+      cloud.time -= dt;
+      cloud.tick -= dt;
+      (cloud.mesh.material as T.MeshBasicMaterial).opacity = Math.min(
+        0.18,
+        cloud.time * 0.12,
+      );
+      if (cloud.tick <= 0) {
+        cloud.tick = 0.5;
+        for (const e of this.enemies)
+          if (
+            e.hp > 0 &&
+            Math.hypot(e.x - cloud.x, e.z - cloud.z) < 2.8 &&
+            !COVER.some(
+              (b) => segmentBox(cloud.x, cloud.z, e.x, e.z, b) !== Infinity,
+            )
+          )
+            this.hurt(e, 12);
+      }
+      if (cloud.time <= 0) {
+        this.world.actors.remove(cloud.mesh);
+        cloud.mesh.geometry.dispose();
+        (cloud.mesh.material as T.Material).dispose();
+        this.gas.splice(i, 1);
       }
     }
     for (let i = this.effects.length - 1; i >= 0; i--) {
@@ -794,12 +1216,9 @@ export class Game {
           Math.hypot(this.pos.x - h.x, this.pos.z - h.z) < 2 &&
           this.invincible === 0
         ) {
-          this.hp = Math.max(
-            0,
-            this.hp - (this.difficulty === "story" ? 17 : 28),
-          );
+          this.takeDamage(this.difficulty === "story" ? 17 : 28);
           this.playerMotion.hit();
-          this.invincible = 0.2;
+          this.invincible = Math.max(this.invincible, 0.2);
           this.onSound("damage");
         }
         this.world.actors.remove(h.mesh);
@@ -829,6 +1248,7 @@ export class Game {
       this.beginDefeat();
     } else if (
       this.bossDead &&
+      !this.riding &&
       Math.hypot(
         this.pos.x - mission.extract.x,
         this.pos.z - mission.extract.z,

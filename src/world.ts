@@ -1,3 +1,4 @@
+import { WEAPONS } from "./arsenal";
 import { surface, grassGeometry } from "./surfaces";
 import * as T from "three";
 import { RoomEnvironment } from "three/addons/environments/RoomEnvironment.js";
@@ -17,6 +18,12 @@ const names = [
   "tank",
   "gunship",
   "barge",
+  "motorcycle",
+  "jeep",
+  ...WEAPONS.map((w) => "weapon_" + w.id),
+  "projectile_rocket",
+  "projectile_arrow",
+  "projectile_grenade",
 ];
 export async function loadAssets(progress: (n: number) => void) {
   let done = 0;
