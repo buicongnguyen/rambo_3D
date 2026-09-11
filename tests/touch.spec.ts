@@ -5,6 +5,7 @@ test("mobile buttons work with simultaneous touches and survive cancellation", a
   const context = await browser.newContext({
     viewport: { width: 390, height: 844 },
     hasTouch: true,
+    deviceScaleFactor: process.env.CI ? 0.5 : 1,
     isMobile: true,
   });
   const page = await context.newPage();
