@@ -41,3 +41,9 @@ SSH remote: `git@github.com:buicongnguyen/rambo_3D.git`
 Pages target: https://buicongnguyen.github.io/rambo_3D/
 
 A configured target URL is not deployment evidence. Deployment success will be checked against GitHub after the authorized push.
+
+## Publishing status
+
+Source and Blender assets were committed and pushed through SSH to the **private** repository `buicongnguyen/rambo_3D`. The local preview is available at http://127.0.0.1:4177/ while its preview process is running.
+
+GitHub rejected enabling Pages on this private repository with HTTP 422: "Your current plan does not support GitHub Pages for this repository." Automatic approval review also rejected creating a public source repository without explicit visibility authorization. Public-repository approval is pending; no claim of a successful live deployment is made. The deployment workflow and source are ready.

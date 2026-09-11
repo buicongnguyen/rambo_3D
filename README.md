@@ -2,7 +2,7 @@
 
 A playable three.js / Blender reimagining of the original 2D commando game. Three short solo missions connect rescue, intelligence recovery, and a final blacksite assault.
 
-**Play:** https://buicongnguyen.github.io/rambo_3D/
+**Deployment target (pending hosting approval):** https://buicongnguyen.github.io/rambo_3D/
 
 ## Included
 
