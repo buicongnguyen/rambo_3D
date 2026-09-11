@@ -1,3 +1,4 @@
+import { surface, grassGeometry } from "./surfaces";
 import * as T from "three";
 import { RoomEnvironment } from "three/addons/environments/RoomEnvironment.js";
 import { GLTFLoader } from "three/addons/loaders/GLTFLoader.js";
@@ -86,6 +87,10 @@ export function model(name: string, x = 0, z = 0, scale = 1) {
 export class World {
   scene = new T.Scene();
   private missionIndex = 0;
+  private soilMap = surface("soil");
+  private roadMap = surface("road");
+  private waterMap = surface("water");
+  private wind = { value: 0 };
   camera = new T.PerspectiveCamera(43, 1, 0.1, 230);
   renderer: T.WebGLRenderer;
   terrain = new T.Group();
@@ -178,7 +183,14 @@ export class World {
     const mission = MISSIONS[index];
     this.scene.background = new T.Color(mission.fog);
     this.scene.fog = new T.FogExp2(mission.fog, 0.009);
-    const ground = this.mat(mission.ground);
+    this.soilMap.repeat.set(18, 18);
+    this.roadMap.repeat.set(2, 22);
+    this.waterMap.repeat.set(9, 2);
+    const ground = this.mat(mission.ground, {
+      map: this.soilMap,
+      bumpMap: this.soilMap,
+      bumpScale: 0.09,
+    });
     this.mesh(new T.BoxGeometry(66, 1.6, 66), ground, 0, -0.85, 0);
     this.mesh(
       new T.PlaneGeometry(240, 240),
@@ -187,11 +199,19 @@ export class World {
       -1.68,
       0,
     ).rotation.x = -Math.PI / 2;
-    const road = this.mat(index === 2 ? 0x797767 : 0x8b8960);
+    const road = this.mat(index === 2 ? 0x797767 : 0x8b8960, {
+      map: this.roadMap,
+      bumpMap: this.roadMap,
+      bumpScale: 0.035,
+    });
     this.mesh(new T.PlaneGeometry(7, 61), road, 0, 0.005, 0).rotation.x =
       -Math.PI / 2;
     this.mesh(new T.PlaneGeometry(42, 4.5), road, 0, 0.015, 1).rotation.x =
       -Math.PI / 2;
+    const rut = this.mat(0x514c39, { map: this.roadMap, roughness: 1 });
+    for (const x of [-2.1, 2.1])
+      this.mesh(new T.PlaneGeometry(0.38, 59), rut, x, 0.018, 0).rotation.x =
+        -Math.PI / 2;
     // Broken center-line markings give the miniature road a readable scale.
     const line = this.mat(0xbab88a);
     for (let z = -27; z < 28; z += 5)
@@ -199,7 +219,12 @@ export class World {
     if (index === 1) {
       this.water = this.mesh(
         new T.PlaneGeometry(66, 7),
-        this.mat(0x438f91, { metalness: 0.32, roughness: 0.25 }),
+        this.mat(0x28545a, {
+          metalness: 0.42,
+          roughness: 0.19,
+          bumpMap: this.waterMap,
+          bumpScale: 0.18,
+        }),
         0,
         0.04,
         -14,
@@ -252,13 +277,32 @@ export class World {
       g.rotation.y = rand() * 6.28;
       this.terrain.add(g);
     }
-    const grass = this.mat(0x71805a);
-    for (let i = 0; i < 95; i++) {
+    const grass = this.mat(0x657644, { side: T.DoubleSide });
+    grass.onBeforeCompile = (shader) => {
+      shader.uniforms.windTime = this.wind;
+      shader.vertexShader = "uniform float windTime;\n" + shader.vertexShader;
+      shader.vertexShader = shader.vertexShader.replace(
+        "#include <begin_vertex>",
+        "#include <begin_vertex>\n transformed.x += sin(windTime*1.4+position.x*2.0+position.z)*0.045*max(0.0,position.y);",
+      );
+    };
+    for (let i = 0; i < 650; i++) {
       const x = (rand() - 0.5) * 58,
         z = (rand() - 0.5) * 58;
-      if (Math.abs(x) < 4) continue;
-      const o = this.mesh(new T.ConeGeometry(0.18, 0.6, 3), grass, x, 0.27, z);
-      o.rotation.z = 0.2;
+      if (
+        Math.abs(x) < 4 ||
+        Math.abs(z - 1) < 2.5 ||
+        (index === 1 && Math.abs(z + 14) < 4) ||
+        COVER.some(
+          (b) =>
+            Math.abs(x - b.x) < b.w / 2 + 0.4 &&
+            Math.abs(z - b.z) < b.d / 2 + 0.4,
+        )
+      )
+        continue;
+      const o = this.mesh(grassGeometry(), grass, x, 0.01, z);
+      o.rotation.y = rand() * Math.PI * 2;
+      o.scale.setScalar(0.7 + rand() * 0.8);
     }
     for (let i = 0; i < 12; i++) {
       const a = (i * Math.PI * 2) / 12;
@@ -351,6 +395,11 @@ export class World {
     this.renderer.setSize(innerWidth, innerHeight);
   }
   render(time: number, focus: T.Vector3, menu: boolean, reduced: boolean) {
+    this.wind.value = reduced ? 0 : time;
+    this.waterMap.offset.set(
+      reduced ? 0 : time * 0.012,
+      reduced ? 0 : time * 0.006,
+    );
     const target = menu ? new T.Vector3(6, 0, 1) : focus;
     const desired = menu
       ? new T.Vector3(40 + (reduced ? 0 : Math.sin(time * 0.07) * 2), 43, 51)

@@ -51,6 +51,8 @@ type Effect = {
   mesh: T.Mesh<T.IcosahedronGeometry, T.MeshBasicMaterial>;
   life: number;
   max: number;
+  velocity?: T.Vector3;
+  smoke?: boolean;
 };
 export class Game {
   world: World;
@@ -223,10 +225,39 @@ export class Game {
         0.7 + Math.random(),
         z + (Math.random() - 0.5) * (big ? 2 : 0.5),
       );
-      mesh.scale.setScalar(big ? 1.7 : 1);
+      mesh.scale.setScalar(big ? 1.4 : 0.35);
       this.world.actors.add(mesh);
-      this.effects.push({ mesh, life: 0.3 + Math.random() * 0.3, max: 0.6 });
+      this.effects.push({
+        mesh,
+        life: 0.3 + Math.random() * 0.3,
+        max: 0.6,
+        velocity: new T.Vector3(
+          (Math.random() - 0.5) * 5,
+          2 + Math.random() * 3,
+          (Math.random() - 0.5) * 5,
+        ),
+      });
     }
+    if (big)
+      for (let i = 0; i < 8; i++) {
+        const mesh = new T.Mesh(this.effectGeo, this.effectMat.clone());
+        mesh.material.color.setHex(0x55534d);
+        mesh.material.depthWrite = false;
+        mesh.position.set(
+          x + (Math.random() - 0.5),
+          0.7,
+          z + (Math.random() - 0.5),
+        );
+        mesh.scale.setScalar(2 + Math.random());
+        this.world.actors.add(mesh);
+        this.effects.push({
+          mesh,
+          life: 1.8,
+          max: 1.8,
+          smoke: true,
+          velocity: new T.Vector3(0.25, 1.1 + Math.random(), 0.15),
+        });
+      }
     this.onSound(big ? "explosion" : "hit");
   }
   shoot(
@@ -237,6 +268,17 @@ export class Game {
     damage: number,
     speed = enemy ? 11 : 45,
   ) {
+    const flash = new T.Mesh(this.effectGeo, this.effectMat.clone());
+    flash.position.set(
+      x + Math.sin(angle) * 0.7,
+      1.1,
+      z + Math.cos(angle) * 0.7,
+    );
+    flash.scale.set(0.32, 0.32, 0.8);
+    flash.rotation.y = angle;
+    flash.material.color.setHex(0xffe8a5);
+    this.world.actors.add(flash);
+    this.effects.push({ mesh: flash, life: 0.055, max: 0.055 });
     const mesh = new T.Mesh(
       this.bulletGeo,
       enemy ? this.bulletEnemy : this.bulletFriendly,
@@ -725,9 +767,13 @@ export class Game {
     for (let i = this.effects.length - 1; i >= 0; i--) {
       const e = this.effects[i];
       e.life -= dt;
-      e.mesh.position.y += dt * 1.8;
-      e.mesh.scale.multiplyScalar(1 + dt * 2);
-      e.mesh.material.opacity = Math.max(0, e.life / e.max);
+      if (e.velocity) {
+        e.mesh.position.addScaledVector(e.velocity, dt);
+        if (!e.smoke) e.velocity.y -= dt * 8;
+      } else e.mesh.position.y += dt * 1.8;
+      e.mesh.scale.multiplyScalar(1 + dt * (e.smoke ? 0.7 : 2));
+      e.mesh.material.opacity =
+        Math.max(0, e.life / e.max) * (e.smoke ? 0.45 : 1);
       if (e.life <= 0) {
         this.world.actors.remove(e.mesh);
         e.mesh.material.dispose();
