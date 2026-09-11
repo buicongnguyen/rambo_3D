@@ -2,7 +2,9 @@
 
 A playable three.js / Blender reimagining of the original 2D commando game. Three short solo missions connect rescue, intelligence recovery, and a final blacksite assault.
 
-**Deployment target (pending hosting approval):** https://buicongnguyen.github.io/rambo_3D/
+**Private game:** https://rambo-nightfall-3d.piernd2.chatgpt.site
+
+The game is hosted privately with Sites. The GitHub source repository stays private.
 
 ## Included
 
@@ -13,7 +15,7 @@ A playable three.js / Blender reimagining of the original 2D commando game. Thre
 - Briefing, mission HUD, minimap, radio story, pause/settings, upgrades, saved campaign continuation, retry and extraction endings.
 - Responsive touch controls, Story/Standard difficulty, optional audio, low graphics, and reduced camera motion.
 
-This is a complete **first playable solo campaign**, not feature parity with the original's vehicles and local co-op. Those features, rigged character animation, controller support and Android packaging are future phases in the detailed plan.
+This is a complete **animated solo campaign**, not feature parity with the original's vehicles and local co-op. Those features, rigged character animation, controller support and Android packaging are future phases in the detailed plan.
 
 ## Run
 
@@ -52,7 +54,7 @@ Progress saves **after choosing an upgrade** at the first two debriefs and at fi
 
 This exports `public/models/*.glb` and rebuilds `art/nightfall.blend`. The Python authoring script is the reproducible source; regeneration replaces manual changes to the gallery. Work on a copy if you want to author variants by hand. The portable Blender runtime under `.tools/` is ignored by Git.
 
-Models use flat PBR materials and meter-scale pivots. Static scenery is batched by material to reduce draw calls; actor meshes retain their subparts. Current movement animation is procedural bobbing and helicopter rotor motion, not skeletal clips.
+Models use flat PBR materials and meter-scale pivots. Static scenery is batched by material to reduce draw calls; actor meshes retain their subparts. Characters now have authored hip, knee, shoulder and elbow pivots, driven by distance-based procedural animation: idle breathing, walk, run, aimed movement, recoil, reload, dodge and hit reactions. Deaths collapse, hold for two seconds and fade out over two seconds. These are articulated rigid-part animations, not motion-captured or skinned skeletal clips. Helicopter rotors and tank turrets have independent pivots.
 
 ## Verification
 
@@ -69,10 +71,14 @@ See [validation notes](docs/VALIDATION.md) and the [detailed evaluation, design,
 
 ## Publishing
 
-The repository uses the SSH remote `git@github.com:buicongnguyen/rambo_3D.git`. Push `main` to run `.github/workflows/deploy.yml`: clean install → unit tests → production build → browser tests → GitHub Pages. The repository's Pages build source must be GitHub Actions. No deploy secrets are stored in source; Pages uses the workflow's scoped token/OIDC.
+The repository uses the SSH remote `git@github.com:buicongnguyen/rambo_3D.git`. Push `main` to run `.github/workflows/deploy.yml`: clean install → unit tests → production build → browser tests. GitHub Pages steps are conditional on a public repository; private source uses Sites hosting instead.
 
-Relative Vite asset URLs support the `/rambo_3D/` project path. Site source is public. Google Fonts is used for optional UI typography; system fonts are the fallback if unavailable. All models and gameplay are self-hosted in the deployment.
+Relative Vite asset URLs support the `/rambo_3D/` project path. Site source remains private. Google Fonts is used for optional UI typography; system fonts are the fallback if unavailable. All models and gameplay are self-hosted in the deployment.
 
 ## Original project and assets
 
 Built separately from `buicongnguyen/rambo_game`. No changes to the original checkout are required. Story, models and synthesized sound effects are authored for this prototype. RAMBO is used as the requested project name; this is an unofficial prototype with no film, commercial soundtrack, or ripped game assets.
+
+## Animation and logic review
+
+See [the resolved review findings](docs/ANIMATION_REVIEW.md) and [the pose reference](docs/animation-poses.png). Movement automatically runs; firing while moving slows to an aimed walk. Death animations complete before the retry screen.

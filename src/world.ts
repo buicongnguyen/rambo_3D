@@ -44,6 +44,7 @@ export function model(name: string, x = 0, z = 0, scale = 1) {
 }
 export class World {
   scene = new T.Scene();
+  private missionIndex = 0;
   camera = new T.PerspectiveCamera(43, 1, 0.1, 230);
   renderer: T.WebGLRenderer;
   terrain = new T.Group();
@@ -112,7 +113,13 @@ export class World {
     this.terrain.add(o);
     return o;
   }
+  groundHeight(x: number, z: number) {
+    return this.missionIndex === 1 && Math.abs(z + 14) < 4 && Math.abs(x) < 3.5
+      ? 0.36
+      : 0;
+  }
   build(index: number) {
+    this.missionIndex = index;
     this.terrain.clear();
     this.actors.clear();
     this.decor = [];

@@ -24,11 +24,14 @@ jobs:
       - run: npm run build
       - run: npx playwright install --with-deps chromium
       - run: npm run test:e2e
-      - uses: actions/configure-pages@v5
-      - uses: actions/upload-pages-artifact@v3
+      - if: github.event.repository.private == false
+        uses: actions/configure-pages@v5
+      - if: github.event.repository.private == false
+        uses: actions/upload-pages-artifact@v3
         with:
           path: dist
   deploy:
+    if: github.event.repository.private == false
     needs: build
     runs-on: ubuntu-latest
     environment:

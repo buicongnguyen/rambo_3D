@@ -421,6 +421,11 @@ canvas.addEventListener("pointermove", (e) => {
 });
 canvas.addEventListener("pointerdown", (e) => {
   if (mode === "playing" && e.button === 0) {
+    pointer.set(
+      (e.clientX / innerWidth) * 2 - 1,
+      (-e.clientY / innerHeight) * 2 + 1,
+    );
+    pointerSeen = true;
     mouseDown = true;
     canvas.setPointerCapture(e.pointerId);
   }
@@ -432,7 +437,7 @@ for (const b of document.querySelectorAll<HTMLButtonElement>(
 )) {
   b.onpointerdown = (e) => {
     e.preventDefault();
-    b.setPointerCapture(e.pointerId);
+    if (e.isTrusted) b.setPointerCapture(e.pointerId);
     if (b.dataset.hold) held.add(b.dataset.hold);
     if (b.dataset.action)
       (input as unknown as Record<string, unknown>)[b.dataset.action] = true;
@@ -473,7 +478,10 @@ function frame(now: number) {
       updateHud();
       lastHud = now;
     }
-  } else acc = 0;
+  } else {
+    acc = 0;
+    if (mode === "result") game.updatePresentation(dt);
+  }
   $("#crosshair").hidden = mode !== "playing" || !pointerSeen || input.assist;
   world.render(now / 1000, game.pos, mode === "menu", prefs.reduced);
 }

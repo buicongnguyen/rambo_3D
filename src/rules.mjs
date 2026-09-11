@@ -70,6 +70,7 @@ export function validateSave(raw) {
     if (!Number.isSafeInteger(raw[k]) || raw[k] < 0) return fallback;
   if (
     raw.mission > 2 ||
+    (raw.completed && raw.mission !== 2) ||
     raw.armor + raw.power + raw.mobility > raw.mission ||
     raw.best > 100000000 ||
     typeof raw.completed !== "boolean"

@@ -47,3 +47,7 @@ A configured target URL is not deployment evidence. Deployment success will be c
 Source and Blender assets were committed and pushed through SSH to the **private** repository `buicongnguyen/rambo_3D`. The local preview is available at http://127.0.0.1:4177/ while its preview process is running.
 
 GitHub rejected enabling Pages on this private repository with HTTP 422: "Your current plan does not support GitHub Pages for this repository." Automatic approval review also rejected creating a public source repository without explicit visibility authorization. Public-repository approval is pending; no claim of a successful live deployment is made. The deployment workflow and source are ready.
+
+## Animated release follow-up
+
+The original first-release limitations above are historical. The current revision replaces whole-body bobbing with articulated Blender joint animation, adds four-second collapse/hold/fade lifecycles and resolves the findings in `ANIMATION_REVIEW.md`. The local regression suite now has 12 Node tests and 9 browser tests. Private publishing uses the registered Sites project in `.openai/hosting.json`; GitHub source stays private and Pages deployment is skipped for private repositories.

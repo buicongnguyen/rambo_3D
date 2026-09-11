@@ -33,3 +33,31 @@ test("all eleven Blender GLBs are valid glTF 2, contain real geometry, and meet 
   assert.ok(bytes < 5_000_000);
   assert.ok(fs.statSync("art/nightfall.blend").size > 100_000);
 });
+
+test("character exports contain hip, knee, shoulder and elbow hierarchies", () => {
+  for (const name of ["commando", "rifleman", "captive"]) {
+    const b = fs.readFileSync(`public/models/${name}.glb`),
+      g = JSON.parse(b.toString("utf8", 20, 20 + b.readUInt32LE(12)));
+    const joints = new Map(
+      g.nodes.filter((n) => n.extras?.joint).map((n) => [n.extras.joint, n]),
+    );
+    for (const joint of [
+      "Motion",
+      "Hips",
+      "Spine",
+      "Head",
+      "ThighL",
+      "ThighR",
+      "ShinL",
+      "ShinR",
+      "ArmL",
+      "ArmR",
+      "ForearmL",
+      "ForearmR",
+    ])
+      assert.ok(
+        joints.get(joint)?.children?.length > 0,
+        `${name}: ${joint} must control child geometry`,
+      );
+  }
+});

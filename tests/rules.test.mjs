@@ -67,3 +67,10 @@ test("follower path steers around solid cover and uses clear direct paths", () =
     p = routeStep(p.x, p.z, 5, 0, [wall]);
   assert.ok(Math.hypot(p.x - 5, p.z) <= 1.5);
 });
+
+test("completed saves cannot bypass unfinished missions", () => {
+  assert.deepEqual(
+    validateSave({ ...freshSave(), completed: true }),
+    freshSave(),
+  );
+});

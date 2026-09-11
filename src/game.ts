@@ -1,4 +1,5 @@
 import * as T from "three";
+import { CharacterMotion, FallenBody, VehicleMotion } from "./animation";
 import { World, model } from "./world";
 import { MISSIONS, COVER, SPAWNS } from "./missions";
 import { moveCircle, segmentBox, segmentCircle, routeStep } from "./rules.mjs";
@@ -25,6 +26,10 @@ export type Actor = {
   index: number;
   warn: T.Mesh;
   reinforced?: boolean;
+  motion?: CharacterMotion;
+  vehicleMotion?: VehicleMotion;
+  routeTime?: number;
+  routeTarget?: { x: number; z: number };
 };
 type Hazard = {
   mesh: T.Mesh<T.RingGeometry, T.MeshBasicMaterial>;
@@ -51,6 +56,11 @@ export class Game {
   world: World;
   player: T.Group;
   companion?: T.Group;
+  playerMotion!: CharacterMotion;
+  companionMotion?: CharacterMotion;
+  corpses: FallenBody[] = [];
+  private deathClock = 0;
+  private dodgeVector = { x: 0, z: 0 };
   enemies: Actor[] = [];
   bullets: Bullet[] = [];
   effects: Effect[] = [];
@@ -62,6 +72,7 @@ export class Game {
   hp = 150;
   maxHp = 150;
   ammo = 24;
+  private magazines = [24, 6];
   weapon = 0;
   reloadTime = 0;
   shotTime = 0;
@@ -74,7 +85,7 @@ export class Game {
   objective = false;
   bossSpawned = false;
   bossDead = false;
-  phase: "playing" | "won" | "lost" = "playing";
+  phase: "playing" | "dying" | "won" | "lost" = "playing";
   power = 0;
   mobility = 0;
   difficulty = "normal";
@@ -122,6 +133,8 @@ export class Game {
     this.index = index;
     this.world.build(index);
     this.player = model("commando", 0, 23);
+    this.playerMotion = new CharacterMotion(this.player);
+    this.deathClock = 0;
     this.world.actors.add(this.player);
     this.difficulty = difficulty;
     this.power = save.power;
@@ -129,6 +142,7 @@ export class Game {
     this.maxHp = (difficulty === "story" ? 230 : 150) + save.armor * 35;
     this.hp = this.maxHp;
     this.ammo = 24;
+    this.magazines = [24, 6];
     this.weapon = 0;
     this.reloadTime = 0;
     this.shotTime = 0;
@@ -145,10 +159,14 @@ export class Game {
     SPAWNS.forEach(([x, z], i) => this.spawn(x, z, false, i));
     if (index === 0) {
       this.companion = model("captive", 15, 0);
+      this.companionMotion = new CharacterMotion(this.companion);
       this.world.actors.add(this.companion);
     }
   }
   cleanup() {
+    for (const corpse of this.corpses) corpse.dispose();
+    this.corpses = [];
+    this.companionMotion = undefined;
     for (const b of this.bullets) this.world.actors.remove(b.mesh);
     for (const e of this.effects) {
       e.mesh.material.dispose();
@@ -182,6 +200,10 @@ export class Game {
     this.world.actors.add(mesh, warn);
     this.enemies.push({
       mesh,
+      motion: boss ? undefined : new CharacterMotion(mesh),
+      vehicleMotion: boss
+        ? new VehicleMotion(mesh, MISSIONS[this.index].bossModel)
+        : undefined,
       x,
       z,
       hp: max,
@@ -234,6 +256,8 @@ export class Game {
     });
   }
   hurt(e: Actor, damage: number) {
+    if (e.hp <= 0) return; // A dead actor can award score only once.
+    e.motion?.hit();
     e.hp -= damage;
     if (e.boss && e.hp > 0 && e.hp < e.max * 0.5 && !e.reinforced) {
       e.reinforced = true;
@@ -248,8 +272,15 @@ export class Game {
     if (e.hp <= 0) {
       this.kills++;
       this.score += e.boss ? 1500 : 100;
-      this.world.actors.remove(e.mesh, e.warn);
-      this.spark(e.x, e.z, true);
+      this.world.actors.remove(e.warn);
+      this.corpses.push(
+        new FallenBody(
+          e.mesh,
+          e.motion,
+          e.boss ? MISSIONS[this.index].bossModel : "human",
+        ),
+      );
+      if (e.boss) this.spark(e.x, e.z, true);
       if (e.boss) {
         this.bossDead = true;
         this.world.exit.visible = true;
@@ -264,8 +295,33 @@ export class Game {
       }
     }
   }
-  update(dt: number, input: Input) {
+  private beginDefeat() {
     if (this.phase !== "playing") return;
+    this.phase = "dying";
+    this.deathClock = 0;
+    this.corpses.push(new FallenBody(this.player, this.playerMotion));
+    this.onRadio("Ghost is down. Signal fading...");
+  }
+  updatePresentation(dt: number) {
+    for (let i = this.corpses.length - 1; i >= 0; i--)
+      if (this.corpses[i].update(dt)) this.corpses.splice(i, 1);
+  }
+  update(dt: number, input: Input) {
+    if (this.phase === "dying") {
+      this.updatePresentation(dt);
+      this.deathClock += dt;
+      if (this.deathClock >= 4.05) {
+        this.phase = "lost";
+        this.onEnd(false);
+      }
+      return;
+    }
+    if (this.phase !== "playing") return;
+    this.updatePresentation(dt);
+    if (this.hp <= 0) {
+      this.beginDefeat();
+      return;
+    }
     this.elapsed += dt;
     this.shotTime = Math.max(0, this.shotTime - dt);
     this.dashCooldown = Math.max(0, this.dashCooldown - dt);
@@ -276,9 +332,11 @@ export class Game {
       if (this.reloadTime === 0) this.ammo = this.mag;
     }
     if (input.swap) {
+      this.magazines[this.weapon] = this.ammo;
       this.weapon = 1 - this.weapon;
-      this.ammo = 0;
-      this.reloadTime = 1.1;
+      this.ammo = this.magazines[this.weapon];
+      this.reloadTime = 0;
+      this.shotTime = Math.max(this.shotTime, 0.25);
       input.swap = false;
       this.onSound("reload");
     }
@@ -295,12 +353,23 @@ export class Game {
       dz /= length;
     }
     if (input.dodge && this.dashCooldown === 0 && length > 0) {
+      this.dodgeVector = {
+        x: dx / Math.min(length, 1),
+        z: dz / Math.min(length, 1),
+      };
       this.dashTime = 0.22;
       this.invincible = 0.32;
       this.dashCooldown = Math.max(1.1, 2.8 - this.mobility * 0.55);
       this.onSound("dash");
     }
     input.dodge = false;
+    if (this.dashTime > 0) {
+      dx = this.dodgeVector.x;
+      dz = this.dodgeVector.z;
+    }
+    const movementSpeed = input.fire ? 3.8 : 6.2;
+    const previousX = this.pos.x,
+      previousZ = this.pos.z;
     const terrainSpeed =
       this.index === 1 &&
       Math.abs(this.pos.z + 14) < 3.5 &&
@@ -310,21 +379,23 @@ export class Game {
     const moved = moveCircle(
       this.pos.x,
       this.pos.z,
-      dx * dt * (this.dashTime > 0 ? 23 : 6.2) * terrainSpeed,
-      dz * dt * (this.dashTime > 0 ? 23 : 6.2) * terrainSpeed,
+      dx * dt * (this.dashTime > 0 ? 23 : movementSpeed) * terrainSpeed,
+      dz * dt * (this.dashTime > 0 ? 23 : movementSpeed) * terrainSpeed,
       0.48,
       COVER,
       28.5,
     );
     this.pos.x = moved.x;
     this.pos.z = moved.z;
-    this.pos.y = length > 0 ? Math.abs(Math.sin(this.elapsed * 15)) * 0.06 : 0;
+    // Root remains grounded; articulated joints provide all locomotion motion.
+    this.pos.y = this.world.groundHeight(this.pos.x, this.pos.z);
     let aim = input.aim;
     const nearest = this.enemies
       .filter(
         (e) =>
           e.hp > 0 &&
-          Math.hypot(e.x - this.pos.x, e.z - this.pos.z) < 27 &&
+          Math.hypot(e.x - this.pos.x, e.z - this.pos.z) <
+            (this.weapon ? 18 : 27) &&
           !COVER.some(
             (b) => segmentBox(this.pos.x, this.pos.z, e.x, e.z, b) < 1,
           ),
@@ -342,12 +413,20 @@ export class Game {
         this.pos.z + (length ? dz * 4 : -4),
       );
     const angle = Math.atan2(aim.x - this.pos.x, aim.z - this.pos.z);
-    this.player.rotation.y = angle;
+    const moving =
+      Math.hypot(this.pos.x - previousX, this.pos.z - previousZ) > 0.001;
+    if (input.fire || this.reloadTime > 0) this.player.rotation.y = angle;
+    else if (moving)
+      this.player.rotation.y = Math.atan2(
+        this.pos.x - previousX,
+        this.pos.z - previousZ,
+      );
     if (input.fire && this.shotTime === 0 && this.reloadTime === 0) {
       if (this.ammo === 0) {
         this.reloadTime = this.weapon ? 1.7 : 1.25;
         this.onSound("reload");
       } else {
+        this.playerMotion.kick();
         this.ammo--;
         this.shotTime = this.weapon ? 0.57 : 0.14;
         const pellets = this.weapon ? 5 : 1;
@@ -364,6 +443,16 @@ export class Game {
         this.onSound("shot");
       }
     }
+    this.playerMotion.update(dt, {
+      vx: (this.pos.x - previousX) / dt,
+      vz: (this.pos.z - previousZ) / dt,
+      aiming: input.fire,
+      reload:
+        this.reloadTime > 0
+          ? 1 - this.reloadTime / (this.weapon ? 1.7 : 1.25)
+          : 0,
+      dodging: this.dashTime > 0,
+    });
     const mission = MISSIONS[this.index];
     if (
       input.interact &&
@@ -386,6 +475,7 @@ export class Game {
       this.onSound("objective");
     }
     input.interact = false;
+    const companionBefore = this.companion?.position.clone();
     if (this.companion && this.objective) {
       const p = this.companion.position,
         d = p.distanceTo(this.pos);
@@ -408,8 +498,8 @@ export class Game {
         const next = moveCircle(
           p.x,
           p.z,
-          ((this.followTarget.x - p.x) / fd) * dt * 6.6,
-          ((this.followTarget.z - p.z) / fd) * dt * 6.6,
+          ((this.followTarget.x - p.x) / fd) * Math.min(fd, dt * 6.6),
+          ((this.followTarget.z - p.z) / fd) * Math.min(fd, dt * 6.6),
           0.4,
           COVER,
           28.5,
@@ -422,26 +512,55 @@ export class Game {
         );
       }
     }
+    if (this.companion && companionBefore) {
+      this.companion.position.y = this.world.groundHeight(
+        this.companion.position.x,
+        this.companion.position.z,
+      );
+      this.companionMotion?.update(dt, {
+        vx: (this.companion.position.x - companionBefore.x) / dt,
+        vz: (this.companion.position.z - companionBefore.z) / dt,
+      });
+    }
     for (const e of this.enemies) {
       if (e.hp <= 0) continue;
+      const beforeX = e.x,
+        beforeZ = e.z;
       const distance = Math.hypot(e.x - this.pos.x, e.z - this.pos.z);
       const active = e.boss || distance < 19;
       if (!active) {
         e.warn.visible = false;
+        e.motion?.update(dt, { vx: 0, vz: 0 });
         continue;
       }
       const a = Math.atan2(this.pos.x - e.x, this.pos.z - e.z);
-      e.mesh.rotation.y = a;
+      if (!e.boss || this.index !== 2) e.mesh.rotation.y = a;
       e.cool -= dt;
       e.warn.visible = e.cool < 0.6;
       e.warn.position.set(e.x, 0.08, e.z);
       e.warn.scale.setScalar(e.boss ? 3.5 : 1.2);
       if (!e.boss && e.index % 3 !== 0 && distance > 7) {
+        e.routeTime = (e.routeTime ?? 0) - dt;
+        if (e.routeTime <= 0) {
+          e.routeTarget = routeStep(
+            e.x,
+            e.z,
+            this.pos.x,
+            this.pos.z,
+            COVER,
+            0.55,
+          );
+          e.routeTime = 0.4;
+        }
+        const direction = Math.atan2(
+          e.routeTarget!.x - e.x,
+          e.routeTarget!.z - e.z,
+        );
         const move = moveCircle(
           e.x,
           e.z,
-          Math.sin(a) * dt * 1.9,
-          Math.cos(a) * dt * 1.9,
+          Math.sin(direction) * dt * 1.9,
+          Math.cos(direction) * dt * 1.9,
           0.55,
           COVER,
           28,
@@ -454,19 +573,24 @@ export class Game {
           Math.sign(targetX - e.x) * Math.min(Math.abs(targetX - e.x), dt * 2);
         if (this.index === 0) {
           e.mesh.position.y = 4 + Math.sin(this.elapsed * 2) * 0.25;
-          e.mesh.traverse((o) => {
-            if (o.name.startsWith("Rotor")) o.rotation.y += dt * 25;
-          });
         }
       }
       e.mesh.position.x = e.x;
       e.mesh.position.z = e.z;
+      e.vehicleMotion?.update(dt, (e.x - beforeX) / dt, a, this.elapsed);
+      if (!e.boss) e.mesh.position.y = this.world.groundHeight(e.x, e.z);
+      e.motion?.update(dt, {
+        vx: (e.x - beforeX) / dt,
+        vz: (e.z - beforeZ) / dt,
+        aiming: e.cool < 0.6,
+      });
       if (e.cool <= 0) {
         if (
           !COVER.some(
             (b) => segmentBox(e.x, e.z, this.pos.x, this.pos.z, b) < 1,
           )
         ) {
+          e.motion?.kick();
           const count = e.boss
             ? this.index === 1
               ? 3
@@ -550,6 +674,7 @@ export class Game {
         if (victim) this.hurt(victim, b.damage);
         if (hitPlayer && this.invincible === 0) {
           this.hp = Math.max(0, this.hp - b.damage);
+          this.playerMotion.hit();
           this.invincible = 0.18;
           this.spark(this.pos.x, this.pos.z);
           this.onSound("damage");
@@ -590,6 +715,7 @@ export class Game {
             0,
             this.hp - (this.difficulty === "story" ? 17 : 28),
           );
+          this.playerMotion.hit();
           this.invincible = 0.2;
           this.onSound("damage");
         }
@@ -606,6 +732,7 @@ export class Game {
       if (
         Math.hypot(p.position.x - this.pos.x, p.position.z - this.pos.z) <
           1.1 &&
+        this.hp > 0 &&
         this.hp < this.maxHp
       ) {
         this.hp = Math.min(this.maxHp, this.hp + 30);
@@ -614,12 +741,9 @@ export class Game {
         this.onSound("objective");
       }
     }
-    this.player.visible = !(
-      this.invincible > 0 && Math.floor(this.elapsed * 24) % 2 === 0
-    );
+    // Hit reactions preserve silhouette instead of blinking the entire actor away.
     if (this.hp <= 0) {
-      this.phase = "lost";
-      this.onEnd(false);
+      this.beginDefeat();
     } else if (
       this.bossDead &&
       Math.hypot(
