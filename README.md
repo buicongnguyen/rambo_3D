@@ -2,9 +2,9 @@
 
 A playable three.js / Blender reimagining of the original 2D commando game. Three short solo missions connect rescue, intelligence recovery, and a final blacksite assault.
 
-**Private game:** https://rambo-nightfall-3d.piernd2.chatgpt.site
+**Play:** https://buicongnguyen.github.io/rambo_3D/
 
-The game is hosted privately with Sites. The GitHub source repository stays private.
+The game and its source repository are public. GitHub Actions deploys tested builds to GitHub Pages.
 
 ## Included
 
@@ -15,7 +15,7 @@ The game is hosted privately with Sites. The GitHub source repository stays priv
 - Briefing, mission HUD, minimap, radio story, pause/settings, upgrades, saved campaign continuation, retry and extraction endings.
 - Responsive touch controls, Story/Standard difficulty, optional audio, low graphics, and reduced camera motion.
 
-This is a complete **animated solo campaign**, not feature parity with the original's vehicles and local co-op. Those features, rigged character animation, controller support and Android packaging are future phases in the detailed plan.
+This is an **animated solo campaign** with playable motorcycles, jeeps and tanks, and eleven weapon types. Local co-op, skinned character animation, physical controller support and Android packaging remain future phases.
 
 ## Run
 
@@ -36,9 +36,9 @@ Open the local URL Vite prints. `npm run build` creates the standalone static si
 | Mouse + left click | Aim and fire                                       |
 | Hold Space         | Assisted aim and fire                              |
 | Shift while moving | Dodge                                              |
-| E                  | Rescue / recover / sabotage within the yellow ring |
+| E                  | Interact / board / exit vehicle |
 | R                  | Reload                                             |
-| Q                  | Switch rifle / scattergun                          |
+| Q                  | Cycle collected weapons                          |
 | Escape             | Pause / resume                                     |
 
 Complete the yellow objective, defeat the boss, then reach the green extraction pad. In mission 1, Mara must arrive too. Touch devices display movement and action buttons. Green drops restore health. Orange rings warn of attacks; move out of tank mortar markers before they detonate. The river slows you outside the bridge.
@@ -71,9 +71,9 @@ See [validation notes](docs/VALIDATION.md) and the [detailed evaluation, design,
 
 ## Publishing
 
-The repository uses the SSH remote `git@github.com:buicongnguyen/rambo_3D.git`. Push `main` to run `.github/workflows/deploy.yml`: clean install → unit tests → production build → browser tests. GitHub Pages steps are conditional on a public repository; private source uses Sites hosting instead.
+The repository uses the SSH remote `git@github.com:buicongnguyen/rambo_3D.git`. Push `main` to run `.github/workflows/deploy.yml`: clean install → unit tests → production build → browser tests. After all checks pass, the workflow publishes the build to GitHub Pages.
 
-Relative Vite asset URLs support the `/rambo_3D/` project path. Site source remains private. Google Fonts is used for optional UI typography; system fonts are the fallback if unavailable. All models and gameplay are self-hosted in the deployment.
+Relative Vite asset URLs support the `/rambo_3D/` project path. Google Fonts is used for optional UI typography; system fonts are the fallback if unavailable. All models and gameplay are self-hosted in the deployment.
 
 ## Original project and assets
 
