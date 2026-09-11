@@ -1389,3 +1389,10 @@ input {
     padding: 7px 9px;
   }
 }
+
+#shield-text {
+  color: #80dcf8;
+  font: 600 11px/1.5 monospace;
+  letter-spacing: 0.06em;
+  margin-top: 4px;
+}

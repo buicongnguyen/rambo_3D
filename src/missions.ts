@@ -1,4 +1,6 @@
-import { STAGES, LEVELS_PER_STAGE } from "./campaign.mjs";
+import { missionRoute, routePoint, routeBox } from "./routes.mjs";
+import { segmentBox } from "./rules.mjs";
+import { STAGES, LEVELS_PER_STAGE, WORLD_BOUNDS } from "./campaign.mjs";
 export type Box = {
   x: number;
   z: number;
@@ -6,12 +8,14 @@ export type Box = {
   d: number;
   kind?: string;
   hp?: number;
+  asset?: string;
 };
 export type Patch = { x: number; z: number; radius: number; kind: string };
 export type Mission = {
   name: string;
   stage: number;
   level: number;
+  layout: number;
   biome: string;
   finale: boolean;
   region: string;
@@ -26,6 +30,9 @@ export type Mission = {
   color: number;
   ground: number;
   fog: number;
+  route: { x: number; z: number }[];
+  start: { x: number; z: number };
+  direction: string;
   objective: { x: number; z: number };
   extract: { x: number; z: number };
   bossPos: { x: number; z: number };
@@ -35,18 +42,21 @@ const bossNames: Record<string, string> = {
   spider: "IRON WIDOW",
   laserTank: "PRISM MAMMOTH",
 };
+const layoutFor = (stage: number, level: number) =>
+  stage === 5 && level === 0 ? 3 : level;
 export const MISSIONS: Mission[] = STAGES.flatMap((s, stage) =>
   Array.from({ length: LEVELS_PER_STAGE }, (_, level) => ({
     name: s.name,
     stage,
     level,
+    layout: layoutFor(stage, level),
     biome: s.biome,
     finale: level === 2,
     region: s.name.toUpperCase(),
     tag: ["BREACH / APPROACH", "RECOVER / HOLD", "COMMAND / FINALE"][level],
     description: s.tip,
-    brief: `${s.tip} Level ${level + 1}/3: advance through the long corridor, secure the relay, ${level === 2 ? "destroy the command bosses" : "defeat the relay guards"} and reach extraction. Vale is coordinating the evacuation from the air.`,
-    radio: `${s.name}. ${s.tip} Your relay is marked yellow, far to the north.`,
+    brief: `${s.tip} Level ${level + 1}/3: follow the winding road and concrete chicanes, secure the relay, ${level === 2 ? "destroy the command bosses" : "defeat the relay guards"} and reach extraction. Vale is coordinating the evacuation from the air.`,
+    radio: `${s.name}. ${s.tip} Follow the ${["northbound", "eastbound", "diagonal northeast", "southbound"][layoutFor(stage, level)]} zigzag road. Your relay is marked yellow.`,
     success:
       level === 2
         ? `${s.name} secured. The evacuation route is open. Choose your next advantage.`
@@ -61,9 +71,14 @@ export const MISSIONS: Mission[] = STAGES.flatMap((s, stage) =>
     color: 0xe1ed98,
     ground: s.ground,
     fog: s.fog,
-    objective: { x: level % 2 ? -16 : 16, z: -76 - level * 3 },
-    extract: { x: 0, z: -108 },
-    bossPos: { x: 0, z: -94 },
+    route: missionRoute(layoutFor(stage, level)),
+    start: routePoint(layoutFor(stage, level), 0, 23),
+    direction: ["NORTHBOUND", "EASTBOUND", "NORTHEAST", "SOUTHBOUND"][
+      layoutFor(stage, level)
+    ],
+    objective: routePoint(layoutFor(stage, level), 0, -76),
+    extract: routePoint(layoutFor(stage, level), 0, -108),
+    bossPos: routePoint(layoutFor(stage, level), 0, -94),
   })),
 );
 export const COVER: Box[] = [];
@@ -82,14 +97,24 @@ const base: Box[] = [
 ];
 export function buildLayout(m: Mission) {
   COVER.length = PATCHES.length = SPAWNS.length = 0;
+  Object.assign(
+    WORLD_BOUNDS,
+    m.layout === 1
+      ? { x: 72, minZ: -71.5, maxZ: -14.5 }
+      : { x: m.layout === 2 ? 72 : 28.5, minZ: -115, maxZ: 28.5 },
+  );
   const clearLandmark = (x: number, z: number, r = 6) =>
-    [m.objective, m.extract, m.bossPos, { x: 0, z: 23 }].every(
-      (p) => Math.hypot(x - p.x, z - p.z) > r,
-    );
+    [
+      { x: 0, z: -76 },
+      { x: 0, z: -108 },
+      { x: 0, z: -94 },
+      { x: 0, z: 23 },
+    ].every((p) => Math.hypot(x - p.x, z - p.z) > r);
   for (let zone = 0; zone < 3; zone++)
     for (const b of base) {
       const box = {
         ...b,
+        asset: b.w === 4 ? "tent" : b.d === 3 ? "tower" : "crate",
         x: m.level === 1 ? -b.x : b.x,
         z: b.z - zone * 40 - (m.level === 2 ? 2 : 0),
         kind: m.biome === "city" && b.w === 4 ? "building" : "cover",
@@ -153,4 +178,41 @@ export function buildLayout(m: Mission) {
       (i % 2 ? 1 : -1) * (7 + ((i * 5) % 15)),
       14 - (Math.floor(i / 2) * 102) / (Math.ceil(soldiers / 2) - 1),
     ]);
+
+  for (const box of COVER) Object.assign(box, routeBox(m.layout, box));
+  for (const patch of PATCHES)
+    Object.assign(patch, routePoint(m.layout, patch.x, patch.z));
+  for (const spawn of SPAWNS) {
+    const p = routePoint(m.layout, spawn[0], spawn[1]);
+    spawn[0] = p.x;
+    spawn[1] = p.z;
+  }
+  const routes = [...m.route.slice(1).map((p, i) => [m.route[i], p])];
+  const onRoad = (b: Box) =>
+    routes.some(
+      ([a, p]) => segmentBox(a.x, a.z, p.x, p.z, b, 3.6) !== Infinity,
+    );
+  const gates: Box[] = [];
+  for (let row = 0; row < 4; row++) {
+    const z = -10 - row * 20,
+      gap = row % 2 ? -10 : 10;
+    for (let x = -27; x <= 27; x += 3) {
+      if (Math.abs(x - gap) < 9) continue;
+      const b = routeBox(m.layout, { x, z, w: 3, d: 1.4, kind: "concrete" });
+      if (!onRoad(b)) gates.push(b);
+    }
+  }
+  for (let i = COVER.length - 1; i >= 0; i--) {
+    const b = COVER[i];
+    if (
+      onRoad(b) ||
+      gates.some(
+        (g) =>
+          Math.abs(g.x - b.x) < (g.w + b.w) / 2 + 0.5 &&
+          Math.abs(g.z - b.z) < (g.d + b.d) / 2 + 0.5,
+      )
+    )
+      COVER.splice(i, 1);
+  }
+  COVER.push(...gates);
 }

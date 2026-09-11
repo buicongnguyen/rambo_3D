@@ -21,7 +21,13 @@ test("stage layouts, difficulty spawn ratios and multi-boss extraction gates", a
         trees: COVER.filter((b: any) => b.kind === "tree").length,
         buildings: COVER.filter((b: any) => b.kind === "building").length,
         patches: PATCHES.length,
-        length: 23 - m.extract.z,
+        length: m.route
+          .slice(1)
+          .reduce(
+            (n: number, p: any, i: number) =>
+              n + Math.hypot(p.x - m.route[i].x, p.z - m.route[i].z),
+            0,
+          ),
       };
     });
     const counts = [];
@@ -93,6 +99,7 @@ test("ice inertia, sand slowdown, mud recovery and earthquake freeze", async ({
     for (let i = 0; i < 120; i++) g.update(1 / 60, { ...cmd });
     const recovered = g.pos.y;
     start(15);
+    g.pos.set(0, 0, 23); // Keep the freeze fixture near its soldier on the southbound map.
     const e = g.enemies[0];
     e.hp = 100;
     e.x = 0;

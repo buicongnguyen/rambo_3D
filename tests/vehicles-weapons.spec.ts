@@ -168,6 +168,8 @@ test("empty special weapon falls back and laser cannot penetrate solid cover", a
     target.hp = 500;
     target.x = 0;
     target.z = 4;
+    const { COVER } = await import("/src/missions.ts");
+    COVER.push({ x: -4, z: 4, w: 3, d: 2 });
     g.pos.set(-10, 0, 4);
     g.fireWeapon(WEAPONS[8], Math.PI / 2);
     const blocked = target.hp;

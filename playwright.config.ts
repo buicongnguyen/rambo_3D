@@ -32,7 +32,8 @@ export default defineConfig({
   webServer: {
     command: "npm run dev -- --port 5177",
     url: "http://127.0.0.1:5177",
-    reuseExistingServer: true,
+    // A reused HMR server can load duplicate mission modules in browser fixtures.
+    reuseExistingServer: false,
     timeout: 30000,
   },
 });

@@ -1,3 +1,6 @@
+import { WORLD_BOUNDS } from "./campaign.mjs";
+import { sampleRoute, routeLength } from "./routes.mjs";
+import { segmentBox } from "./rules.mjs";
 import { WEAPONS } from "./arsenal";
 import { surface, grassGeometry } from "./surfaces";
 import * as T from "three";
@@ -199,14 +202,23 @@ export class World {
     buildLayout(mission);
     this.scene.background = new T.Color(mission.fog);
     this.scene.fog = new T.FogExp2(mission.fog, 0.009);
-    this.soilMap.repeat.set(18, 42);
+    const width = WORLD_BOUNDS.x * 2,
+      depth = WORLD_BOUNDS.maxZ - WORLD_BOUNDS.minZ;
+    const centerZ = (WORLD_BOUNDS.maxZ + WORLD_BOUNDS.minZ) / 2;
+    this.soilMap.repeat.set(width / 3.5, depth / 3.5);
     this.roadMap.repeat.set(2, 42);
     const soil = this.mat(mission.ground, {
       map: this.soilMap,
       bumpMap: this.soilMap,
       bumpScale: 0.09,
     });
-    this.mesh(new T.BoxGeometry(66, 1.6, 152), soil, 0, -0.85, -43);
+    this.mesh(
+      new T.BoxGeometry(width + 9, 1.6, depth + 9),
+      soil,
+      0,
+      -0.85,
+      centerZ,
+    );
     this.mesh(
       new T.PlaneGeometry(260, 330),
       this.mat(mission.ground),
@@ -218,18 +230,47 @@ export class World {
       biome === "city" ? 0x383e42 : biome === "ice" ? 0xa2bdc9 : 0x91836a,
       { map: this.roadMap, bumpMap: this.roadMap, bumpScale: 0.035 },
     );
-    this.mesh(new T.PlaneGeometry(7, 144), road, 0, 0.005, -43).rotation.x =
-      -Math.PI / 2;
-    for (const z of [1, -39, -79])
-      this.mesh(new T.PlaneGeometry(56, 4.5), road, 0, 0.01, z).rotation.x =
-        -Math.PI / 2;
-    if (biome === "city")
-      for (const x of [-16, 16])
-        this.mesh(new T.PlaneGeometry(5, 135), road, x, 0.008, -43).rotation.x =
-          -Math.PI / 2;
+    const roadSegments = [
+      ...mission.route.slice(1).map((p, i) => [mission.route[i], p]),
+    ];
+    for (const [a, b] of roadSegments) {
+      const dx = b.x - a.x,
+        dz = b.z - a.z;
+      const strip = this.mesh(
+        new T.BoxGeometry(7, 0.015, Math.hypot(dx, dz)),
+        road,
+        (a.x + b.x) / 2,
+        0.009,
+        (a.z + b.z) / 2,
+      );
+      strip.rotation.y = Math.atan2(dx, dz);
+    }
+    for (const p of mission.route)
+      this.mesh(
+        new T.CylinderGeometry(3.5, 3.5, 0.018, 24),
+        road,
+        p.x,
+        0.01,
+        p.z,
+      );
     const line = this.mat(biome === "ice" ? 0xeef6f8 : 0xbab88a);
-    for (let z = -111; z < 27; z += 6)
-      this.mesh(new T.BoxGeometry(0.13, 0.025, 1.7), line, 0.1, 0.035, z);
+    const length = routeLength(mission.route);
+    for (let d = 3; d < length; d += 6) {
+      const p = sampleRoute(mission.route, d / length);
+      const stripe = this.mesh(
+        new T.BoxGeometry(0.13, 0.025, 1.7),
+        line,
+        p.x,
+        0.035,
+        p.z,
+      );
+      stripe.rotation.y = Math.atan2(p.nz, -p.nx);
+    }
+    const concrete = this.mat(0x969c98, {
+      map: this.soilMap,
+      bumpMap: this.soilMap,
+      bumpScale: 0.04,
+    });
     for (const patch of PATCHES) {
       const color =
         patch.kind === "ice"
@@ -286,12 +327,36 @@ export class World {
         );
         this.actors.add(mesh);
         this.destructibles.push({ box, mesh, hp: box.hp!, kind: box.kind });
+      } else if (box.kind === "concrete") {
+        this.mesh(
+          new T.BoxGeometry(box.w, 1.35, box.d),
+          concrete,
+          box.x,
+          0.675,
+          box.z,
+        );
+        this.mesh(
+          new T.BoxGeometry(box.w, 0.12, box.d),
+          line,
+          box.x,
+          1.22,
+          box.z,
+        );
+        this.mesh(
+          new T.BoxGeometry(box.w + 0.12, 0.18, box.d + 0.12),
+          concrete,
+          box.x,
+          0.09,
+          box.z,
+        );
       } else if (box.kind === "building") {
         const house = model("house", box.x, box.z);
         house.scale.set(box.w / 5, 1 + (index % 3) * 0.15, box.d / 7);
         this.terrain.add(house);
-      } else if (box.w === 4) this.terrain.add(model("tent", box.x, box.z));
-      else if (box.d === 3) this.terrain.add(model("tower", box.x, box.z));
+      } else if (box.asset === "tent")
+        this.terrain.add(model("tent", box.x, box.z));
+      else if (box.asset === "tower")
+        this.terrain.add(model("tower", box.x, box.z));
       else
         for (const x of [-0.8, 0.8])
           this.terrain.add(model("crate", box.x + x, box.z, 1.1));
@@ -302,10 +367,15 @@ export class World {
       return (seed - 1) / 2147483646;
     };
     for (let i = 0; i < 180; i++) {
-      const x = (rand() - 0.5) * 88,
-        z = 28 - rand() * 150;
+      const x = (rand() - 0.5) * (width + 30),
+        z = WORLD_BOUNDS.maxZ + 12 - rand() * (depth + 24);
       // Interior trees have real, destructible collision; these dress the boundaries.
-      if (Math.abs(x) < 29) continue;
+      if (
+        Math.abs(x) < WORLD_BOUNDS.x + 1 &&
+        z > WORLD_BOUNDS.minZ - 1 &&
+        z < WORLD_BOUNDS.maxZ + 1
+      )
+        continue;
       const name =
         biome === "ice"
           ? "snowPine"
@@ -329,10 +399,22 @@ export class World {
       );
     };
     for (let i = 0; i < 850; i++) {
-      const x = (rand() - 0.5) * 58,
-        z = 27 - rand() * 138;
+      const x = (rand() - 0.5) * width,
+        z = WORLD_BOUNDS.maxZ - rand() * depth;
       if (
-        Math.abs(x) < 4 ||
+        mission.route
+          .slice(1)
+          .some(
+            (p, i) =>
+              segmentBox(
+                mission.route[i].x,
+                mission.route[i].z,
+                p.x,
+                p.z,
+                { x, z, w: 0.1, d: 0.1 },
+                3.7,
+              ) !== Infinity,
+          ) ||
         COVER.some(
           (b) =>
             Math.abs(x - b.x) < b.w / 2 + 0.4 &&
@@ -348,9 +430,9 @@ export class World {
       const hill = this.mesh(
         new T.IcosahedronGeometry(1, 1),
         soil,
-        (i % 2 ? 1 : -1) * (52 + rand() * 15),
+        (i % 2 ? 1 : -1) * (WORLD_BOUNDS.x + 24 + rand() * 15),
         4,
-        25 - i * 11,
+        WORLD_BOUNDS.maxZ - (i * depth) / 14,
       );
       hill.scale.set(14, 10 + rand() * 15, 16);
       hill.userData.highDetail = i % 2 === 0;
@@ -360,13 +442,25 @@ export class World {
         emissive: 0xf54b12,
         emissiveIntensity: 1.4,
       });
-      this.mesh(new T.ConeGeometry(15, 24, 20), soil, 38, 9, -66);
-      this.mesh(new T.CylinderGeometry(5, 3, 1, 20), lava, 38, 21, -66);
+      this.mesh(
+        new T.ConeGeometry(15, 24, 20),
+        soil,
+        WORLD_BOUNDS.x + 18,
+        9,
+        centerZ,
+      );
+      this.mesh(
+        new T.CylinderGeometry(5, 3, 1, 20),
+        lava,
+        WORLD_BOUNDS.x + 18,
+        21,
+        centerZ,
+      );
       for (let i = 0; i < 7; i++)
         this.mesh(
           new T.BoxGeometry(1.3, 0.06, 7),
           lava,
-          27,
+          WORLD_BOUNDS.x - 1,
           0.05,
           5 - i * 17,
         ).rotation.y = 0.3;
@@ -508,9 +602,14 @@ export class World {
       reduced || this.lowDetail ? 0 : time * 0.012,
       reduced ? 0 : time * 0.006,
     );
-    const target = menu ? new T.Vector3(6, 0, 1) : focus;
+    const menuFocus = sampleRoute(MISSIONS[this.missionIndex].route, 0.18);
+    const target = menu ? new T.Vector3(menuFocus.x, 0, menuFocus.z) : focus;
     const desired = menu
-      ? new T.Vector3(40 + (reduced ? 0 : Math.sin(time * 0.07) * 2), 43, 51)
+      ? new T.Vector3(
+          target.x + 34 + (reduced ? 0 : Math.sin(time * 0.07) * 2),
+          43,
+          target.z + 50,
+        )
       : new T.Vector3(focus.x, focus.y + 27, focus.z + 25);
     this.camera.position.lerp(desired, menu ? 0.025 : 0.09);
     this.camera.lookAt(target);
