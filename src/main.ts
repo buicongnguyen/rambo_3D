@@ -1,3 +1,4 @@
+import { STAGES, LEVEL_COUNT, difficultyConfig } from "./campaign.mjs";
 import * as T from "three";
 import "./style.css";
 import { World, loadAssets, model } from "./world";
@@ -30,7 +31,12 @@ const prefs = {
     rawPrefs.reduced === true ||
     matchMedia("(prefers-reduced-motion: reduce)").matches,
 };
-let difficulty = "normal",
+let previewMission: number | undefined;
+let difficulty = ["easy", "normal", "hard", "crazy"].includes(
+    String(rawPrefs.difficulty),
+  )
+    ? String(rawPrefs.difficulty)
+    : "normal",
   mode: "menu" | "playing" | "paused" | "result" = "menu",
   ready = false,
   radioUntil = 0,
@@ -41,9 +47,9 @@ app.innerHTML = `
 <canvas id="scene" aria-label="Three-dimensional mission battlefield"></canvas>
 <div class="vignette"></div><div id="crosshair" hidden><i></i></div>
 <header id="brand"><a href="#" id="home" aria-label="Operation Nightfall briefing"><span class="brand-mark">R<span>///</span></span><span class="brand-name">RAMBO <b>3D</b><small>OPERATION NIGHTFALL</small></span></a><div class="header-right"><span class="status-dot"></span> FIELD OPERATIONS <span class="divider">/</span> <span>EST. 1985</span><button id="sound" class="icon-button" aria-label="Toggle sound">SOUND ON</button></div></header>
-<main id="menu" class="menu"><section class="hero"><div class="eyebrow"><span></span> BEHIND ENEMY LINES. AGAIN.</div><h1>THE MISSION<br>IS <em>PERSONAL.</em></h1><p class="hero-copy">They left your people behind.<br>You came back for them.</p><div class="hero-rule"></div><div class="operation-line"><span>01—03</span><p>ONE SOLDIER. THREE OPERATIONS.<br>EVERYONE COMES HOME.</p></div><div id="launch-area"><button class="primary" disabled id="deploy">PREPARING FIELD KIT <span id="load">0%</span></button></div><div class="difficulty"><span>ENGAGEMENT</span><button data-difficulty="story">STORY</button><button data-difficulty="normal" class="selected">STANDARD</button></div><p class="small-note">Story offers more health and reduced incoming damage.</p></section>
+<main id="menu" class="menu"><section class="hero"><div class="eyebrow"><span></span> BEHIND ENEMY LINES. AGAIN.</div><h1>THE MISSION<br>IS <em>PERSONAL.</em></h1><p class="hero-copy">They left your people behind.<br>You came back for them.</p><div class="hero-rule"></div><div class="operation-line"><span>01—21</span><p>SEVEN STAGES. THREE LEVELS EACH.<br>EVERYONE COMES HOME.</p></div><div id="launch-area"><button class="primary" disabled id="deploy">PREPARING FIELD KIT <span id="load">0%</span></button></div><div class="difficulty"><span>ENGAGEMENT</span><button data-difficulty="easy">EASY</button><button data-difficulty="normal" class="selected">NORMAL</button><button data-difficulty="hard">HARD</button><button data-difficulty="crazy">CRAZY</button></div><p class="small-note" id="difficulty-note">Easy: more health · Hard: 2× soldiers · Crazy: 4× soldiers and four finale bosses.</p><label class="stage-picker">STAGE <select id="stage-select" aria-label="Choose stage"></select></label></section>
 <aside class="intel"><div class="intel-top"><span class="live-dot"></span> LIVE RECON <span>SECTOR 07</span></div><div class="intel-map"><div class="scan"></div><div class="coordinate c1">17°04′ N</div><div class="coordinate c2">106°42′ E</div><div class="map-line l1"></div><div class="map-line l2"></div><span class="map-dot d1"></span><span class="map-dot d2"></span><span class="map-dot d3"></span><span class="map-label">KHE SAN VALLEY</span></div><div class="intel-bottom"><span>MISSION BRIEF / <b id="brief-number">01</b></span><h2 id="brief-title">Emerald Killbox</h2><p id="brief-copy"></p><div class="intel-meta"><span>◆ SOLO CAMPAIGN</span><span>● 3D TACTICAL ACTION</span></div></div></aside>
-<section class="campaign" aria-label="Campaign missions"><div class="campaign-heading"><span>YOUR NEXT THREE MOVES</span><span>CAMPAIGN / NIGHTFALL</span></div><div id="mission-cards" class="mission-cards"></div></section>
+<section class="campaign" aria-label="Campaign missions"><div class="campaign-heading"><span>CHOOSE YOUR NEXT FRONT</span><span>CAMPAIGN / NIGHTFALL</span></div><div id="mission-cards" class="mission-cards"></div></section>
 <footer class="menu-footer"><span>AN ORIGINAL LOW-POLY COMBAT EXPERIENCE <b id="best-score"></b></span><button id="controls-open">FIELD MANUAL <span>↗</span></button><span>BUILT WITH BLENDER + THREE.JS</span></footer></main>
 <section id="hud" hidden aria-label="Mission status"><div class="hud-top"><div class="objective-panel"><span class="eyebrow" id="mission-label"></span><h2 id="mission-title"></h2><div id="objectives"></div></div><div class="hud-right"><button class="icon-button" id="pause">Ⅱ <span>PAUSE</span></button><canvas id="minimap" width="144" height="144" aria-label="Tactical map: player white, enemies orange, objective yellow, extraction green"></canvas><span class="map-caption">TACTICAL UPLINK</span></div></div><div id="boss-panel" hidden><div><b id="boss-name"></b><span id="boss-phase">ARMORED TARGET</span></div><div class="boss-track"><i id="boss-bar"></i></div></div><div id="radio" role="status"><span>VALE / RADIO</span><p></p></div><div id="interact-prompt" hidden></div><div class="hud-bottom"><div class="health-panel"><div class="hud-kicker">GHOST <span id="health-text"></span></div><div class="health-track"><i id="health-bar"></i></div><div class="health-meta"><span id="dash-text">DODGE READY</span><span id="score">000000</span></div></div><div class="controls-strip"><kbd>WASD</kbd> MOVE <kbd>SPACE</kbd> AUTO FIRE <kbd>E</kbd> INTERACT <kbd>SHIFT</kbd> DODGE</div><div class="ammo-panel"><div id="weapon-name">M4 / ASSAULT RIFLE</div><strong id="ammo">24</strong><span id="ammo-reserve">/ ∞</span><small id="reload-label">R RELOAD · Q SWITCH</small><button id="weapon-swap" aria-label="Switch weapon" aria-keyshortcuts="Q" title="Press Q to cycle collected weapons">Q - SWAP WEAPON</button></div></div><div id="touch"><div class="dpad"><button data-hold="up" aria-label="Move forward">▲</button><button data-hold="left" aria-label="Move left">◀</button><button data-hold="down" aria-label="Move backward">▼</button><button data-hold="right" aria-label="Move right">▶</button></div><div class="touch-actions"><button data-action="swap" aria-label="Switch weapon" class="swap-weapon">SWAP WEAPON</button><button data-action="reload">RELOAD</button><button data-action="interact" aria-label="Use nearby objective">USE</button><button data-action="dodge">DODGE</button><button data-hold="fire" class="fire">FIRE</button></div></div></section>
 <div id="overlay" class="overlay" hidden></div><div id="toast" role="status" hidden></div>`;
@@ -121,7 +127,7 @@ function radio(text: string) {
 function syncSound() {
   $("#sound").textContent = prefs.sound ? "SOUND ON" : "SOUND OFF";
   $("#sound").setAttribute("aria-pressed", String(prefs.sound));
-  write("nightfall-prefs", prefs);
+  write("nightfall-prefs", { ...prefs, difficulty });
 }
 $("#sound").onclick = () => {
   prefs.sound = !prefs.sound;
@@ -137,7 +143,7 @@ function menu() {
   $("#overlay").hidden = true;
   $("#crosshair").hidden = true;
   document.body.classList.remove("in-game");
-  const index = save.completed ? 0 : save.mission,
+  const index = previewMission ?? (save.completed ? 0 : save.mission),
     m = MISSIONS[index];
   if (ready) {
     game.cleanup();
@@ -151,16 +157,40 @@ function menu() {
   $("#best-score").textContent = save.best
     ? " / BEST " + save.best.toLocaleString()
     : "";
-  $("#brief-number").textContent = `0${index + 1}`;
+  $("#brief-number").textContent = `${m.stage + 1} / LEVEL ${m.level + 1} OF 3`;
   $("#brief-title").textContent = m.name;
+  $(".map-label").textContent = m.region;
   $("#brief-copy").textContent = m.brief;
-  $("#mission-cards").innerHTML = MISSIONS.map(
-    (m, i) =>
-      `<article class="mission-card ${i === index ? "active" : ""}"><div class="card-num">0${i + 1}</div><div><span class="card-tag">${m.tag}</span><h3>${m.name}</h3><p>${m.description}</p></div><span class="card-state">${save.completed || i < save.mission ? "✓ COMPLETE" : i === index ? "↗ UP NEXT" : "⊞ LOCKED"}</span></article>`,
+  $("#mission-cards").innerHTML = STAGES.map(
+    (stage, i) =>
+      `<article class="mission-card ${i === m.stage ? "active" : ""}"><div class="card-num">${i + 1}</div><div><span class="card-tag">THREE LEVELS / BOSS FINALE</span><h3>${stage.name}</h3><p>${stage.tip}</p></div></article>`,
   ).join("");
+  const picker = $<HTMLSelectElement>("#stage-select");
+  picker.innerHTML = STAGES.map(
+    (stage, i) =>
+      `<option value="${i}" ${i === m.stage ? "selected" : ""}>${i + 1}. ${stage.name}</option>`,
+  ).join("");
+  picker.onchange = () => {
+    previewMission = Number(picker.value) * 3;
+    menu();
+  };
+  document
+    .querySelectorAll<HTMLButtonElement>("[data-difficulty]")
+    .forEach((b) => {
+      b.classList.toggle("selected", b.dataset.difficulty === difficulty);
+      b.setAttribute(
+        "aria-pressed",
+        String(b.dataset.difficulty === difficulty),
+      );
+    });
   $("#launch-area").innerHTML =
-    `<button class="primary" id="deploy" ${ready ? "" : "disabled"}>${save.completed ? "REPLAY CAMPAIGN" : save.mission > 0 ? "CONTINUE OPERATION" : "DEPLOY TO JUNGLE"} <span>↗</span></button>${save.mission > 0 && !save.completed ? '<button class="text-button" id="new-campaign">START NEW CAMPAIGN</button>' : ""}`;
+    `<button class="primary" id="deploy" ${ready ? "" : "disabled"}>${save.completed ? "REPLAY CAMPAIGN" : save.mission > 0 ? "CONTINUE OPERATION" : "DEPLOY TO STAGE"} <span>↗</span></button>${save.mission > 0 && !save.completed ? '<button class="text-button" id="new-campaign">START NEW CAMPAIGN</button>' : ""}`;
   $("#deploy").onclick = () => {
+    if (previewMission !== undefined) {
+      save = { ...freshSave(), mission: previewMission, best: save.best };
+      previewMission = undefined;
+      write("nightfall-campaign", save);
+    }
     if (save.completed) {
       save = { ...freshSave(), best: save.best };
       write("nightfall-campaign", save);
@@ -221,11 +251,11 @@ function pause() {
   $<HTMLSelectElement>("#setting-low").onchange = (e) => {
     prefs.low = (e.target as HTMLSelectElement).value === "low";
     world.quality(prefs.low);
-    write("nightfall-prefs", prefs);
+    write("nightfall-prefs", { ...prefs, difficulty });
   };
   $<HTMLInputElement>("#setting-motion").onchange = (e) => {
     prefs.reduced = (e.target as HTMLInputElement).checked;
-    write("nightfall-prefs", prefs);
+    write("nightfall-prefs", { ...prefs, difficulty });
   };
 }
 function resume() {
@@ -241,7 +271,7 @@ $("#home").onclick = (e) => {
 };
 $("#controls-open").onclick = () => {
   showOverlay(
-    `<span class="eyebrow">FIELD MANUAL / 01</span><h2>Get in. Get them out.</h2><p>Move through cover, complete the yellow objective, defeat the boss, then reach the green extraction pad.</p><div class="manual-grid"><span>WASD / ARROWS</span><b>Move</b><span>MOUSE + CLICK</span><b>Aim and fire</b><span>HOLD SPACE</span><b>Assisted aim and fire</b><span>SHIFT + MOVE</span><b>Dodge incoming fire</b><span>E / R / Q</span><b>Interact / reload / switch</b><span>ESCAPE</span><b>Pause and settings</b></div><p>Orange rings warn of an attack. Crates stop bullets. Green pickups restore health. The scattergun excels at close range. Blue map dots mark vehicles: E / USE boards or exits. Purple dots mark weapons: walk over them to collect, then Q / WEAPON cycles your loadout. Motorcycles use your selected weapon; jeeps have 20 shotgun rounds and tanks have five missiles. Exit to use objectives or extract. Touch controls appear on touch devices.</p><button id="close-manual" class="primary">READY FOR THE FIELD <span>↗</span></button>`,
+    `<span class="eyebrow">FIELD MANUAL / 01</span><h2>Get in. Get them out.</h2><p>Each stage has three long levels. Secure the yellow relay and clear its guards; level three has command bosses. Defeat every boss to open green extraction.</p><div class="manual-grid"><span>WASD / ARROWS</span><b>Move</b><span>MOUSE + CLICK</span><b>Aim and fire</b><span>HOLD SPACE</span><b>Assisted aim and fire</b><span>SHIFT + MOVE</span><b>Dodge incoming fire</b><span>E / R / Q</span><b>Interact / reload / switch</b><span>ESCAPE</span><b>Pause and settings</b></div><p>Orange rings warn of attacks and volcanic rockfalls. Ice slides, sand slows to one quarter, and mud holes gradually sink you. Quake dust signals a brief ground-enemy freeze. Shoot fuel drums for chain explosions and blast jungle trees to clear a path. Drive a moving tank over infantry to crush them. Orange rings warn of an attack. Crates stop bullets. Green pickups restore health. The scattergun excels at close range. Blue map dots mark vehicles: E / USE boards or exits. Purple dots mark weapons: walk over them to collect, then Q / WEAPON cycles your loadout. Motorcycles use your selected weapon; jeeps have 20 shotgun rounds and tanks have five missiles. Exit to use objectives or extract. Touch controls appear on touch devices.</p><button id="close-manual" class="primary">READY FOR THE FIELD <span>↗</span></button>`,
   );
   $("#close-manual").onclick = () => {
     $("#overlay").hidden = true;
@@ -253,6 +283,10 @@ for (const button of document.querySelectorAll<HTMLButtonElement>(
 ))
   button.onclick = () => {
     difficulty = button.dataset.difficulty!;
+    write("nightfall-prefs", { ...prefs, difficulty });
+    const config = difficultyConfig(difficulty);
+    $("#difficulty-note").textContent =
+      `${difficulty.toUpperCase()}: ${config.health} health / ${config.soldiers}x soldiers / ${config.bosses} boss${config.bosses > 1 ? "es" : ""} in each finale.`;
     document
       .querySelectorAll("[data-difficulty]")
       .forEach((b) =>
@@ -266,7 +300,7 @@ function end(win: boolean) {
   mode = "result";
   clearInput();
   const m = MISSIONS[game.index],
-    final = win && game.index === 2;
+    final = win && game.index === LEVEL_COUNT - 1;
   if (final) {
     save = advanceCampaign(save, "armor", game.score);
     write("nightfall-campaign", save);
@@ -299,10 +333,10 @@ const map = $<HTMLCanvasElement>("#minimap"),
 function updateHud() {
   const m = MISSIONS[game.index];
   $("#mission-label").textContent =
-    `OPERATION 0${game.index + 1} / ${formatTime(game.elapsed)}`;
+    `STAGE ${m.stage + 1} / LEVEL ${m.level + 1} OF 3 / ${difficulty.toUpperCase()} / ${formatTime(game.elapsed)}`;
   $("#mission-title").textContent = m.name;
   $("#objectives").innerHTML =
-    `<span class="${game.objective ? "done" : ""}">${game.objective ? "✓" : "◇"} ${m.action}</span><span class="${game.bossDead ? "done" : ""}">${game.bossDead ? "✓" : "◇"} Neutralize ${m.boss.toLowerCase()}</span><span class="${game.bossDead ? "current" : ""}">◇ Reach extraction</span>`;
+    `<span class="${game.objective ? "done" : ""}">${game.objective ? "✓" : "◇"} ${m.action}</span><span class="${game.bossDead ? "done" : ""}">${game.bossDead ? "✓" : "◇"} Neutralize ${m.finale ? "all command bosses" : "relay guards"}</span><span class="${game.bossDead ? "current" : ""}">◇ Reach extraction</span>`;
   $("#health-text").textContent = `${Math.ceil(game.hp)} / ${game.maxHp}`;
   $("#health-bar").style.width = `${(game.hp / game.maxHp) * 100}%`;
   $("#health-bar").classList.toggle("danger", game.hp / game.maxHp < 0.3);
@@ -360,10 +394,11 @@ function updateHud() {
   const boss = game.boss;
   $("#boss-panel").hidden = !boss;
   if (boss) {
-    $("#boss-name").textContent = m.boss;
-    $("#boss-bar").style.width = `${(boss.hp / boss.max) * 100}%`;
-    $("#boss-phase").textContent =
-      boss.hp < boss.max * 0.5 ? "ENRAGED / WIDER SALVOS" : "ARMORED TARGET";
+    const bosses = game.enemies.filter((e) => e.boss && e.hp > 0);
+    $("#boss-name").textContent = `${m.boss} / ${bosses.length} REMAIN`;
+    $("#boss-bar").style.width =
+      `${(100 * bosses.reduce((n, e) => n + e.hp, 0)) / bosses.reduce((n, e) => n + e.max, 0)}%`;
+    $("#boss-phase").textContent = boss.state ?? "ARMORED TARGET";
   }
   const d = Math.hypot(game.pos.x - m.objective.x, game.pos.z - m.objective.z),
     prompt = $("#interact-prompt");
@@ -408,7 +443,7 @@ function updateHud() {
   const point = (x: number, z: number, color: string, r: number) => {
     ctx.fillStyle = color;
     ctx.beginPath();
-    ctx.arc(72 + x * 2.25, 72 + z * 2.25, r, 0, Math.PI * 2);
+    ctx.arc(72 + x * 2.1, 8 + ((28.5 - z) / 143.5) * 128, r, 0, Math.PI * 2);
     ctx.fill();
   };
   for (const e of game.enemies)

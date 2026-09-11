@@ -2,7 +2,7 @@ import fs from "node:fs";
 import path from "node:path";
 import { test } from "node:test";
 import assert from "node:assert/strict";
-test("all twenty-seven Blender GLBs are valid glTF 2, contain real geometry, and meet asset budget", () => {
+test("all thirty-two Blender GLBs are valid glTF 2, contain real geometry, and meet asset budget", () => {
   const names = [
     "commando",
     "rifleman",
@@ -17,6 +17,11 @@ test("all twenty-seven Blender GLBs are valid glTF 2, contain real geometry, and
     "barge",
     "motorcycle",
     "jeep",
+    "snowPine",
+    "house",
+    "fuelDrum",
+    "spider",
+    "laserTank",
     ...[
       "rifle",
       "shotgun",
@@ -48,7 +53,7 @@ test("all twenty-seven Blender GLBs are valid glTF 2, contain real geometry, and
     assert.ok(json.accessors.some((a) => a.type === "VEC3"));
     assert.equal(json.asset.version, "2.0");
   }
-  assert.ok(bytes < 6_000_000);
+  assert.ok(bytes < 7_500_000);
   assert.ok(fs.statSync("art/nightfall.blend").size > 100_000);
 });
 

@@ -1,3 +1,4 @@
+import { WORLD_BOUNDS } from "./campaign.mjs";
 import * as T from "three";
 import { model } from "./world";
 import { COVER } from "./missions";
@@ -70,12 +71,14 @@ export class Ride {
     aim: number,
     others: Ride[],
     river = false,
+    terrainSpeed = 1,
+    icy = false,
   ) {
     const len = Math.min(1, Math.hypot(x, z));
     this.speed = T.MathUtils.damp(
       this.speed,
-      len * this.spec.speed,
-      len ? this.spec.accel : 12,
+      len * this.spec.speed * terrainSpeed,
+      icy ? (len ? 2.5 : 0.9) : len ? this.spec.accel : 12,
       dt,
     );
     if (len > 0.01) {
@@ -104,7 +107,7 @@ export class Ride {
         Math.cos(this.heading) * this.speed * dt,
         this.spec.radius,
         obstacles,
-        28.5,
+        WORLD_BOUNDS,
       );
     this.mesh.position.set(m.x, before.y, m.z);
     this.mesh.rotation.y = this.heading;
@@ -123,7 +126,12 @@ export class Ride {
         d = this.spec.radius + 1.05;
       const x = this.mesh.position.x + Math.sin(a) * d,
         z = this.mesh.position.z + Math.cos(a) * d;
-      if (Math.abs(x) > 27.8 || Math.abs(z) > 27.8) continue;
+      if (
+        Math.abs(x) > WORLD_BOUNDS.x - 0.5 ||
+        z < WORLD_BOUNDS.minZ + 0.5 ||
+        z > WORLD_BOUNDS.maxZ - 0.5
+      )
+        continue;
       const boxes = [
         ...COVER,
         ...others.filter((v) => v !== this && v.hp > 0).map((v) => v.box),

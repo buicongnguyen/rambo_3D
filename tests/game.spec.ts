@@ -63,7 +63,7 @@ test("renders Blender assets, accepts movement/fire, pauses and retries", async 
   );
   expect(errors).toEqual([]);
 });
-test("all three objective/boss/extraction transitions and upgrades persist", async ({
+test("three levels progress through relay guards and finale bosses with persistent upgrades", async ({
   page,
 }) => {
   await page.goto("/");
@@ -80,14 +80,16 @@ test("all three objective/boss/extraction transitions and upgrades persist", asy
       return { objective: g.objective, boss: g.boss?.max };
     }, index);
     expect(state.objective).toBe(true);
-    expect(state.boss).toBeGreaterThan(500);
+    if (index === 2) expect(state.boss).toBeGreaterThan(500);
+    else expect(state.boss).toBeUndefined();
     // Controlled lethal projectile exercises real swept collision, damage and extraction, not a win flag.
     await page.evaluate(async (index) => {
       const h = (window as any).__nightfall,
         g = h.game;
       const { MISSIONS } = await import("/src/missions.ts");
       const boss = g.boss;
-      g.shoot(boss.x, boss.z, 0, false, boss.max + 1);
+      if (boss) g.shoot(boss.x, boss.z, 0, false, boss.max + 1);
+      else for (const guard of g.guardIds) g.hurt(guard, 999);
       g.update(1 / 60, {
         ...h.input,
         x: 0,
@@ -106,7 +108,7 @@ test("all three objective/boss/extraction transitions and upgrades persist", asy
           interact: false,
         });
     }, index);
-    if (index < 2) {
+    if (index < 3) {
       await expect(page.locator('[data-upgrade="armor"]')).toBeVisible();
       await page
         .locator(`[data-upgrade="${index === 0 ? "armor" : "power"}"]`)
@@ -116,16 +118,6 @@ test("all three objective/boss/extraction transitions and upgrades persist", asy
       expect(
         await page.evaluate(() => (window as any).__nightfall.save.mission),
       ).toBe(index + 1);
-    } else {
-      await expect(page.locator(".modal h2")).toHaveText(
-        "Everyone comes home.",
-      );
-      expect(
-        await page.evaluate(
-          () =>
-            JSON.parse(localStorage.getItem("nightfall-campaign")!).completed,
-        ),
-      ).toBe(true);
     }
   }
 });
@@ -160,18 +152,19 @@ test("mobile layout and touch input release", async ({ browser }) => {
   await context.close();
 });
 
-test("story mission can be completed through simulated movement and normal weapon damage", async ({
+test("easy long level can be completed through simulated movement and normal weapon damage", async ({
   page,
 }) => {
   await page.goto("/");
   await expect(page.locator("#deploy")).toBeEnabled();
-  await page.locator('[data-difficulty="story"]').click();
+  await page.locator('[data-difficulty="easy"]').click();
   await page.locator("#deploy").click();
   const result = await page.evaluate(async () => {
     const h = (window as any).__nightfall,
       g = h.game;
     const { routeStep } = await import("/src/rules.mjs");
     const { COVER, MISSIONS } = await import("/src/missions.ts");
+    const { WORLD_BOUNDS } = await import("/src/campaign.mjs");
     const m = MISSIONS[0];
     g.onSound = () => {};
     let next = { x: g.pos.x, z: g.pos.z };
@@ -179,10 +172,21 @@ test("story mission can be completed through simulated movement and normal weapo
       let target = !g.objective
         ? m.objective
         : !g.bossDead
-          ? { x: 0, z: -7 }
+          ? m.objective
           : m.extract;
       if (frame % 15 === 0)
-        next = routeStep(g.pos.x, g.pos.z, target.x, target.z, COVER);
+        next = routeStep(
+          g.pos.x,
+          g.pos.z,
+          target.x,
+          target.z,
+          [
+            ...COVER,
+            ...g.rides.filter((v: any) => v.hp > 0).map((v: any) => v.box),
+          ],
+          0.48,
+          WORLD_BOUNDS,
+        );
       const dx = next.x - g.pos.x,
         dz = next.z - g.pos.z,
         len = Math.hypot(dx, dz);
@@ -202,7 +206,8 @@ test("story mission can be completed through simulated movement and normal weapo
         z,
         fire: true,
         assist: true,
-        interact: true,
+        interact:
+          Math.hypot(g.pos.x - m.objective.x, g.pos.z - m.objective.z) < 3,
         dodge: frame % 170 === 0,
         reload: false,
         swap: false,

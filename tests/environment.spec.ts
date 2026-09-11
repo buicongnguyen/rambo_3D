@@ -1,5 +1,5 @@
 import { test, expect } from "@playwright/test";
-test("river surfaces render without shader errors and transient effects expire", async ({
+test("mud surfaces render without shader errors and transient effects expire", async ({
   page,
 }) => {
   const errors: string[] = [];
@@ -13,7 +13,7 @@ test("river surfaces render without shader errors and transient effects expire",
   const result = await page.evaluate(() => {
     const { game: g, world: w, input } = (window as any).__nightfall;
     w.quality(false);
-    g.start(1, { armor: 0, power: 0, mobility: 0 }, "story");
+    g.start(18, { armor: 0, power: 0, mobility: 0 }, "story");
     g.onSound = () => {};
     g.enemies.forEach((e: any) => (e.hp = 0));
     g.pos.set(0, 0.36, -14);

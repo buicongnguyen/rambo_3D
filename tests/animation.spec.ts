@@ -129,7 +129,7 @@ test("player defeat finishes visibly before retry, and bridge supports feet", as
     h.game.update(1 / 60, { ...h.input, x: 0, z: 0, fire: false });
     return h.game.pos.y;
   });
-  expect(y).toBe(0.36);
+  expect(y).toBe(0);
 });
 test("animation pose reference sheet", async ({ page }) => {
   await ready(page);

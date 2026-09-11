@@ -1341,3 +1341,51 @@ input {
     line-height: 1.25;
   }
 }
+
+.stage-picker {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  margin-top: 12px;
+  font-size: 10px;
+  letter-spacing: 1px;
+}
+.stage-picker select {
+  max-width: 100%;
+  background: #14291e;
+  color: #e1ed98;
+  border: 1px solid #aabd89;
+  padding: 10px;
+  font: inherit;
+}
+.difficulty {
+  flex-wrap: wrap;
+  gap: 6px;
+}
+.mission-cards {
+  display: flex;
+  overflow-x: auto;
+  gap: 12px;
+  scroll-snap-type: x mandatory;
+  padding-bottom: 8px;
+}
+.mission-card {
+  min-width: 260px;
+  flex: 1 0 260px;
+  scroll-snap-align: start;
+}
+#difficulty-note {
+  max-width: 440px;
+}
+@media (max-width: 700px) {
+  .mission-card {
+    min-width: 230px;
+    flex-basis: 230px;
+  }
+  .stage-picker {
+    margin-top: 8px;
+  }
+  .difficulty button {
+    padding: 7px 9px;
+  }
+}

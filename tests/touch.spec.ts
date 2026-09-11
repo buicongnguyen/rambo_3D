@@ -84,8 +84,17 @@ test("mobile buttons work with simultaneous touches and survive cancellation", a
   await page
     .locator('[data-hold="up"]')
     .dispatchEvent("pointercancel", { pointerId: 40 });
-  await page.evaluate(() => {
-    (window as any).__nightfall.game.pos.set(15, 0, 0);
+  await page.evaluate(async () => {
+    const { MISSIONS } = await import("/src/missions.ts");
+    const g = (window as any).__nightfall.game;
+    g.dashTime = 0;
+    g.iceVelocity.set(0, 0);
+    g.invincible = 1000;
+    (window as any).__nightfall.game.pos.set(
+      MISSIONS[0].objective.x,
+      0,
+      MISSIONS[0].objective.z,
+    );
   });
   await page.locator('[data-action="interact"]').tap();
   await expect

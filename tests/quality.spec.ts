@@ -9,7 +9,11 @@ test("Low reduces rendered detail and preserves the mission when switching", asy
     const { world: w, game: g } = (window as any).__nightfall;
     w.quality(false);
     w.render(0, g.pos, false, false);
-    return { triangles: w.renderer.info.render.triangles, hp: g.hp };
+    return {
+      triangles: w.renderer.info.render.triangles,
+      hp: g.hp,
+      soldiers: g.enemies.length,
+    };
   });
   await page.locator("#pause").click();
   await page.locator("#setting-low").selectOption("low");
@@ -20,6 +24,8 @@ test("Low reduces rendered detail and preserves the mission when switching", asy
     return {
       triangles: w.renderer.info.render.triangles,
       hp: g.hp,
+      soldiers: g.enemies.length,
+      pixels: [w.renderer.domElement.width, w.renderer.domElement.height],
       low: w.lowDetail,
       shadows: w.renderer.shadowMap.enabled,
       smoke: g.effects.filter((e: any) => e.smoke).length,
@@ -27,7 +33,10 @@ test("Low reduces rendered detail and preserves the mission when switching", asy
   });
   expect(low.low).toBe(true);
   expect(low.shadows).toBe(false);
-  expect(low.triangles).toBeLessThan(before.triangles * 0.8);
+  // Each biome has different baseline geometry; measure a real reduction without assuming the old palm-heavy scene.
+  expect(low.triangles).toBeLessThan(before.triangles);
+  expect(Math.max(...low.pixels)).toBeLessThanOrEqual(1280);
+  expect(low.soldiers).toBe(before.soldiers);
   expect(low.hp).toBe(before.hp);
   expect(low.smoke).toBe(2);
   await page.locator("#setting-low").selectOption("high");

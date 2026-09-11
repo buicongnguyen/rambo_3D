@@ -395,6 +395,52 @@ for projectile in ['rocket','arrow','grenade']:
         ico('Warhead',(0,-.30,0),(.075,.18,.075) if projectile=='rocket' else (.035,.07,.035),stone,2)
         for x in [-1,1]:box('Stabilizer',(x*.065,.21,0),(.12,.12,.015),olive)
     export('projectile_'+projectile)
+# Campaign expansion assets. Blender Z-up exports into three.js Y-up.
+snow=mat('Snow ivory',(.85,.92,.94)); concrete=mat('City concrete',(.43,.47,.49)); lava=mat('Hot warning orange',(.88,.20,.04)); cyan=mat('Laser cyan',(.08,.72,.88))
+cyl('Pine trunk',(0,0,1.7),.16,3.4,bark,12)
+for z,r in [(1.4,1.55),(2.2,1.25),(2.9,.94),(3.5,.60)]:
+    bpy.ops.mesh.primitive_cone_add(vertices=12,radius1=r,radius2=.05,depth=1.5,location=(0,0,z));finish(bpy.context.object,'Snow bough',snow)
+export('snowPine')
+box('Concrete house',(0,0,2.1),(5,7,4.2),concrete,.12)
+box('Roof coping',(0,0,4.25),(5.35,7.35,.24),stone,.05)
+box('Roof utility',(1,1,4.7),(1.3,1.6,.7),dark,.06)
+for y in [-3.53,3.53]:
+    for x in [-1.5,0,1.5]:
+        for z in [1.3,2.9]:
+            box('Window frame',(x,y,z),(1.1,.08,1.05),light,.03)
+            box('Window glass',(x,y*1.004,z),(.91,.035,.87),glass,.015)
+box('Door frame',(0,-3.6,.85),(1.2,.12,1.7),dark,.03)
+for x in [-2.53,2.53]:
+    for y in [-2,0,2]:box('Side window',(x,y,2.1),(.08,1.1,1.3),glass,.02)
+export('house')
+cyl('Fuel drum',(0,0,.55),.40,1.1,red,20)
+for z in [.10,.52,1.0]:cyl('Drum rib',(0,0,z),.43,.055,dark,20)
+box('Warning diamond',(0,-.405,.65),(.30,.025,.30),light,.02)
+cyl('Filler cap',(.15,0,1.12),.07,.04,dark,12)
+export('fuelDrum')
+ico('Armored spider',(0,0,1.5),(1.55,1.15,.65),dark,3)
+box('Spider core',(0,-.75,1.65),(.85,.55,.4),red,.1)
+for side in [-1,1]:
+    for j in range(4):
+        y=-.9+j*.6
+        root=joint('spider_Leg'+str(j+(0 if side<0 else 4)),(side*.9,y,1.45))
+        a=(side*.9,y,1.45);b=(side*2.1,y+(j-1.5)*.3,1.95);c=(side*2.9,y+(j-1.5)*.6,.12)
+        attach(beam('Leg upper',a,b,.19,olive),root);attach(ico('Leg knee',b,(.24,.24,.24),dark),root)
+        attach(beam('Leg lower',b,c,.13,dark),root);attach(ico('Claw',c,(.19,.28,.12),stone),root)
+for x in [-.35,.35]:ico('Spider sensor',(x,-1.02,1.75),(.16,.16,.16),cyan)
+export('spider')
+# Copy the authored tank with intact turret and wheel pivots, then add an emitter.
+clones={}
+for o in assets['tank']:
+    n=o.copy()
+    if o.data:n.data=o.data.copy()
+    bpy.context.collection.objects.link(n);clones[o]=n;current.append(n)
+for old,n in clones.items():
+    if old.parent in clones:n.parent=clones[old.parent]
+for z in [1.4,1.65,1.9]:box('Laser capacitor',(0,.5,z),(1.0,.7,.12),cyan,.04)
+box('Laser aperture',(0,-2.0,1.6),(.6,.5,.55),cyan,.05)
+export('laserTank')
+
 # Arrange the editable source as an asset gallery. GLBs above retain origin pivots.
 for i,(name,objects) in enumerate(assets.items()):
     collection=bpy.data.collections.new(name); bpy.context.scene.collection.children.link(collection)

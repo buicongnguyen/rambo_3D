@@ -36,7 +36,7 @@ test("invalid saves do not grant upgrades or break progression", () => {
   for (const bad of [
     null,
     {},
-    { ...freshSave(), mission: 5 },
+    { ...freshSave(), mission: 21 },
     { ...freshSave(), armor: 9 },
     { ...freshSave(), power: -1 },
     { ...freshSave(), best: Infinity },
@@ -51,6 +51,8 @@ test("campaign upgrades, best score, final completion, and resume survive round 
   s = advanceCampaign(s, "power", 1800);
   assert.equal(s.mission, 2);
   assert.equal(s.best, 2500);
+  for (let level = 2; level < 20; level++)
+    s = advanceCampaign(s, "power", 2800);
   s = advanceCampaign(s, "mobility", 3200);
   assert.equal(s.completed, true);
   assert.equal(s.mobility, 0);

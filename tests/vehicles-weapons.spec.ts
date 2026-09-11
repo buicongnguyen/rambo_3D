@@ -75,7 +75,7 @@ test("all three vehicles board, move with wheels, fire, retain ammo and eject sa
     expect(r.destroyed).toBe(true);
   }
 });
-test("vehicle water boundaries and mission restart preserve valid state", async ({
+test("vehicle extended map boundaries and mission restart preserve valid state", async ({
   page,
 }) => {
   await ready(page);
@@ -84,13 +84,13 @@ test("vehicle water boundaries and mission restart preserve valid state", async 
     g.start(1, { armor: 0, power: 0, mobility: 0 }, "story");
     g.enemies.forEach((e: any) => (e.hp = 0));
     const v = g.rides[1];
-    v.mesh.position.set(-5, 0, -8);
+    v.mesh.position.set(-5, 0, -110);
     g.pos.copy(v.mesh.position);
     g.useRide();
     v.heading = Math.PI;
     for (let i = 0; i < 180; i++)
       g.update(1 / 60, { ...input, x: 0, z: -1, fire: false, interact: false });
-    const stopped = v.mesh.position.z > -10.5 + v.spec.radius - 0.05;
+    const stopped = v.mesh.position.z >= -115 + v.spec.radius - 0.05;
     g.start(0, { armor: 0, power: 0, mobility: 0 }, "story");
     return {
       stopped,

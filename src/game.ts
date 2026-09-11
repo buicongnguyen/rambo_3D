@@ -1,9 +1,10 @@
+import { difficultyConfig, terrainFactor, WORLD_BOUNDS } from "./campaign.mjs";
 import { WEAPONS, type WeaponSpec } from "./arsenal";
 import { Ride } from "./rides";
 import * as T from "three";
 import { CharacterMotion, FallenBody, VehicleMotion } from "./animation";
 import { World, model } from "./world";
-import { MISSIONS, COVER, SPAWNS } from "./missions";
+import { MISSIONS, COVER, SPAWNS, PATCHES } from "./missions";
 import { moveCircle, segmentBox, segmentCircle, routeStep } from "./rules.mjs";
 export type Input = {
   x: number;
@@ -25,6 +26,12 @@ export type Actor = {
   cool: number;
   radius: number;
   boss: boolean;
+  bossKind?: string;
+  guard?: boolean;
+  state?: string;
+  anchor?: { x: number; z: number };
+  laserAim?: number;
+  beam?: T.Mesh<T.BufferGeometry, T.MeshBasicMaterial>;
   index: number;
   warn: T.Mesh;
   reinforced?: boolean;
@@ -38,6 +45,8 @@ type Hazard = {
   x: number;
   z: number;
   time: number;
+  rock?: T.Group;
+  bothSides?: boolean;
 };
 type Bullet = {
   mesh: T.Object3D;
@@ -126,6 +135,12 @@ export class Game {
   power = 0;
   mobility = 0;
   difficulty = "normal";
+  quakeTime = 0;
+  private eventClock = 7;
+  private quakeCount = 0;
+  sink = 0;
+  private iceVelocity = new T.Vector2();
+  private guardIds = new Set<Actor>();
   onRadio: (text: string) => void = () => {};
   onSound: (type: string) => void = () => {};
   onEnd: (win: boolean) => void = () => {};
@@ -168,6 +183,12 @@ export class Game {
   ) {
     this.cleanup();
     this.index = index;
+    this.eventClock = 7;
+    this.quakeTime = 0;
+    this.quakeCount = 0;
+    this.sink = 0;
+    this.iceVelocity.set(0, 0);
+    this.guardIds.clear();
     this.world.build(index);
     this.player = model("commando", 0, 23);
     this.playerMotion = new CharacterMotion(this.player);
@@ -176,7 +197,7 @@ export class Game {
     this.difficulty = difficulty;
     this.power = save.power;
     this.mobility = save.mobility;
-    this.maxHp = (difficulty === "story" ? 230 : 150) + save.armor * 35;
+    this.maxHp = difficultyConfig(difficulty).health + save.armor * 35;
     this.hp = this.maxHp;
     this.ammo = 24;
     this.magazines = WEAPONS.map((w) => w.mag);
@@ -196,12 +217,16 @@ export class Game {
     this.bossSpawned = false;
     this.bossDead = false;
     this.phase = "playing";
-    SPAWNS.forEach(([x, z], i) => this.spawn(x, z, false, i));
-    if (index === 0) {
-      this.companion = model("captive", 15, 0);
-      this.companionMotion = new CharacterMotion(this.companion);
-      this.world.actors.add(this.companion);
-    }
+    const multiplier = difficultyConfig(difficulty).soldiers;
+    SPAWNS.forEach(([x, z], i) => {
+      for (let n = 0; n < multiplier; n++)
+        this.spawn(
+          x + (n % 2) * 1.5,
+          z - Math.floor(n / 2) * 1.5,
+          false,
+          i * multiplier + n,
+        );
+    });
     this.rides = [
       new Ride("motorcycle", -4, 23),
       new Ride("jeep", 7, 21),
@@ -231,6 +256,11 @@ export class Game {
       this.world.actors.remove(cloud.mesh);
     }
     this.gas = [];
+    for (const e of this.enemies)
+      if (e.beam) {
+        this.world.actors.remove(e.beam);
+        e.beam.material.dispose();
+      }
     for (const b of this.bullets) this.world.actors.remove(b.mesh);
     for (const e of this.effects) {
       e.mesh.material.dispose();
@@ -240,6 +270,7 @@ export class Game {
       h.mesh.geometry.dispose();
       h.mesh.material.dispose();
       this.world.actors.remove(h.mesh);
+      if (h.rock) this.world.actors.remove(h.rock);
     }
     this.hazards = [];
     this.followClock = 0;
@@ -250,15 +281,19 @@ export class Game {
     this.companion = undefined;
   }
   spawn(x: number, z: number, boss: boolean, index: number) {
-    if (!boss) {
+    if (!boss || MISSIONS[this.index].bossModel === "laserTank") {
+      const clearance = boss ? 2.4 : 0.6;
       const obstacles = [
         ...COVER,
         ...this.rides.filter((v) => v.hp > 0).map((v) => v.box),
       ];
       const clear = (px: number, pz: number) =>
-        Math.abs(px) < 27 &&
-        Math.abs(pz) < 27 &&
-        !obstacles.some((b) => segmentBox(px, pz, px, pz, b, 0.6) !== Infinity);
+        Math.abs(px) < WORLD_BOUNDS.x - clearance &&
+        pz > WORLD_BOUNDS.minZ + 2 &&
+        pz < WORLD_BOUNDS.maxZ - 2 &&
+        !obstacles.some(
+          (b) => segmentBox(px, pz, px, pz, b, clearance) !== Infinity,
+        );
       if (!clear(x, z)) {
         let found = false;
         for (let r = 1; r <= 6 && !found; r++)
@@ -282,8 +317,12 @@ export class Game {
       z,
       boss ? 0.83 : 1,
     );
-    if (boss && this.index === 0) mesh.position.y = 3.8;
-    const max = boss ? 1100 + this.index * 400 : 65 + this.index * 8;
+    if (boss && MISSIONS[this.index].bossModel === "gunship")
+      mesh.position.y = 4;
+    mesh.userData.lowRange = 48;
+    const max = boss
+      ? 1100 + MISSIONS[this.index].stage * 100
+      : 65 + MISSIONS[this.index].level * 8;
     const warn = new T.Mesh(this.warnGeo, this.warnMat);
     warn.rotation.x = -Math.PI / 2;
     warn.position.set(x, 0.07, z);
@@ -292,13 +331,20 @@ export class Game {
       mesh,
       motion: boss ? undefined : new CharacterMotion(mesh),
       vehicleMotion: boss
-        ? new VehicleMotion(mesh, MISSIONS[this.index].bossModel)
+        ? new VehicleMotion(
+            mesh,
+            MISSIONS[this.index].bossModel === "laserTank"
+              ? "tank"
+              : MISSIONS[this.index].bossModel,
+          )
         : undefined,
       x,
       z,
       hp: max,
       max,
-      cool: 1.1 + index * 0.22,
+      cool: 1.1 + (index % 8) * 0.22,
+      bossKind: boss ? MISSIONS[this.index].bossModel : undefined,
+      anchor: boss ? { x, z } : undefined,
       radius: boss ? 2.4 : 0.65,
       boss,
       index,
@@ -334,7 +380,7 @@ export class Game {
   useRide() {
     if (this.riding) {
       const v = this.riding,
-        exit = v.exitPoint(this.rides, this.index === 1);
+        exit = v.exitPoint(this.rides, false);
       if (!exit) {
         this.onRadio("Exit blocked. Move into open ground first.");
         return;
@@ -365,7 +411,7 @@ export class Game {
       const v = this.riding;
       v.hp = Math.max(0, v.hp - damage);
       if (v.hp === 0) {
-        const exit = v.exitPoint(this.rides, this.index === 1);
+        const exit = v.exitPoint(this.rides, false);
         this.riding = undefined;
         v.rider.visible = false;
         this.player.visible = true;
@@ -393,6 +439,9 @@ export class Game {
           damage * Math.max(0.25, 1 - d / (spec.splash + enemy.radius)),
         );
     }
+    for (const prop of [...this.world.destructibles])
+      if (Math.hypot(prop.box.x - x, prop.box.z - z) < spec.splash + 0.5)
+        this.damageProp(prop.box, damage);
     if (spec.id === "poisonBomb") {
       const mesh = new T.Mesh(
         new T.SphereGeometry(1, 12, 8),
@@ -421,6 +470,10 @@ export class Game {
       for (const e of this.enemies)
         if (e.hp > 0 && segmentCircle(x, z, tx, tz, e.x, e.z, e.radius) < t)
           this.hurt(e, damage);
+      const hitProp = this.world.destructibles.find(
+        (p) => Math.abs(segmentBox(x, z, tx, tz, p.box) - t) < 0.001,
+      );
+      if (hitProp) this.damageProp(hitProp.box, damage);
       const beam = new T.Mesh(this.bulletGeo, this.effectMat.clone());
       beam.material.color.setHex(0x8efaff);
       beam.position.set(x + ((tx - x) * t) / 2, 1.1, z + ((tz - z) * t) / 2);
@@ -551,9 +604,13 @@ export class Game {
     e.hp -= damage;
     if (e.boss && e.hp > 0 && e.hp < e.max * 0.5 && !e.reinforced) {
       e.reinforced = true;
-      this.spawn(-15, -18, false, 20);
-      this.spawn(15, -18, false, 21);
-      this.spawn(0, -25, false, 22);
+      for (let n = 0; n < 2 * difficultyConfig(this.difficulty).soldiers; n++)
+        this.spawn(
+          e.x + (n % 2 ? 6 : -6),
+          e.z + 5 + Math.floor(n / 2) * 2,
+          false,
+          300 + n,
+        );
       this.onRadio(
         "Reinforcements on both flanks. Keep moving; the boss is escalating.",
       );
@@ -571,18 +628,294 @@ export class Game {
         ),
       );
       if (e.boss) this.spark(e.x, e.z, true);
+      if (e.beam) {
+        this.world.actors.remove(e.beam);
+        e.beam.material.dispose();
+        e.beam = undefined;
+      }
       if (e.boss) {
-        this.bossDead = true;
-        this.world.exit.visible = true;
-        this.onRadio(
-          "Target down. Extraction is open — reach the marked landing zone.",
-        );
+        this.checkExtraction();
       } else if (e.index % 2 === 0) {
         const p = new T.Mesh(this.pickupGeo, this.pickupMat);
         p.position.set(e.x, 0.65, e.z);
         this.pickups.push(p);
         this.world.actors.add(p);
       }
+    }
+  }
+  private checkExtraction() {
+    if (!this.objective || this.bossDead) return;
+    const cleared = MISSIONS[this.index].finale
+      ? this.bossSpawned && !this.enemies.some((e) => e.boss && e.hp > 0)
+      : [...this.guardIds].every((e) => e.hp <= 0);
+    if (cleared) {
+      this.bossDead = true;
+      this.world.exit.visible = true;
+      this.onRadio(
+        "Sector secure. Extraction is open at the north landing zone.",
+      );
+    }
+  }
+  damageProp(box: (typeof COVER)[number], damage: number) {
+    const prop = this.world.destructibles.find((p) => p.box === box);
+    if (!prop || prop.hp <= 0) return;
+    prop.hp -= damage;
+    if (prop.hp > 0) return;
+    this.world.destructibles.splice(this.world.destructibles.indexOf(prop), 1);
+    COVER.splice(COVER.indexOf(box), 1);
+    this.corpses.push(new FallenBody(prop.mesh, undefined, prop.kind));
+    if (prop.kind !== "fuel") {
+      this.spark(box.x, box.z);
+      return;
+    }
+    this.spark(box.x, box.z, true);
+    for (const e of this.enemies)
+      if (e.hp > 0 && Math.hypot(e.x - box.x, e.z - box.z) < 4.8 + e.radius)
+        this.hurt(e, 140);
+    if (
+      Math.hypot(this.pos.x - box.x, this.pos.z - box.z) <
+      4.8 + (this.riding?.spec.radius ?? 0.5)
+    ) {
+      this.takeDamage(45);
+      this.invincible = Math.max(this.invincible, 0.25);
+    }
+    for (const v of this.rides)
+      if (
+        v !== this.riding &&
+        v.hp > 0 &&
+        Math.hypot(v.mesh.position.x - box.x, v.mesh.position.z - box.z) <
+          4.8 + v.spec.radius
+      ) {
+        v.hp = Math.max(0, v.hp - 70);
+        if (!v.hp) this.corpses.push(new FallenBody(v.mesh, undefined, v.kind));
+      }
+    for (const next of [...this.world.destructibles])
+      if (Math.hypot(next.box.x - box.x, next.box.z - box.z) < 4.8)
+        this.damageProp(next.box, 90);
+  }
+  private updateTerrainEvents(dt: number) {
+    this.quakeTime = Math.max(0, this.quakeTime - dt);
+    const biome = MISSIONS[this.index].biome;
+    if (biome !== "quake" && biome !== "volcano") return;
+    this.eventClock -= dt;
+    if (this.eventClock > 0) return;
+    this.eventClock = biome === "quake" ? 10 : 5;
+    if (biome === "quake") {
+      this.quakeTime = 1 + (this.quakeCount++ % 2);
+      this.onRadio(
+        "EARTHQUAKE! Ground enemies are staggered. Push through the dust.",
+      );
+      for (let i = 0; i < (this.world.lowDetail ? 6 : 14); i++) {
+        const mesh = new T.Mesh(this.effectGeo, this.effectMat.clone());
+        mesh.material.color.setHex(0xb7a58a);
+        mesh.material.depthWrite = false;
+        mesh.position.set(
+          this.pos.x + Math.sin(i * 2.4) * 9,
+          0.05,
+          this.pos.z + Math.cos(i * 2.4) * 9,
+        );
+        mesh.scale.setScalar(2);
+        this.world.actors.add(mesh);
+        this.effects.push({
+          mesh,
+          life: 2,
+          max: 2,
+          smoke: true,
+          velocity: new T.Vector3(0.2, 2.8, 0.1),
+        });
+      }
+    } else {
+      const nearest = this.enemies
+        .filter((e) => e.hp > 0)
+        .sort(
+          (a, b) =>
+            Math.hypot(a.x - this.pos.x, a.z - this.pos.z) -
+            Math.hypot(b.x - this.pos.x, b.z - this.pos.z),
+        )[0];
+      for (const point of [
+        { x: this.pos.x, z: this.pos.z },
+        ...(nearest ? [nearest] : []),
+        { x: this.pos.x + 5, z: this.pos.z - 7 },
+      ])
+        this.rockfall(point.x, point.z);
+      this.onRadio(
+        "ROCKFALL! Clear the orange impact rings. Falling rock can hit either side.",
+      );
+    }
+  }
+  rockfall(x: number, z: number) {
+    const mesh = new T.Mesh(
+      new T.RingGeometry(1.85, 2, 36),
+      new T.MeshBasicMaterial({
+        color: 0xff8557,
+        side: T.DoubleSide,
+        transparent: true,
+        opacity: 0.9,
+      }),
+    );
+    mesh.rotation.x = -Math.PI / 2;
+    mesh.position.set(x, 0.08, z);
+    const rock = model("rock", x, z, 0.6);
+    rock.position.y = 21.6;
+    this.world.actors.add(mesh, rock);
+    this.hazards.push({ mesh, rock, x, z, time: 1.8, bothSides: true });
+  }
+  private updateBoss(e: Actor, dt: number) {
+    const beforeX = e.x,
+      beforeZ = e.z,
+      anchor = e.anchor!,
+      kind = e.bossKind;
+    const aim = Math.atan2(this.pos.x - e.x, this.pos.z - e.z);
+    const cycle = (this.elapsed + e.index * 1.7) % 14;
+    if (kind === "gunship") {
+      const cover = COVER.filter(
+        (b) => b.kind !== "fuel" && b.kind !== "tree",
+      ).sort(
+        (a, b) =>
+          Math.hypot(a.x - anchor.x, a.z - anchor.z) -
+          Math.hypot(b.x - anchor.x, b.z - anchor.z),
+      )[0];
+      const land = cover
+        ? {
+            x: cover.x,
+            z: Math.max(WORLD_BOUNDS.minZ + 4, cover.z - cover.d / 2 - 3.5),
+          }
+        : anchor;
+      const target =
+        cycle >= 6
+          ? land
+          : {
+              x: anchor.x + Math.sin(this.elapsed * 0.5 + e.index) * 6,
+              z: anchor.z + Math.cos(this.elapsed * 0.4 + e.index) * 4,
+            };
+      const distance = Math.hypot(target.x - e.x, target.z - e.z),
+        step = Math.min(distance, dt * 6);
+      if (distance > 0.01) {
+        e.x += ((target.x - e.x) / distance) * step;
+        e.z += ((target.z - e.z) / distance) * step;
+      }
+      const landed =
+        cycle >= 9 &&
+        cycle < 12 &&
+        distance < 1 &&
+        !COVER.some((b) => segmentBox(e.x, e.z, e.x, e.z, b, 1.5) !== Infinity);
+      e.mesh.position.y = T.MathUtils.damp(
+        e.mesh.position.y,
+        landed ? 0.4 : 4.5,
+        4,
+        dt,
+      );
+      e.state = landed ? "LANDED / REARMING" : "AIRBORNE";
+      if (landed) e.cool = Math.max(e.cool, 1.5);
+    } else if (kind === "spider") {
+      const resting = cycle > 11;
+      e.state = resting ? "RESTING" : "CLIMBING";
+      if (!resting) {
+        const d = Math.hypot(this.pos.x - e.x, this.pos.z - e.z);
+        if (d > 8) {
+          e.x += Math.sin(aim) * dt * 2.8;
+          e.z += Math.cos(aim) * dt * 2.8;
+        } else {
+          e.x += Math.cos(aim) * dt * 0.8;
+          e.z -= Math.sin(aim) * dt * 0.8;
+        }
+      }
+      const onCover = COVER.some(
+        (b) => segmentBox(e.x, e.z, e.x, e.z, b, 0.6) !== Infinity,
+      );
+      e.mesh.position.y = T.MathUtils.damp(
+        e.mesh.position.y,
+        onCover ? 4.4 : 0.15,
+        8,
+        dt,
+      );
+      e.mesh.traverse((o) => {
+        if (String(o.userData.joint).startsWith("Leg"))
+          o.rotation.y = resting
+            ? 0
+            : Math.sin(
+                this.elapsed * 7 + Number(String(o.userData.joint).slice(3)),
+              ) * 0.22;
+      });
+      if (resting) e.cool = Math.max(e.cool, 1.2);
+    } else {
+      e.state = e.cool < 1.2 ? "LASER CHARGING" : "REPOSITIONING";
+      if (e.cool > 1.2) {
+        const m = moveCircle(
+          e.x,
+          e.z,
+          Math.cos(aim) * dt,
+          -Math.sin(aim) * dt,
+          2,
+          [...COVER],
+          WORLD_BOUNDS,
+        );
+        e.x = m.x;
+        e.z = m.z;
+      }
+    }
+    e.x = T.MathUtils.clamp(e.x, -25, 25);
+    e.z = T.MathUtils.clamp(e.z, WORLD_BOUNDS.minZ + 3, 25);
+    e.mesh.position.x = e.x;
+    e.mesh.position.z = e.z;
+    e.mesh.rotation.y = aim;
+    e.vehicleMotion?.update(dt, (e.x - beforeX) / dt, aim, this.elapsed);
+    e.cool -= dt;
+    const sight = !COVER.some(
+      (b) => segmentBox(e.x, e.z, this.pos.x, this.pos.z, b) !== Infinity,
+    );
+    e.warn.visible = e.cool < 0.6 && sight;
+    e.warn.position.set(e.x, 0.08, e.z);
+    e.warn.scale.setScalar(3);
+    if (kind === "laserTank") {
+      if (e.cool <= 1.2) {
+        e.laserAim ??= aim;
+        const a = e.laserAim,
+          tx = e.x + Math.sin(a) * 45,
+          tz = e.z + Math.cos(a) * 45;
+        let t = 1;
+        for (const box of COVER)
+          t = Math.min(t, segmentBox(e.x, e.z, tx, tz, box));
+        if (!e.beam) {
+          e.beam = new T.Mesh(this.bulletGeo, this.effectMat.clone());
+          this.world.actors.add(e.beam);
+        }
+        e.beam.material.color.setHex(e.cool <= 0 ? 0x9dfaff : 0xff534c);
+        e.beam.position.set(
+          e.x + ((tx - e.x) * t) / 2,
+          1,
+          e.z + ((tz - e.z) * t) / 2,
+        );
+        e.beam.rotation.y = a;
+        e.beam.scale.set(0.8, 0.8, (45 * t) / 0.65);
+        if (e.cool <= 0) {
+          if (
+            this.invincible === 0 &&
+            segmentCircle(
+              e.x,
+              e.z,
+              tx,
+              tz,
+              this.pos.x,
+              this.pos.z,
+              this.riding?.spec.radius ?? 0.55,
+            ) < t
+          ) {
+            this.takeDamage(32);
+            this.invincible = 0.3;
+          }
+          this.effects.push({ mesh: e.beam, life: 0.22, max: 0.22 });
+          e.beam = undefined;
+          e.laserAim = undefined;
+          e.cool = 3.8;
+          this.onSound("shot");
+        }
+      }
+    } else if (e.cool <= 0) {
+      if (sight)
+        for (let i = 0; i < 5; i++)
+          this.shoot(e.x, e.z, aim + (i - 2) * 0.12, true, 14, 12);
+      e.cool = e.hp < e.max * 0.5 ? 1.4 : 2.1;
     }
   }
   private beginDefeat() {
@@ -613,6 +946,7 @@ export class Game {
       return;
     }
     this.elapsed += dt;
+    this.updateTerrainEvents(dt);
     this.shotTime = Math.max(0, this.shotTime - dt);
     this.dashCooldown = Math.max(0, this.dashCooldown - dt);
     this.invincible = Math.max(0, this.invincible - dt);
@@ -700,12 +1034,34 @@ export class Game {
     const movementSpeed = input.fire ? 3.8 : 6.2;
     const previousX = this.pos.x,
       previousZ = this.pos.z;
-    const terrainSpeed =
-      this.index === 1 &&
-      Math.abs(this.pos.z + 14) < 3.5 &&
-      Math.abs(this.pos.x) > 3.5
-        ? 0.56
-        : 1;
+    const patch = PATCHES.find(
+      (p) => Math.hypot(this.pos.x - p.x, this.pos.z - p.z) < p.radius,
+    );
+    this.sink = T.MathUtils.damp(
+      this.sink,
+      patch?.kind === "mud" ? 0.65 : 0,
+      patch?.kind === "mud" ? 1.2 : 4,
+      dt,
+    );
+    const terrainSpeed = terrainFactor(patch?.kind, this.sink);
+    let speedX = dx * (this.dashTime > 0 ? 23 : movementSpeed) * terrainSpeed;
+    let speedZ = dz * (this.dashTime > 0 ? 23 : movementSpeed) * terrainSpeed;
+    if (patch?.kind === "ice" && !this.riding) {
+      this.iceVelocity.x = T.MathUtils.damp(
+        this.iceVelocity.x,
+        speedX,
+        length ? 2.5 : 0.9,
+        dt,
+      );
+      this.iceVelocity.y = T.MathUtils.damp(
+        this.iceVelocity.y,
+        speedZ,
+        length ? 2.5 : 0.9,
+        dt,
+      );
+      speedX = this.iceVelocity.x;
+      speedZ = this.iceVelocity.y;
+    } else this.iceVelocity.set(speedX, speedZ);
     const parked = this.rides
       .filter((v) => v.hp > 0 && v !== this.riding)
       .map((v) => v.box);
@@ -714,16 +1070,16 @@ export class Game {
       : moveCircle(
           this.pos.x,
           this.pos.z,
-          dx * dt * (this.dashTime > 0 ? 23 : movementSpeed) * terrainSpeed,
-          dz * dt * (this.dashTime > 0 ? 23 : movementSpeed) * terrainSpeed,
+          speedX * dt,
+          speedZ * dt,
           0.48,
           [...COVER, ...parked],
-          28.5,
+          WORLD_BOUNDS,
         );
     this.pos.x = moved.x;
     this.pos.z = moved.z;
     // Root remains grounded; articulated joints provide all locomotion motion.
-    this.pos.y = this.world.groundHeight(this.pos.x, this.pos.z);
+    this.pos.y = this.world.groundHeight(this.pos.x, this.pos.z) - this.sink;
     let aim = input.aim;
     const nearest = this.enemies
       .filter(
@@ -774,12 +1130,40 @@ export class Game {
     }
     if (this.riding) {
       const v = this.riding;
-      v.drive(dt, dx, dz, angle, this.rides, this.index === 1);
+      v.drive(
+        dt,
+        dx,
+        dz,
+        angle,
+        this.rides,
+        false,
+        terrainSpeed,
+        patch?.kind === "ice",
+      );
       v.mesh.position.y = this.world.groundHeight(
         v.mesh.position.x,
         v.mesh.position.z,
       );
       this.pos.copy(v.mesh.position);
+      if (
+        v.kind === "tank" &&
+        Math.hypot(this.pos.x - previousX, this.pos.z - previousZ) > 0.002
+      )
+        for (const enemy of this.enemies)
+          if (
+            !enemy.boss &&
+            enemy.hp > 0 &&
+            segmentCircle(
+              previousX,
+              previousZ,
+              this.pos.x,
+              this.pos.z,
+              enemy.x,
+              enemy.z,
+              v.spec.radius + enemy.radius,
+            ) !== Infinity
+          )
+            this.hurt(enemy, enemy.hp);
       v.cool = Math.max(0, v.cool - dt);
       if (input.fire && v.cool === 0 && this.reloadTime === 0) {
         const spec =
@@ -833,13 +1217,36 @@ export class Game {
       this.objective = true;
       this.score += 500;
       this.world.marker.visible = false;
-      this.spawn(mission.bossPos.x, mission.bossPos.z, true, 9);
-      this.bossSpawned = true;
-      this.onRadio(
-        this.index === 0
-          ? "Mara: I am with you. Cobra Fang is inbound — stay out of its firing line!"
-          : `${mission.boss} is responding. Watch for the warning ring, then move.`,
-      );
+      if (mission.finale) {
+        const count = difficultyConfig(this.difficulty).bosses;
+        for (let n = 0; n < count; n++)
+          this.spawn(
+            mission.bossPos.x + (count === 1 ? 0 : n % 2 ? 8 : -8),
+            mission.bossPos.z - Math.floor(n / 2) * 9,
+            true,
+            100 + n,
+          );
+        this.bossSpawned = true;
+        this.onRadio(
+          `${count} command boss${count > 1 ? "es" : ""} inbound. Defeat them all to open extraction.`,
+        );
+      } else {
+        const count = 3 * difficultyConfig(this.difficulty).soldiers;
+        for (let n = 0; n < count; n++) {
+          const before = this.enemies.length;
+          this.spawn(
+            mission.objective.x + (n % 2 ? 4 : -4),
+            mission.objective.z - 6 - Math.floor(n / 2) * 2,
+            false,
+            200 + n,
+          );
+          if (this.enemies.length > before)
+            this.guardIds.add(this.enemies[this.enemies.length - 1]);
+        }
+        this.onRadio(
+          "Relay guards incoming. Clear the counterattack to open extraction.",
+        );
+      }
       this.onSound("objective");
     }
     input.interact = false;
@@ -861,6 +1268,8 @@ export class Game {
             this.pos.x,
             this.pos.z,
             navigationCover,
+            0.45,
+            WORLD_BOUNDS,
           );
           this.followClock = 0.35;
         }
@@ -875,7 +1284,7 @@ export class Game {
           ((this.followTarget.z - p.z) / fd) * Math.min(fd, dt * 6.6),
           0.4,
           navigationCover,
-          28.5,
+          WORLD_BOUNDS,
         );
         p.x = next.x;
         p.z = next.z;
@@ -897,6 +1306,18 @@ export class Game {
     }
     for (const e of this.enemies) {
       if (e.hp <= 0) continue;
+      if (
+        this.quakeTime > 0 &&
+        !(e.bossKind === "gunship" && e.mesh.position.y > 2)
+      ) {
+        e.motion?.update(dt, { vx: 0, vz: 0 });
+        e.warn.visible = false;
+        continue;
+      }
+      if (e.boss) {
+        this.updateBoss(e, dt);
+        continue;
+      }
       const beforeX = e.x,
         beforeZ = e.z;
       const distance = Math.hypot(e.x - this.pos.x, e.z - this.pos.z);
@@ -907,7 +1328,7 @@ export class Game {
         continue;
       }
       const a = Math.atan2(this.pos.x - e.x, this.pos.z - e.z);
-      if (!e.boss || this.index !== 2) e.mesh.rotation.y = a;
+      e.mesh.rotation.y = a;
       const hasSight = !navigationCover.some(
         (b) =>
           segmentBox(e.x, e.z, this.pos.x, this.pos.z, b, 0.06) !== Infinity,
@@ -930,8 +1351,9 @@ export class Game {
               this.pos.z,
               navigationCover,
               0.55,
+              WORLD_BOUNDS,
             );
-            e.routeTime = 0.4;
+            e.routeTime = 0.6 + (e.index % 4) * 0.1;
           }
           const rx = e.routeTarget!.x - e.x,
             rz = e.routeTarget!.z - e.z;
@@ -975,17 +1397,10 @@ export class Game {
           vz,
           0.55,
           [...COVER, ...this.rides.filter((v) => v.hp > 0).map((v) => v.box)],
-          28,
+          WORLD_BOUNDS,
         );
         e.x = move.x;
         e.z = move.z;
-      } else if (e.boss) {
-        const targetX = mission.bossPos.x + Math.sin(this.elapsed * 0.6) * 6;
-        e.x +=
-          Math.sign(targetX - e.x) * Math.min(Math.abs(targetX - e.x), dt * 2);
-        if (this.index === 0) {
-          e.mesh.position.y = 4 + Math.sin(this.elapsed * 2) * 0.25;
-        }
       }
       e.mesh.position.x = e.x;
       e.mesh.position.z = e.z;
@@ -1004,51 +1419,9 @@ export class Game {
           )
         ) {
           e.motion?.kick();
-          const count = e.boss
-            ? this.index === 1
-              ? 3
-              : e.hp < e.max * 0.5
-                ? 7
-                : 5
-            : 1;
-          for (let i = 0; i < count; i++)
-            this.shoot(
-              e.x,
-              e.z,
-              Math.atan2(this.pos.x - e.x, this.pos.z - e.z) +
-                (i - (count - 1) / 2) * (this.index === 1 ? 0.07 : 0.15),
-              true,
-              (e.boss ? 14 : 9) * (this.difficulty === "story" ? 0.65 : 1),
-              e.boss ? (this.index === 1 ? 16 : 12) : 10,
-            );
-          if (e.boss && this.index === 2) {
-            const mesh = new T.Mesh(
-              new T.RingGeometry(1.85, 2, 36),
-              new T.MeshBasicMaterial({
-                color: 0xff8557,
-                side: T.DoubleSide,
-                transparent: true,
-                opacity: 0.9,
-              }),
-            );
-            mesh.rotation.x = -Math.PI / 2;
-            mesh.position.set(this.pos.x, 0.08, this.pos.z);
-            this.world.actors.add(mesh);
-            this.hazards.push({
-              mesh,
-              x: this.pos.x,
-              z: this.pos.z,
-              time: 1.35,
-            });
-          }
+          this.shoot(e.x, e.z, a, true, 9, 10);
         }
-        e.cool = e.boss
-          ? this.index === 1
-            ? 0.9
-            : e.hp < e.max * 0.5
-              ? 1.2
-              : 1.8
-          : 2.2 + e.index * 0.09;
+        e.cool = 2.2 + (e.index % 8) * 0.09;
       }
     }
     for (let i = this.bullets.length - 1; i >= 0; i--) {
@@ -1061,8 +1434,14 @@ export class Game {
       let victim: Actor | undefined;
       let parkedVictim: Ride | undefined;
       let hitPlayer = false;
-      for (const box of COVER)
-        t = Math.min(t, segmentBox(b.x, b.z, nx, nz, box, 0.06));
+      let coverHit: (typeof COVER)[number] | undefined;
+      for (const box of COVER) {
+        const hit = segmentBox(b.x, b.z, nx, nz, box, 0.06);
+        if (hit < t) {
+          t = hit;
+          coverHit = box;
+        }
+      }
       if (b.enemy)
         for (const v of this.rides) {
           if (v === this.riding || v.hp <= 0) continue;
@@ -1105,6 +1484,8 @@ export class Game {
           }
         }
       if (t !== Infinity) {
+        if (coverHit && !victim && !hitPlayer && !parkedVictim)
+          this.damageProp(coverHit, b.damage);
         if (parkedVictim) {
           parkedVictim.hp = Math.max(0, parkedVictim.hp - b.damage);
           if (parkedVictim.hp === 0) {
@@ -1215,19 +1596,29 @@ export class Game {
     for (let i = this.hazards.length - 1; i >= 0; i--) {
       const h = this.hazards[i];
       h.time -= dt;
+      if (h.rock) h.rock.position.y = Math.max(0, h.time * 12);
       h.mesh.material.opacity = 0.4 + Math.abs(Math.sin(h.time * 10)) * 0.5;
       if (h.time <= 0) {
         this.spark(h.x, h.z, true);
+        if (h.bothSides)
+          for (const e of this.enemies)
+            if (e.hp > 0 && Math.hypot(e.x - h.x, e.z - h.z) < 2 + e.radius)
+              this.hurt(e, 90);
+        if (h.bothSides)
+          for (const p of [...this.world.destructibles])
+            if (Math.hypot(p.box.x - h.x, p.box.z - h.z) < 3)
+              this.damageProp(p.box, 90);
         if (
           Math.hypot(this.pos.x - h.x, this.pos.z - h.z) < 2 &&
           this.invincible === 0
         ) {
-          this.takeDamage(this.difficulty === "story" ? 17 : 28);
+          this.takeDamage(28);
           this.playerMotion.hit();
           this.invincible = Math.max(this.invincible, 0.2);
           this.onSound("damage");
         }
         this.world.actors.remove(h.mesh);
+        if (h.rock) this.world.actors.remove(h.rock);
         h.mesh.geometry.dispose();
         h.mesh.material.dispose();
         this.hazards.splice(i, 1);
@@ -1255,6 +1646,7 @@ export class Game {
         this.onSound("objective");
       }
     }
+    this.checkExtraction();
     // Hit reactions preserve silhouette instead of blinking the entire actor away.
     if (this.hp <= 0) {
       this.beginDefeat();
