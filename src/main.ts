@@ -443,7 +443,7 @@ function updateHud() {
   const point = (x: number, z: number, color: string, r: number) => {
     ctx.fillStyle = color;
     ctx.beginPath();
-    ctx.arc(72 + x * 2.1, 8 + ((28.5 - z) / 143.5) * 128, r, 0, Math.PI * 2);
+    ctx.arc(72 + x * 2.1, 8 + ((z + 115) / 143.5) * 128, r, 0, Math.PI * 2);
     ctx.fill();
   };
   for (const e of game.enemies)
