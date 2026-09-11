@@ -1,0 +1,516 @@
+import * as T from "three";
+import "./style.css";
+import { World, loadAssets, model } from "./world";
+import { Game, type Input } from "./game";
+import { MISSIONS } from "./missions";
+import { freshSave, validateSave, advanceCampaign } from "./rules.mjs";
+const $ = <E extends HTMLElement = HTMLElement>(s: string) =>
+  document.querySelector<E>(s)!;
+function read(key: string, fallback: unknown) {
+  try {
+    return JSON.parse(localStorage.getItem(key) || "null") ?? fallback;
+  } catch {
+    return fallback;
+  }
+}
+function write(key: string, value: unknown) {
+  try {
+    localStorage.setItem(key, JSON.stringify(value));
+  } catch {}
+}
+let save = validateSave(read("nightfall-campaign", freshSave()));
+const rawPrefs = read("nightfall-prefs", {}) as Record<string, unknown>;
+const prefs = {
+  sound: rawPrefs.sound !== false,
+  low: rawPrefs.low === true,
+  reduced:
+    rawPrefs.reduced === true ||
+    matchMedia("(prefers-reduced-motion: reduce)").matches,
+};
+let difficulty = "normal",
+  mode: "menu" | "playing" | "paused" | "result" = "menu",
+  ready = false,
+  radioUntil = 0,
+  audio: AudioContext | undefined,
+  lastShotSound = 0;
+const app = $("#app");
+app.innerHTML = `
+<canvas id="scene" aria-label="Three-dimensional mission battlefield"></canvas>
+<div class="vignette"></div><div id="crosshair" hidden><i></i></div>
+<header id="brand"><a href="#" id="home" aria-label="Operation Nightfall briefing"><span class="brand-mark">R<span>///</span></span><span class="brand-name">RAMBO <b>3D</b><small>OPERATION NIGHTFALL</small></span></a><div class="header-right"><span class="status-dot"></span> FIELD OPERATIONS <span class="divider">/</span> <span>EST. 1985</span><button id="sound" class="icon-button" aria-label="Toggle sound">SOUND ON</button></div></header>
+<main id="menu" class="menu"><section class="hero"><div class="eyebrow"><span></span> BEHIND ENEMY LINES. AGAIN.</div><h1>THE MISSION<br>IS <em>PERSONAL.</em></h1><p class="hero-copy">They left your people behind.<br>You came back for them.</p><div class="hero-rule"></div><div class="operation-line"><span>01—03</span><p>ONE SOLDIER. THREE OPERATIONS.<br>EVERYONE COMES HOME.</p></div><div id="launch-area"><button class="primary" disabled id="deploy">PREPARING FIELD KIT <span id="load">0%</span></button></div><div class="difficulty"><span>ENGAGEMENT</span><button data-difficulty="story">STORY</button><button data-difficulty="normal" class="selected">STANDARD</button></div><p class="small-note">Story offers more health and reduced incoming damage.</p></section>
+<aside class="intel"><div class="intel-top"><span class="live-dot"></span> LIVE RECON <span>SECTOR 07</span></div><div class="intel-map"><div class="scan"></div><div class="coordinate c1">17°04′ N</div><div class="coordinate c2">106°42′ E</div><div class="map-line l1"></div><div class="map-line l2"></div><span class="map-dot d1"></span><span class="map-dot d2"></span><span class="map-dot d3"></span><span class="map-label">KHE SAN VALLEY</span></div><div class="intel-bottom"><span>MISSION BRIEF / <b id="brief-number">01</b></span><h2 id="brief-title">Emerald Killbox</h2><p id="brief-copy"></p><div class="intel-meta"><span>◆ SOLO CAMPAIGN</span><span>● 3D TACTICAL ACTION</span></div></div></aside>
+<section class="campaign" aria-label="Campaign missions"><div class="campaign-heading"><span>YOUR NEXT THREE MOVES</span><span>CAMPAIGN / NIGHTFALL</span></div><div id="mission-cards" class="mission-cards"></div></section>
+<footer class="menu-footer"><span>AN ORIGINAL LOW-POLY COMBAT EXPERIENCE <b id="best-score"></b></span><button id="controls-open">FIELD MANUAL <span>↗</span></button><span>BUILT WITH BLENDER + THREE.JS</span></footer></main>
+<section id="hud" hidden aria-label="Mission status"><div class="hud-top"><div class="objective-panel"><span class="eyebrow" id="mission-label"></span><h2 id="mission-title"></h2><div id="objectives"></div></div><div class="hud-right"><button class="icon-button" id="pause">Ⅱ <span>PAUSE</span></button><canvas id="minimap" width="144" height="144" aria-label="Tactical map: player white, enemies orange, objective yellow, extraction green"></canvas><span class="map-caption">TACTICAL UPLINK</span></div></div><div id="boss-panel" hidden><div><b id="boss-name"></b><span id="boss-phase">ARMORED TARGET</span></div><div class="boss-track"><i id="boss-bar"></i></div></div><div id="radio" role="status"><span>VALE / RADIO</span><p></p></div><div id="interact-prompt" hidden></div><div class="hud-bottom"><div class="health-panel"><div class="hud-kicker">GHOST <span id="health-text"></span></div><div class="health-track"><i id="health-bar"></i></div><div class="health-meta"><span id="dash-text">DODGE READY</span><span id="score">000000</span></div></div><div class="controls-strip"><kbd>WASD</kbd> MOVE <kbd>SPACE</kbd> AUTO FIRE <kbd>E</kbd> INTERACT <kbd>SHIFT</kbd> DODGE</div><div class="ammo-panel"><div id="weapon-name">M4 / ASSAULT RIFLE</div><strong id="ammo">24</strong><span id="ammo-reserve">/ ∞</span><small id="reload-label">R RELOAD · Q SWITCH</small></div></div><div id="touch"><div class="dpad"><button data-hold="up" aria-label="Move forward">▲</button><button data-hold="left" aria-label="Move left">◀</button><button data-hold="down" aria-label="Move backward">▼</button><button data-hold="right" aria-label="Move right">▶</button></div><div class="touch-actions"><button data-action="swap">SWAP</button><button data-action="reload">RELOAD</button><button data-action="interact">USE</button><button data-action="dodge">DODGE</button><button data-hold="fire" class="fire">FIRE</button></div></div></section>
+<div id="overlay" class="overlay" hidden></div><div id="toast" role="status" hidden></div>`;
+const canvas = $<HTMLCanvasElement>("#scene");
+let world: World, game: Game;
+const input: Input = {
+  x: 0,
+  z: 0,
+  fire: false,
+  assist: false,
+  aim: new T.Vector3(0, 0, 0),
+  dodge: false,
+  reload: false,
+  interact: false,
+  swap: false,
+};
+const keys = new Set<string>(),
+  held = new Set<string>();
+let mouseDown = false,
+  pointer = new T.Vector2(),
+  pointerSeen = false;
+const ray = new T.Raycaster(),
+  ground = new T.Plane(new T.Vector3(0, 1, 0), -0.9);
+function clearInput() {
+  keys.clear();
+  held.clear();
+  mouseDown = false;
+  input.x = 0;
+  input.z = 0;
+  input.fire = false;
+  input.dodge = false;
+  input.reload = false;
+  input.interact = false;
+  input.swap = false;
+}
+function sound(type: string) {
+  if (!prefs.sound) return;
+  try {
+    audio ??= new AudioContext();
+    if (audio.state === "suspended") void audio.resume();
+    const now = audio.currentTime;
+    if (type === "shot" && now - lastShotSound < 0.08) return;
+    if (type === "shot") lastShotSound = now;
+    const oscillator = audio.createOscillator(),
+      gain = audio.createGain();
+    const notes: Record<string, [number, number, number]> = {
+      shot: [125, 45, 0.07],
+      hit: [260, 70, 0.06],
+      explosion: [65, 22, 0.3],
+      objective: [480, 960, 0.3],
+      reload: [230, 320, 0.09],
+      dash: [380, 70, 0.16],
+      damage: [100, 40, 0.15],
+    };
+    const [a, b, d] = notes[type] ?? notes.hit;
+    oscillator.type = type === "objective" ? "sine" : "triangle";
+    oscillator.frequency.setValueAtTime(a, now);
+    oscillator.frequency.exponentialRampToValueAtTime(b, now + d);
+    gain.gain.setValueAtTime(type === "shot" ? 0.035 : 0.07, now);
+    gain.gain.exponentialRampToValueAtTime(0.001, now + d);
+    oscillator.connect(gain).connect(audio.destination);
+    oscillator.start();
+    oscillator.stop(now + d + 0.01);
+  } catch {}
+}
+function radio(text: string) {
+  $("#radio p").textContent = text;
+  radioUntil = performance.now() + 9000;
+  $("#radio").classList.add("visible");
+}
+function syncSound() {
+  $("#sound").textContent = prefs.sound ? "SOUND ON" : "SOUND OFF";
+  $("#sound").setAttribute("aria-pressed", String(prefs.sound));
+  write("nightfall-prefs", prefs);
+}
+$("#sound").onclick = () => {
+  prefs.sound = !prefs.sound;
+  syncSound();
+};
+syncSound();
+function menu() {
+  mode = "menu";
+  clearInput();
+  $("#menu").hidden = false;
+  $("#brand").hidden = false;
+  $("#hud").hidden = true;
+  $("#overlay").hidden = true;
+  $("#crosshair").hidden = true;
+  document.body.classList.remove("in-game");
+  const index = save.completed ? 0 : save.mission,
+    m = MISSIONS[index];
+  if (ready) {
+    game.cleanup();
+    world.build(index);
+    world.marker.visible = true;
+    world.terrain.add(
+      model("commando", 3, 15),
+      model(m.bossModel, 4, -14, 0.85),
+    );
+  }
+  $("#best-score").textContent = save.best
+    ? " / BEST " + save.best.toLocaleString()
+    : "";
+  $("#brief-number").textContent = `0${index + 1}`;
+  $("#brief-title").textContent = m.name;
+  $("#brief-copy").textContent = m.brief;
+  $("#mission-cards").innerHTML = MISSIONS.map(
+    (m, i) =>
+      `<article class="mission-card ${i === index ? "active" : ""}"><div class="card-num">0${i + 1}</div><div><span class="card-tag">${m.tag}</span><h3>${m.name}</h3><p>${m.description}</p></div><span class="card-state">${save.completed || i < save.mission ? "✓ COMPLETE" : i === index ? "↗ UP NEXT" : "⊞ LOCKED"}</span></article>`,
+  ).join("");
+  $("#launch-area").innerHTML =
+    `<button class="primary" id="deploy" ${ready ? "" : "disabled"}>${save.completed ? "REPLAY CAMPAIGN" : save.mission > 0 ? "CONTINUE OPERATION" : "DEPLOY TO JUNGLE"} <span>↗</span></button>${save.mission > 0 && !save.completed ? '<button class="text-button" id="new-campaign">START NEW CAMPAIGN</button>' : ""}`;
+  $("#deploy").onclick = () => {
+    if (save.completed) {
+      save = { ...freshSave(), best: save.best };
+      write("nightfall-campaign", save);
+    }
+    start();
+  };
+  const reset = document.querySelector<HTMLButtonElement>("#new-campaign");
+  if (reset)
+    reset.onclick = () => {
+      showOverlay(
+        `<span class="eyebrow">NEW CAMPAIGN</span><h2>Back to the beginning?</h2><p>This resets mission progress and upgrades. Your best score is kept.</p><button class="primary" id="confirm-new">START OVER <span>↗</span></button><button class="text-button" id="cancel-new">KEEP MY PROGRESS</button>`,
+      );
+      $("#confirm-new").onclick = () => {
+        save = { ...freshSave(), best: save.best };
+        write("nightfall-campaign", save);
+        menu();
+      };
+      $("#cancel-new").onclick = () => {
+        $("#overlay").hidden = true;
+      };
+    };
+}
+function start() {
+  if (!ready) return;
+  clearInput();
+  game.start(save.mission, save, difficulty);
+  world.marker.visible = true;
+  mode = "playing";
+  $("#menu").hidden = true;
+  $("#brand").hidden = true;
+  $("#hud").hidden = false;
+  $("#overlay").hidden = true;
+  document.body.classList.add("in-game");
+  radio(MISSIONS[save.mission].radio);
+  sound("objective");
+  canvas.focus();
+}
+function showOverlay(html: string) {
+  const overlay = $("#overlay");
+  overlay.innerHTML = `<section class="modal" role="dialog" aria-modal="true" aria-label="Mission panel">${html}</section>`;
+  overlay.hidden = false;
+  overlay.querySelector<HTMLButtonElement>("button")?.focus();
+}
+function pause() {
+  if (mode !== "playing") return;
+  mode = "paused";
+  clearInput();
+  showOverlay(
+    `<span class="eyebrow">SIGNAL ON HOLD</span><h2>Take a breath.</h2><p>The battlefield will wait.</p><button id="resume" class="primary">RESUME OPERATION <span>↗</span></button><div class="settings"><label><span>Sound effects</span><input id="setting-sound" type="checkbox" ${prefs.sound ? "checked" : ""}></label><label><span>Low graphics / battery saver</span><input id="setting-low" type="checkbox" ${prefs.low ? "checked" : ""}></label><label><span>Reduce camera motion</span><input id="setting-motion" type="checkbox" ${prefs.reduced ? "checked" : ""}></label></div><div class="modal-actions"><button id="restart">RESTART MISSION</button><button id="to-menu">MISSION BRIEFING</button></div><p class="small-note">WASD / arrows move · Mouse aims · Click / Space fires<br>R reload · Q switch · E interact · Shift dodge · Esc pause</p>`,
+  );
+  $("#resume").onclick = resume;
+  $("#restart").onclick = start;
+  $("#to-menu").onclick = menu;
+  $<HTMLInputElement>("#setting-sound").onchange = (e) => {
+    prefs.sound = (e.target as HTMLInputElement).checked;
+    syncSound();
+  };
+  $<HTMLInputElement>("#setting-low").onchange = (e) => {
+    prefs.low = (e.target as HTMLInputElement).checked;
+    world.quality(prefs.low);
+    write("nightfall-prefs", prefs);
+  };
+  $<HTMLInputElement>("#setting-motion").onchange = (e) => {
+    prefs.reduced = (e.target as HTMLInputElement).checked;
+    write("nightfall-prefs", prefs);
+  };
+}
+function resume() {
+  if (mode !== "paused") return;
+  clearInput();
+  mode = "playing";
+  $("#overlay").hidden = true;
+}
+$("#pause").onclick = pause;
+$("#home").onclick = (e) => {
+  e.preventDefault();
+  if (mode === "playing") pause();
+};
+$("#controls-open").onclick = () => {
+  showOverlay(
+    `<span class="eyebrow">FIELD MANUAL / 01</span><h2>Get in. Get them out.</h2><p>Move through cover, complete the yellow objective, defeat the boss, then reach the green extraction pad.</p><div class="manual-grid"><span>WASD / ARROWS</span><b>Move</b><span>MOUSE + CLICK</span><b>Aim and fire</b><span>HOLD SPACE</span><b>Assisted aim and fire</b><span>SHIFT + MOVE</span><b>Dodge incoming fire</b><span>E / R / Q</span><b>Interact / reload / switch</b><span>ESCAPE</span><b>Pause and settings</b></div><p>Orange rings warn of an attack. Crates stop bullets. Green pickups restore health. The scattergun excels at close range. Touch controls appear on touch devices.</p><button id="close-manual" class="primary">READY FOR THE FIELD <span>↗</span></button>`,
+  );
+  $("#close-manual").onclick = () => {
+    $("#overlay").hidden = true;
+    $("#controls-open").focus();
+  };
+};
+for (const button of document.querySelectorAll<HTMLButtonElement>(
+  "[data-difficulty]",
+))
+  button.onclick = () => {
+    difficulty = button.dataset.difficulty!;
+    document
+      .querySelectorAll("[data-difficulty]")
+      .forEach((b) =>
+        b.classList.toggle(
+          "selected",
+          (b as HTMLElement).dataset.difficulty === difficulty,
+        ),
+      );
+  };
+function end(win: boolean) {
+  mode = "result";
+  clearInput();
+  const m = MISSIONS[game.index],
+    final = win && game.index === 2;
+  if (final) {
+    save = advanceCampaign(save, "armor", game.score);
+    write("nightfall-campaign", save);
+  }
+  showOverlay(
+    `<span class="eyebrow">${win ? "TRANSMISSION RECEIVED" : "SIGNAL LOST"} / 0${game.index + 1}</span><h2>${final ? "Everyone comes home." : win ? "Mission accomplished." : "Not your last stand."}</h2><p>${win ? m.success : "Use cover to break enemy sightlines. Dodge when orange rings appear, and collect green health drops. Your completed campaign progress is safe."}</p><div class="result-stats"><div><b>${game.score.toLocaleString()}</b><span>MISSION SCORE</span></div><div><b>${game.kills}</b><span>TARGETS DOWN</span></div><div><b>${formatTime(game.elapsed)}</b><span>FIELD TIME</span></div></div>${win && !final ? '<span class="eyebrow">CHOOSE YOUR NEXT ADVANTAGE</span><div class="upgrades"><button data-upgrade="armor"><b>01 / FIELD ARMOR</b><span>+35 maximum health</span></button><button data-upgrade="power"><b>02 / TUNED WEAPONS</b><span>+20% base damage</span></button><button data-upgrade="mobility"><b>03 / LIGHT KIT</b><span>−0.55s dodge cooldown</span></button></div>' : `<button id="result-primary" class="primary">${win ? "RETURN TO BRIEFING" : "RETRY MISSION"} <span>↗</span></button>`}${!win ? '<button id="result-menu" class="text-button">MISSION BRIEFING</button>' : ""}`,
+  );
+  for (const b of document.querySelectorAll<HTMLButtonElement>(
+    "[data-upgrade]",
+  ))
+    b.onclick = () => {
+      save = advanceCampaign(save, b.dataset.upgrade, game.score);
+      write("nightfall-campaign", save);
+      menu();
+    };
+  const primary = document.querySelector<HTMLButtonElement>("#result-primary");
+  if (primary) primary.onclick = win ? menu : start;
+  const back = document.querySelector<HTMLButtonElement>("#result-menu");
+  if (back) back.onclick = menu;
+}
+function formatTime(t: number) {
+  return `${Math.floor(t / 60)
+    .toString()
+    .padStart(2, "0")}:${Math.floor(t % 60)
+    .toString()
+    .padStart(2, "0")}`;
+}
+const map = $<HTMLCanvasElement>("#minimap"),
+  ctx = map.getContext("2d")!;
+function updateHud() {
+  const m = MISSIONS[game.index];
+  $("#mission-label").textContent =
+    `OPERATION 0${game.index + 1} / ${formatTime(game.elapsed)}`;
+  $("#mission-title").textContent = m.name;
+  $("#objectives").innerHTML =
+    `<span class="${game.objective ? "done" : ""}">${game.objective ? "✓" : "◇"} ${m.action}</span><span class="${game.bossDead ? "done" : ""}">${game.bossDead ? "✓" : "◇"} Neutralize ${m.boss.toLowerCase()}</span><span class="${game.bossDead ? "current" : ""}">◇ Reach extraction</span>`;
+  $("#health-text").textContent = `${Math.ceil(game.hp)} / ${game.maxHp}`;
+  $("#health-bar").style.width = `${(game.hp / game.maxHp) * 100}%`;
+  $("#health-bar").classList.toggle("danger", game.hp / game.maxHp < 0.3);
+  $("#dash-text").textContent =
+    game.dashCooldown > 0
+      ? `DODGE ${game.dashCooldown.toFixed(1)}s`
+      : "DODGE READY";
+  $("#score").textContent = `${game.score.toString().padStart(6, "0")} PTS`;
+  $("#weapon-name").textContent = game.weapon
+    ? "M870 / SCATTERGUN"
+    : "M4 / ASSAULT RIFLE";
+  $("#ammo").textContent = game.ammo.toString().padStart(2, "0");
+  $("#reload-label").textContent =
+    game.reloadTime > 0
+      ? `RELOADING ${game.reloadTime.toFixed(1)}s`
+      : "R RELOAD · Q SWITCH";
+  const boss = game.boss;
+  $("#boss-panel").hidden = !boss;
+  if (boss) {
+    $("#boss-name").textContent = m.boss;
+    $("#boss-bar").style.width = `${(boss.hp / boss.max) * 100}%`;
+    $("#boss-phase").textContent =
+      boss.hp < boss.max * 0.5 ? "ENRAGED / WIDER SALVOS" : "ARMORED TARGET";
+  }
+  const d = Math.hypot(game.pos.x - m.objective.x, game.pos.z - m.objective.z),
+    prompt = $("#interact-prompt");
+  prompt.hidden = game.objective || d >= 3;
+  prompt.innerHTML = `<kbd>E</kbd> ${m.action.toUpperCase()} <span>/ TAP USE</span>`;
+  if (
+    game.bossDead &&
+    game.companion &&
+    Math.hypot(game.pos.x - m.extract.x, game.pos.z - m.extract.z) < 2.5 &&
+    Math.hypot(
+      game.companion.position.x - m.extract.x,
+      game.companion.position.z - m.extract.z,
+    ) >= 5
+  ) {
+    prompt.hidden = false;
+    prompt.textContent = "WAIT FOR MARA TO REACH EXTRACTION";
+  }
+  $("#radio").classList.toggle("visible", performance.now() < radioUntil);
+  ctx.fillStyle = "#152723";
+  ctx.fillRect(0, 0, 144, 144);
+  ctx.strokeStyle = "#35483b";
+  ctx.lineWidth = 0.5;
+  for (let x = 12; x < 144; x += 24) {
+    ctx.beginPath();
+    ctx.moveTo(x, 0);
+    ctx.lineTo(x, 144);
+    ctx.moveTo(0, x);
+    ctx.lineTo(144, x);
+    ctx.stroke();
+  }
+  const point = (x: number, z: number, color: string, r: number) => {
+    ctx.fillStyle = color;
+    ctx.beginPath();
+    ctx.arc(72 + x * 2.25, 72 + z * 2.25, r, 0, Math.PI * 2);
+    ctx.fill();
+  };
+  for (const e of game.enemies)
+    if (e.hp > 0) point(e.x, e.z, "#f29b68", e.boss ? 4 : 2);
+  point(game.pos.x, game.pos.z, "#f6f5da", 3);
+  if (!game.objective) point(m.objective.x, m.objective.z, "#e1ee93", 4);
+  if (game.bossDead) point(m.extract.x, m.extract.z, "#88e9cd", 4);
+}
+window.addEventListener("keydown", (e) => {
+  if (e.code === "Tab" && !$("#overlay").hidden) {
+    const buttons = Array.from(
+      $("#overlay").querySelectorAll<HTMLElement>("button,input"),
+    );
+    const first = buttons[0],
+      last = buttons.at(-1);
+    if (e.shiftKey && document.activeElement === first) {
+      e.preventDefault();
+      last?.focus();
+    } else if (!e.shiftKey && document.activeElement === last) {
+      e.preventDefault();
+      first?.focus();
+    }
+    return;
+  }
+  if (e.code === "Escape") {
+    e.preventDefault();
+    if (mode === "playing") pause();
+    else if (mode === "paused") resume();
+    else if (mode === "menu") $("#overlay").hidden = true;
+    return;
+  }
+  if (mode !== "playing") return;
+  if (
+    ["Space", "ArrowUp", "ArrowDown", "ArrowLeft", "ArrowRight"].includes(
+      e.code,
+    )
+  )
+    e.preventDefault();
+  keys.add(e.code);
+  if (!e.repeat) {
+    if (e.code === "KeyE") input.interact = true;
+    if (e.code === "KeyR") input.reload = true;
+    if (e.code === "KeyQ") input.swap = true;
+    if (e.code === "ShiftLeft" || e.code === "ShiftRight") input.dodge = true;
+  }
+});
+window.addEventListener("keyup", (e) => keys.delete(e.code));
+window.addEventListener("blur", () => {
+  clearInput();
+  pause();
+});
+document.addEventListener("visibilitychange", () => {
+  if (document.hidden) {
+    clearInput();
+    pause();
+  }
+});
+canvas.addEventListener("pointermove", (e) => {
+  pointer.set(
+    (e.clientX / innerWidth) * 2 - 1,
+    (-e.clientY / innerHeight) * 2 + 1,
+  );
+  pointerSeen = true;
+  $("#crosshair").style.left = `${e.clientX}px`;
+  $("#crosshair").style.top = `${e.clientY}px`;
+});
+canvas.addEventListener("pointerdown", (e) => {
+  if (mode === "playing" && e.button === 0) {
+    mouseDown = true;
+    canvas.setPointerCapture(e.pointerId);
+  }
+});
+window.addEventListener("pointerup", () => (mouseDown = false));
+window.addEventListener("pointercancel", () => (mouseDown = false));
+for (const b of document.querySelectorAll<HTMLButtonElement>(
+  "[data-hold],[data-action]",
+)) {
+  b.onpointerdown = (e) => {
+    e.preventDefault();
+    b.setPointerCapture(e.pointerId);
+    if (b.dataset.hold) held.add(b.dataset.hold);
+    if (b.dataset.action)
+      (input as unknown as Record<string, unknown>)[b.dataset.action] = true;
+  };
+  const release = () => {
+    if (b.dataset.hold) held.delete(b.dataset.hold);
+  };
+  b.onpointerup = release;
+  b.onpointercancel = release;
+  b.onlostpointercapture = release;
+}
+window.addEventListener("resize", () => world?.resize());
+let previous = performance.now(),
+  acc = 0,
+  lastHud = 0;
+function frame(now: number) {
+  requestAnimationFrame(frame);
+  const dt = Math.min((now - previous) / 1000, 0.1);
+  previous = now;
+  if (!ready) return;
+  if (mode === "playing") {
+    input.x =
+      Number(keys.has("KeyD") || keys.has("ArrowRight") || held.has("right")) -
+      Number(keys.has("KeyA") || keys.has("ArrowLeft") || held.has("left"));
+    input.z =
+      Number(keys.has("KeyS") || keys.has("ArrowDown") || held.has("down")) -
+      Number(keys.has("KeyW") || keys.has("ArrowUp") || held.has("up"));
+    input.assist = keys.has("Space") || held.has("fire");
+    input.fire = mouseDown || input.assist;
+    ray.setFromCamera(pointer, world.camera);
+    ray.ray.intersectPlane(ground, input.aim);
+    acc += dt;
+    while (acc >= 1 / 60) {
+      game.update(1 / 60, input);
+      acc -= 1 / 60;
+    }
+    if (now - lastHud > 90) {
+      updateHud();
+      lastHud = now;
+    }
+  } else acc = 0;
+  $("#crosshair").hidden = mode !== "playing" || !pointerSeen || input.assist;
+  world.render(now / 1000, game.pos, mode === "menu", prefs.reduced);
+}
+async function init() {
+  try {
+    world = new World(canvas);
+    world.quality(prefs.low);
+    await loadAssets((n) => {
+      $("#load").textContent = `${Math.round(n * 100)}%`;
+    });
+    game = new Game(world);
+    game.onRadio = radio;
+    game.onSound = sound;
+    game.onEnd = end;
+    ready = true;
+    menu();
+    requestAnimationFrame(frame);
+    // Test access is stripped from production builds by Vite.
+    if (import.meta.env.DEV)
+      (window as unknown as Record<string, unknown>).__nightfall = {
+        game,
+        input,
+        get mode() {
+          return mode;
+        },
+        get save() {
+          return save;
+        },
+        start,
+        world,
+      };
+  } catch (error) {
+    showOverlay(
+      `<span class="eyebrow">FIELD KIT UNAVAILABLE</span><h2>Unable to enter the valley.</h2><p>Your browser needs WebGL 2 and access to the game model files. Try a current browser with hardware acceleration enabled.</p><button id="retry-load" class="primary">TRY AGAIN <span>↗</span></button>`,
+    );
+    $("#retry-load").onclick = () => location.reload();
+    console.error(error);
+  }
+}
+void init();
