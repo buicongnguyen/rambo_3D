@@ -45,7 +45,7 @@ app.innerHTML = `
 <aside class="intel"><div class="intel-top"><span class="live-dot"></span> LIVE RECON <span>SECTOR 07</span></div><div class="intel-map"><div class="scan"></div><div class="coordinate c1">17°04′ N</div><div class="coordinate c2">106°42′ E</div><div class="map-line l1"></div><div class="map-line l2"></div><span class="map-dot d1"></span><span class="map-dot d2"></span><span class="map-dot d3"></span><span class="map-label">KHE SAN VALLEY</span></div><div class="intel-bottom"><span>MISSION BRIEF / <b id="brief-number">01</b></span><h2 id="brief-title">Emerald Killbox</h2><p id="brief-copy"></p><div class="intel-meta"><span>◆ SOLO CAMPAIGN</span><span>● 3D TACTICAL ACTION</span></div></div></aside>
 <section class="campaign" aria-label="Campaign missions"><div class="campaign-heading"><span>YOUR NEXT THREE MOVES</span><span>CAMPAIGN / NIGHTFALL</span></div><div id="mission-cards" class="mission-cards"></div></section>
 <footer class="menu-footer"><span>AN ORIGINAL LOW-POLY COMBAT EXPERIENCE <b id="best-score"></b></span><button id="controls-open">FIELD MANUAL <span>↗</span></button><span>BUILT WITH BLENDER + THREE.JS</span></footer></main>
-<section id="hud" hidden aria-label="Mission status"><div class="hud-top"><div class="objective-panel"><span class="eyebrow" id="mission-label"></span><h2 id="mission-title"></h2><div id="objectives"></div></div><div class="hud-right"><button class="icon-button" id="pause">Ⅱ <span>PAUSE</span></button><canvas id="minimap" width="144" height="144" aria-label="Tactical map: player white, enemies orange, objective yellow, extraction green"></canvas><span class="map-caption">TACTICAL UPLINK</span></div></div><div id="boss-panel" hidden><div><b id="boss-name"></b><span id="boss-phase">ARMORED TARGET</span></div><div class="boss-track"><i id="boss-bar"></i></div></div><div id="radio" role="status"><span>VALE / RADIO</span><p></p></div><div id="interact-prompt" hidden></div><div class="hud-bottom"><div class="health-panel"><div class="hud-kicker">GHOST <span id="health-text"></span></div><div class="health-track"><i id="health-bar"></i></div><div class="health-meta"><span id="dash-text">DODGE READY</span><span id="score">000000</span></div></div><div class="controls-strip"><kbd>WASD</kbd> MOVE <kbd>SPACE</kbd> AUTO FIRE <kbd>E</kbd> INTERACT <kbd>SHIFT</kbd> DODGE</div><div class="ammo-panel"><div id="weapon-name">M4 / ASSAULT RIFLE</div><strong id="ammo">24</strong><span id="ammo-reserve">/ ∞</span><small id="reload-label">R RELOAD · Q SWITCH</small></div></div><div id="touch"><div class="dpad"><button data-hold="up" aria-label="Move forward">▲</button><button data-hold="left" aria-label="Move left">◀</button><button data-hold="down" aria-label="Move backward">▼</button><button data-hold="right" aria-label="Move right">▶</button></div><div class="touch-actions"><button data-action="swap">SWAP</button><button data-action="reload">RELOAD</button><button data-action="interact">USE</button><button data-action="dodge">DODGE</button><button data-hold="fire" class="fire">FIRE</button></div></div></section>
+<section id="hud" hidden aria-label="Mission status"><div class="hud-top"><div class="objective-panel"><span class="eyebrow" id="mission-label"></span><h2 id="mission-title"></h2><div id="objectives"></div></div><div class="hud-right"><button class="icon-button" id="pause">Ⅱ <span>PAUSE</span></button><canvas id="minimap" width="144" height="144" aria-label="Tactical map: player white, enemies orange, objective yellow, extraction green"></canvas><span class="map-caption">TACTICAL UPLINK</span></div></div><div id="boss-panel" hidden><div><b id="boss-name"></b><span id="boss-phase">ARMORED TARGET</span></div><div class="boss-track"><i id="boss-bar"></i></div></div><div id="radio" role="status"><span>VALE / RADIO</span><p></p></div><div id="interact-prompt" hidden></div><div class="hud-bottom"><div class="health-panel"><div class="hud-kicker">GHOST <span id="health-text"></span></div><div class="health-track"><i id="health-bar"></i></div><div class="health-meta"><span id="dash-text">DODGE READY</span><span id="score">000000</span></div></div><div class="controls-strip"><kbd>WASD</kbd> MOVE <kbd>SPACE</kbd> AUTO FIRE <kbd>E</kbd> INTERACT <kbd>SHIFT</kbd> DODGE</div><div class="ammo-panel"><div id="weapon-name">M4 / ASSAULT RIFLE</div><strong id="ammo">24</strong><span id="ammo-reserve">/ ∞</span><small id="reload-label">R RELOAD · Q SWITCH</small></div></div><div id="touch"><div class="dpad"><button data-hold="up" aria-label="Move forward">▲</button><button data-hold="left" aria-label="Move left">◀</button><button data-hold="down" aria-label="Move backward">▼</button><button data-hold="right" aria-label="Move right">▶</button></div><div class="touch-actions"><button data-action="swap" aria-label="Switch weapon">WEAPON</button><button data-action="reload">RELOAD</button><button data-action="interact" aria-label="Use nearby objective">USE</button><button data-action="dodge">DODGE</button><button data-hold="fire" class="fire">FIRE</button></div></div></section>
 <div id="overlay" class="overlay" hidden></div><div id="toast" role="status" hidden></div>`;
 const canvas = $<HTMLCanvasElement>("#scene");
 let world: World, game: Game;
@@ -62,6 +62,8 @@ const input: Input = {
 };
 const keys = new Set<string>(),
   held = new Set<string>();
+const touchOwners = new Map<number, string>();
+let firePointer: number | null = null;
 let mouseDown = false,
   pointer = new T.Vector2(),
   pointerSeen = false;
@@ -70,6 +72,8 @@ const ray = new T.Raycaster(),
 function clearInput() {
   keys.clear();
   held.clear();
+  touchOwners.clear();
+  firePointer = null;
   mouseDown = false;
   input.x = 0;
   input.z = 0;
@@ -430,23 +434,38 @@ canvas.addEventListener("pointerdown", (e) => {
     );
     pointerSeen = true;
     mouseDown = true;
+    firePointer = e.pointerId;
     canvas.setPointerCapture(e.pointerId);
   }
 });
-window.addEventListener("pointerup", () => (mouseDown = false));
-window.addEventListener("pointercancel", () => (mouseDown = false));
+const releaseAim = (e: PointerEvent) => {
+  if (e.pointerId === firePointer) {
+    mouseDown = false;
+    firePointer = null;
+  }
+};
+window.addEventListener("pointerup", releaseAim);
+window.addEventListener("pointercancel", releaseAim);
+canvas.addEventListener("lostpointercapture", releaseAim);
 for (const b of document.querySelectorAll<HTMLButtonElement>(
   "[data-hold],[data-action]",
 )) {
   b.onpointerdown = (e) => {
     e.preventDefault();
+    if (mode !== "playing") return;
     if (e.isTrusted) b.setPointerCapture(e.pointerId);
-    if (b.dataset.hold) held.add(b.dataset.hold);
+    if (b.dataset.hold) {
+      touchOwners.set(e.pointerId, b.dataset.hold);
+      held.add(b.dataset.hold);
+    }
     if (b.dataset.action)
       (input as unknown as Record<string, unknown>)[b.dataset.action] = true;
   };
-  const release = () => {
-    if (b.dataset.hold) held.delete(b.dataset.hold);
+  const release = (e: PointerEvent) => {
+    const action = touchOwners.get(e.pointerId);
+    touchOwners.delete(e.pointerId);
+    if (action && ![...touchOwners.values()].includes(action))
+      held.delete(action);
   };
   b.onpointerup = release;
   b.onpointercancel = release;
