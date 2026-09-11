@@ -42,6 +42,7 @@ Bosses do not initiate volleys during spider rest or helicopter rearming. The he
 - Supply placement checks the whole polyline, including adjacent road arms at bends. Crates sit 4.4–6.4 metres from their sampled centerline and at least 4.2 metres from every road segment. Their approach has 2.5-metre clearance, avoids parked vehicles, and keeps medical supplies out of sand traps and mud holes.
 - Kept shield capacity and overflow damage separate from vehicle armor; restarting clears temporary shields. Full crates remain collectable later.
 - Locked the laser tank’s visible weapon to its warning direction and matched heavy laser warning width to collision width, clipped beams against cover, and prevented blast damage through solid cover. Pending heavy salvos are canceled when their boss dies.
+- Separated defeat/result animation timing from the capped physics clock. Retry appears promptly even with two rendered frames per second; pausing still stops progression. A regression test explicitly throttles rendering.
 - Changed browser tests to require a fresh development server. A reused server after live edits produced duplicate mission modules and invalid collision fixtures; the production bundle uses one module instance.
 - Reused the existing Blender crate and weapon models with shared insignia geometry and materials. This adds no model downloads; Low retains the same collision and attack behavior.
 

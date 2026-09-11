@@ -595,7 +595,8 @@ let previous = performance.now(),
   lastHud = 0;
 function frame(now: number) {
   requestAnimationFrame(frame);
-  const dt = Math.min((now - previous) / 1000, 0.1);
+  const frameDelta = Math.max(0, (now - previous) / 1000);
+  const dt = Math.min(frameDelta, 0.1);
   previous = now;
   if (!ready) return;
   if (mode === "playing") {
@@ -609,10 +610,16 @@ function frame(now: number) {
     input.fire = mouseDown || input.assist;
     ray.setFromCamera(pointer, world.camera);
     ray.ray.intersectPlane(ground, input.aim);
-    acc += dt;
-    while (acc >= 1 / 60) {
-      game.update(1 / 60, input);
-      acc -= 1 / 60;
+    if (game.phase === "dying") {
+      // End-screen presentation follows elapsed time even when rendering is slow.
+      acc = 0;
+      game.update(frameDelta, input);
+    } else {
+      acc += dt;
+      while (acc >= 1 / 60) {
+        game.update(1 / 60, input);
+        acc -= 1 / 60;
+      }
     }
     if (now - lastHud > 90) {
       updateHud();
@@ -620,7 +627,7 @@ function frame(now: number) {
     }
   } else {
     acc = 0;
-    if (mode === "result") game.updatePresentation(dt);
+    if (mode === "result") game.updatePresentation(frameDelta);
   }
   $("#crosshair").hidden = mode !== "playing" || !pointerSeen || input.assist;
   world.render(now / 1000, game.pos, mode === "menu", prefs.reduced);

@@ -227,3 +227,25 @@ test("easy long level can be completed through simulated movement and normal wea
   console.log("Story route simulation:", result);
   expect(result.phase).toBe("won");
 });
+
+test("Retry appears promptly when rendering is throttled to two frames per second", async ({
+  page,
+}) => {
+  await page.goto("/");
+  await expect(page.locator("#deploy")).toBeEnabled();
+  await page.locator("#deploy").click();
+  await page.evaluate(() => {
+    const nativeFrame = window.requestAnimationFrame.bind(window);
+    window.requestAnimationFrame = (callback) =>
+      nativeFrame(() => {
+        setTimeout(() => callback(performance.now()), 500);
+      });
+    (window as any).__nightfall.game.hp = 0;
+  });
+  await expect(page.locator("#result-primary")).toContainText("RETRY", {
+    timeout: 12000,
+  });
+  expect(
+    await page.evaluate(() => (window as any).__nightfall.game.phase),
+  ).toBe("lost");
+});
