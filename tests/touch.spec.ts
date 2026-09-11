@@ -117,3 +117,29 @@ test("mobile buttons work with simultaneous touches and survive cancellation", a
   }
   await context.close();
 });
+
+test("PC Q shortcut and visible swap button both cycle the loadout", async ({
+  page,
+}) => {
+  await page.goto("/");
+  await expect(page.locator("#deploy")).toBeEnabled();
+  await page.locator("#deploy").click();
+  const swap = page.locator("#weapon-swap");
+  await expect(swap).toBeVisible();
+  await expect(swap).toContainText("Q - SWAP WEAPON");
+  await page.keyboard.press("KeyQ");
+  await expect
+    .poll(() => page.evaluate(() => (window as any).__nightfall.game.weapon))
+    .toBe(1);
+  await swap.click();
+  await expect
+    .poll(() => page.evaluate(() => (window as any).__nightfall.game.weapon))
+    .toBe(0);
+  await page.evaluate(() => {
+    const g = (window as any).__nightfall.game;
+    g.pos.copy(g.rides[1].mesh.position);
+    g.useRide();
+  });
+  await expect(swap).toBeDisabled();
+  await expect(swap).toContainText("EXIT TO SWAP");
+});

@@ -41,7 +41,7 @@ Open the local URL Vite prints. `npm run build` creates the standalone static si
 | Q                  | Cycle collected weapons                          |
 | Escape             | Pause / resume                                     |
 
-Complete the yellow objective, defeat the boss, then reach the green extraction pad. In mission 1, Mara must arrive too. Touch devices display movement and action buttons. Green drops restore health. Orange rings warn of attacks; move out of tank mortar markers before they detonate. The river slows you outside the bridge.
+Complete the yellow objective, defeat the boss, then reach the green extraction pad. In mission 1, Mara must arrive too. Press Q or click the SWAP WEAPON button beside the ammo display on PC. Touch devices have a highlighted SWAP WEAPON button above FIRE. Switching works on foot and on motorcycles; exit a jeep or tank to switch personal weapons. Touch devices display movement and action buttons. Green drops restore health. Orange rings warn of attacks; move out of tank mortar markers before they detonate. The river slows you outside the bridge.
 
 Progress saves **after choosing an upgrade** at the first two debriefs and at final campaign completion. Restarting a mission restarts that mission; it is not a mid-combat checkpoint. Saves are local to the browser and site origin. Denied storage access does not prevent play.
 

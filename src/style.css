@@ -1301,4 +1301,43 @@ input {
     scroll-behavior: auto !important;
   }
 }
-.settings select { max-width: 65%; padding: 8px; color: var(--cream, #edf0d7); background: #22382d; border: 1px solid #66705b; border-radius: 4px; font: inherit; }
+.settings select {
+  max-width: 65%;
+  padding: 8px;
+  color: var(--cream, #edf0d7);
+  background: #22382d;
+  border: 1px solid #66705b;
+  border-radius: 4px;
+  font: inherit;
+}
+
+/* Keep weapon switching beside ammunition on PC and within thumb reach on touch. */
+#weapon-swap {
+  display: block;
+  margin-top: 10px;
+  min-height: 44px;
+  width: 100%;
+  padding: 8px;
+  border: 1px solid var(--lime);
+  background: #e1ed9826;
+  color: var(--lime);
+  font-size: 10px;
+  font-weight: 800;
+  letter-spacing: 0.5px;
+}
+#weapon-swap:disabled,
+#touch .swap-weapon:disabled {
+  cursor: default;
+}
+@media (pointer: coarse) {
+  #weapon-swap {
+    display: none;
+  }
+  #touch .swap-weapon {
+    background: #e1ed9833;
+    border: 2px solid var(--lime);
+    padding: 4px;
+    font-weight: 800;
+    line-height: 1.25;
+  }
+}
