@@ -1,4 +1,9 @@
-import { sampleRoute, routeFormation, seededRandom } from "./routes.mjs";
+import {
+  sampleRoute,
+  routeFormation,
+  seededRandom,
+  routeBox,
+} from "./routes.mjs";
 import { segmentBox } from "./rules.mjs";
 
 /** Permanent ridge belts divide the arms; props are carved back from the road. */
@@ -53,13 +58,23 @@ export function squareLandscape(m) {
     m.biome === "volcano" || m.biome === "quake" ? "basalt" : "hill";
   // Continuous belts reach the map boundary. Only the road's hairpin opens them.
   const ridge = (x, z, w, d) => {
-    const b = { x, z, w, d, kind: permanent };
+    const source = { x, z, w, d, kind: permanent };
+    const b = m.diagonal ? routeBox(2, source) : source;
+    // Extend diagonal ridge belts to the square map boundary, then discard exterior tiles.
+    if (
+      b.x - b.w / 2 > m.bounds.x ||
+      b.x + b.w / 2 < -m.bounds.x ||
+      b.z - b.d / 2 > m.bounds.maxZ ||
+      b.z + b.d / 2 < m.bounds.minZ
+    )
+      return;
     if (!onRoad(b) && clearLandmark(b)) boxes.push(b);
   };
-  if (m.shape === "S" || m.shape === "MIRRORED S") {
-    const mirror = m.shape === "MIRRORED S" ? -1 : 1;
-    for (let x = -64; x <= 24; x += 8) ridge(x * mirror, -9, 8.1, 9);
-    for (let x = -24; x <= 64; x += 8) ridge(x * mirror, -56, 8.1, 9);
+  if (m.shape.includes("S")) {
+    const mirror = m.shape.startsWith("MIRRORED") ? -1 : 1;
+    const reach = m.diagonal ? 144 : 64;
+    for (let x = -reach; x <= 24; x += 8) ridge(x * mirror, -9, 8.1, 9);
+    for (let x = -24; x <= reach; x += 8) ridge(x * mirror, -56, 8.1, 9);
   } else {
     // Broad rocky interior prevents a diagonal shortcut through an L or U.
     for (let x = -30; x <= (m.shape === "L" ? 66 : 30); x += 12)
@@ -68,8 +83,8 @@ export function squareLandscape(m) {
   // Biome dressing covers the full square; the playable corridor stays tank-wide.
   const attempts = m.biome === "jungle" ? 220 : m.biome === "ice" ? 150 : 100;
   for (let i = 0; i < attempts; i++) {
-    const x = -61 + rand() * 122,
-      z = -104 + rand() * 122;
+    const x = -m.bounds.x + 7 + rand() * (m.bounds.x * 2 - 14),
+      z = m.bounds.minZ + 7 + rand() * (m.bounds.maxZ - m.bounds.minZ - 14);
     const tree = m.biome === "jungle" || m.biome === "ice";
     const b = tree
       ? {

@@ -134,11 +134,17 @@ export function expeditionRoute(shape) {
       [50, -96],
     ],
   };
-  const path = paths[shape === "MIRRORED S" ? "S" : shape];
-  return path.map(([x, z]) => ({ x: shape === "MIRRORED S" ? -x : x, z }));
+  const diagonal = shape.endsWith(" 45°"),
+    base = shape.replace(" 45°", "");
+  const path = paths[base === "MIRRORED S" ? "S" : base];
+  return path.map(([x, z]) => {
+    const mirroredX = base === "MIRRORED S" ? -x : x;
+    return diagonal ? routePoint(2, mirroredX, z) : { x: mirroredX, z };
+  });
 }
 export function routePlan(stage, level) {
-  const shape =
+  const diagonal = level === 1 && stage % 4 >= 2;
+  const baseShape =
     level === 0
       ? "ZIGZAG"
       : level === 1
@@ -148,14 +154,18 @@ export function routePlan(stage, level) {
         : stage % 2
           ? "U"
           : "L";
+  const shape = baseShape + (diagonal ? " 45°" : "");
   const square = shape !== "ZIGZAG";
   const layout = square ? 0 : stage === 5 ? 3 : 0;
   const route = square ? expeditionRoute(shape) : missionRoute(layout);
-  const bounds = square
-    ? { x: 68, minZ: -111, maxZ: 25 }
-    : { x: 28.5, minZ: -115, maxZ: 28.5 };
+  const bounds = diagonal
+    ? { x: 98, minZ: -141, maxZ: 55 }
+    : square
+      ? { x: 68, minZ: -111, maxZ: 25 }
+      : { x: 28.5, minZ: -115, maxZ: 28.5 };
   return {
     shape,
+    diagonal,
     square,
     layout,
     route,

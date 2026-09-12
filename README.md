@@ -2,7 +2,7 @@
 
 **Play:** https://buicongnguyen.github.io/rambo_3D/
 
-A three.js / Blender solo action game with seven stages, three levels per stage, eleven weapons, and playable motorcycles, jeeps and tanks. Each stage begins with a zigzag approach, followed by an S or mirrored S sweep and an L or U expedition on a 136 × 136 metre map. Permanent hills and volcanic basalt divide the road arms; all routes remain tank-accessible. Secure the relay, clear its counterattack, and follow the tactical map to extraction. Level three of each stage ends with command bosses.
+A three.js / Blender solo action game with seven stages, three levels per stage, eleven weapons, and playable motorcycles, jeeps and tanks. Each stage begins with a zigzag approach, followed by an S or mirrored S sweep (including 45-degree variants) and an L or U expedition. Square maps measure 136 × 136 metres, or 196 × 196 metres for diagonal S routes. Permanent hills and volcanic basalt divide the road arms; all routes remain tank-accessible. Secure the relay, clear its counterattack, and follow the tactical map to extraction. Level three of each stage ends with command bosses.
 
 ## Campaign
 

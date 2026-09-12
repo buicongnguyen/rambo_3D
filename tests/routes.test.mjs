@@ -12,6 +12,8 @@ import {
   routeLength,
   distanceToRoute,
   routeFormation,
+  expeditionRoute,
+  routePoint,
 } from "../src/routes.mjs";
 import {
   placeSupplies,
@@ -194,7 +196,7 @@ test("light boss bullets have faster cadence than heavy attacks and heavy footpr
 test("square S routes span every quadrant and ridges block cross-map shortcuts", () => {
   assert.deepEqual(
     new Set(MISSIONS.map((m) => m.shape)),
-    new Set(["ZIGZAG", "S", "L", "MIRRORED S", "U"]),
+    new Set(["ZIGZAG", "S", "L", "MIRRORED S", "U", "S 45°", "MIRRORED S 45°"]),
   );
   for (const m of MISSIONS.filter((m) => m.square)) {
     buildLayout(m);
@@ -210,6 +212,36 @@ test("square S routes span every quadrant and ridges block cross-map shortcuts",
     if (m.shape.includes("S")) {
       const quadrants = new Set(m.route.map((p) => `${p.x < 0}:${p.z < -43}`));
       assert.equal(quadrants.size, 4);
+    }
+  }
+});
+
+test("diagonal S variants are true 45 degree rotations with unchanged road length and safe map edges", () => {
+  for (const base of ["S", "MIRRORED S"]) {
+    const original = expeditionRoute(base),
+      rotated = expeditionRoute(base + " 45°");
+    assert.equal(original.length, rotated.length);
+    assert.ok(Math.abs(routeLength(original) - routeLength(rotated)) < 1e-8);
+    for (let i = 0; i < original.length; i++) {
+      const expected = routePoint(2, original[i].x, original[i].z);
+      assert.ok(
+        Math.hypot(rotated[i].x - expected.x, rotated[i].z - expected.z) < 1e-8,
+      );
+    }
+  }
+  const diagonal = MISSIONS.filter((m) => m.diagonal);
+  assert.deepEqual(
+    diagonal.map((m) => m.stage),
+    [2, 3, 6],
+  );
+  for (const m of diagonal) {
+    buildLayout(m);
+    for (const p of m.route) {
+      assert.ok(
+        Math.abs(p.x) < m.bounds.x - 10 &&
+          p.z > m.bounds.minZ + 10 &&
+          p.z < m.bounds.maxZ - 10,
+      );
     }
   }
 });

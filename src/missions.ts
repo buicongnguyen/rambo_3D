@@ -21,6 +21,7 @@ export type Mission = {
   layout: number;
   shape: string;
   square: boolean;
+  diagonal: boolean;
   bounds: { x: number; minZ: number; maxZ: number };
   biome: string;
   finale: boolean;

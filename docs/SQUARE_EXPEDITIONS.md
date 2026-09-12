@@ -2,19 +2,19 @@
 
 ## Experience and level plan
 
-The second and third levels of every stage now use a 136 × 136 metre map. The first level keeps its northbound zigzag approach; Faultline Zero retains its southbound approach.
+The second and third levels use square expedition maps: 136 × 136 metres for S, mirrored S, L and U, and 196 × 196 metres for the 45-degree S variants. The first level keeps its northbound zigzag approach; Faultline Zero retains its southbound approach.
 
 | Stage | Level 2 | Level 3 |
 | --- | --- | --- |
 | White Horizon | S sweep | L trail |
 | Cinderfall | Mirrored S sweep | U trail |
-| Dune Lifeline | S sweep | L trail |
-| Canopy Hold | Mirrored S sweep | U trail |
+| Dune Lifeline | S sweep, rotated 45° | L trail |
+| Canopy Hold | Mirrored S sweep, rotated 45° | U trail |
 | Citadel Dawn | S sweep | L trail |
 | Faultline Zero | Mirrored S sweep | U trail |
-| Mire Crossing | S sweep | L trail |
+| Mire Crossing | S sweep, rotated 45° | L trail |
 
-S sweeps cross all four quadrants with two broad hairpins. Mirrored S sweeps reverse the turns. L trails run down one edge and across the bottom; U trails descend one side, round the bottom and climb the opposite side. All four occupy at least 100 metres in both axes. Roads keep a 7 metre surface and at least 7.6 metres of scenery clearance. Turns accommodate tanks.
+S sweeps cross all four quadrants with two broad hairpins. The 45-degree variants rotate the full S or mirrored S about the map center, preserving its approximately 372-metre length. Ridge belts rotate with the road and extend to the expanded square boundary; scenery, hazards, vehicles, supplies, patrols and final encounter anchors are generated against the rotated route. Mirrored S sweeps reverse the turns. L trails run down one edge and across the bottom; U trails descend one side, round the bottom and climb the opposite side. All four occupy at least 100 metres in both axes. Roads keep a 7 metre surface and at least 7.6 metres of scenery clearance. Turns accommodate tanks.
 
 The route is the source for spawn points, objective, final reinforcements, extraction, road rendering, vehicle bays and supply placement. The relay is at 78% of an expedition. Finale bosses deploy on the final arm, with space reserved for all four Crazy bosses. Saved campaign indices and upgrades remain valid.
 
@@ -48,8 +48,8 @@ Equipment remains physical and collectible. Killing guards does not delete or re
 
 Unit checks exercise all 21 layouts and 630 supply seeds with parked vehicles included as obstacles. They require exact supply quotas, two defenders per selected reward, clear tank routes and bays, full map extents, and permanent terrain across direct shortcuts. Browser regressions cover all mission patrol counts, real boarding/exiting and weapon collection, and rifle/rocket/laser damage against permanent basalt.
 
-- 21 Node checks passed, including 630 seeded supply/guard layouts with parked vehicles.
-- All 34 browser cases passed across the full run and targeted reruns. An old boss-animation fixture was updated to spawn at the mission's real boss anchor instead of a coordinate now occupied by terrain. The seven affected campaign/expedition checks and seven final expedition/route checks passed.
+- 22 Node checks passed, including exact 45-degree rotation and 630 seeded supply/guard layouts with parked vehicles.
+- The seven affected expedition/route browser checks passed after adding diagonal maps, including all 21 Crazy patrol counts and vehicle/weapon collection on all three diagonal missions. GitHub Actions requires all 34 browser checks before publication.
 - Production build passed. The existing 32-model download budget is unchanged.
 - High desktop captures checked for all four shapes; 390 × 844 Low touch capture checked for visible controls, weapon switching and horizontal overflow. No browser page errors. These checks do not establish physical-device frame rates.
 - GitHub Actions runs the full suite again before publishing to GitHub Pages.
@@ -59,3 +59,16 @@ Unit checks exercise all 21 layouts and 630 supply seeds with parked vehicles in
 ![Guarded jeep on a mirrored S route](expedition-desktop.png)
 
 ![Mobile expedition and touch controls](expedition-mobile.png)
+
+## 45-degree route extension
+
+- Dune Lifeline level 2 and Mire Crossing level 2 use S 45°. Canopy Hold level 2 uses mirrored S 45°. Other stages keep the original styles, giving seven route labels including the zigzag approach.
+- Shared transforms preserve every segment length. Axis-aligned terrain collision is rebuilt and cleared against the diagonal road; the Blender landform models match those collision footprints.
+- Expanded square bounds keep all route vertices at least ten metres inside the edge. New ridge tiles extend to the boundary so the rotated map does not acquire an open shortcut behind them.
+- All 22 unit checks pass, including exact rotation/length assertions, all 21 tank routes, boss formations and 630 supply/guard seeds. The browser equipment test now includes all three diagonal missions. Deployment runs the full browser suite.
+
+![Actual 45-degree S and mirrored S maps](diagonal-expeditions.svg)
+
+![Diagonal S desktop view](diagonal-desktop.png)
+
+![Mirrored diagonal S on mobile](diagonal-mobile.png)
