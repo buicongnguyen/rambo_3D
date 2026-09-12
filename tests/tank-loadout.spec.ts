@@ -178,12 +178,15 @@ test("tank six-shell bank survives swaps, reload cancellation and dismount; empt
       step(65);
     }
     const empty = v.ammo === 0 && !v.personalWeapon;
-    const lastPersonalAmmo = g.ammo;
+    const rifleAmmo = g.magazines[0];
     step(1, { fire: true });
     step(20);
     step(1, { fire: true });
     const fallback =
-      v.personalWeapon && g.ammo === lastPersonalAmmo - 1 && v.ammo === 0;
+      v.personalWeapon &&
+      g.weapon === 0 &&
+      g.ammo === rifleAmmo - 1 &&
+      v.ammo === 0;
     return {
       initial,
       firstShot,
@@ -235,8 +238,9 @@ test("tank picks up and fires all eleven personal weapons with their own ammo an
       if (drop) {
         drop.mesh.position.copy(v.mesh.position);
         g.update(1 / 60, { ...cmd });
-      } else {
-        // Starter weapons are already owned; select them through the real cycle.
+      }
+      {
+        // Auto-equip may keep a stronger weapon; Q can still select every owned weapon.
         for (
           let i = 0;
           i < 13 && (!v.personalWeapon || g.weapon !== index);

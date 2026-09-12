@@ -1,6 +1,7 @@
 export const WEAPONS = [
   {
     id: "rifle",
+    priority: 30,
     name: "M4 / ASSAULT RIFLE",
     mag: 24,
     reload: 1.25,
@@ -15,6 +16,7 @@ export const WEAPONS = [
   },
   {
     id: "shotgun",
+    priority: 20,
     name: "M870 / SCATTERGUN",
     mag: 6,
     reload: 1.7,
@@ -29,6 +31,7 @@ export const WEAPONS = [
   },
   {
     id: "machineGun",
+    priority: 80,
     name: "M249 / MACHINE GUN",
     mag: 60,
     reload: 2.4,
@@ -43,6 +46,7 @@ export const WEAPONS = [
   },
   {
     id: "sniper",
+    priority: 70,
     name: "M24 / SNIPER",
     mag: 5,
     reload: 2,
@@ -57,6 +61,7 @@ export const WEAPONS = [
   },
   {
     id: "flame",
+    priority: 50,
     name: "FLAMETHROWER",
     mag: 50,
     reload: 2,
@@ -71,6 +76,7 @@ export const WEAPONS = [
   },
   {
     id: "launcher",
+    priority: 60,
     name: "GRENADE LAUNCHER",
     mag: 4,
     reload: 2,
@@ -85,6 +91,7 @@ export const WEAPONS = [
   },
   {
     id: "explosiveArrow",
+    priority: 55,
     name: "EXPLOSIVE BOW",
     mag: 1,
     reload: 0.7,
@@ -99,6 +106,7 @@ export const WEAPONS = [
   },
   {
     id: "missile",
+    priority: 90,
     name: "ANTI-ARMOR MISSILE",
     mag: 1,
     reload: 2.2,
@@ -113,6 +121,7 @@ export const WEAPONS = [
   },
   {
     id: "laser",
+    priority: 100,
     name: "HELIX / LASER",
     mag: 8,
     reload: 2,
@@ -127,6 +136,7 @@ export const WEAPONS = [
   },
   {
     id: "throwBomb",
+    priority: 40,
     name: "FRAGMENTATION GRENADE",
     mag: 1,
     reload: 0.8,
@@ -141,6 +151,7 @@ export const WEAPONS = [
   },
   {
     id: "poisonBomb",
+    priority: 10,
     name: "GAS GRENADE",
     mag: 1,
     reload: 0.9,

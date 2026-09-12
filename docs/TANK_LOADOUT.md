@@ -5,8 +5,8 @@
 - Moving jeeps and tanks kill infantry on contact. The sweep from the previous position to the actual new position catches contacts between frames. The normal death path awards one kill, plays the fall and fades the body over four seconds.
 - Actual displacement is required. Stationary vehicles, blocked movement and motorcycles do not cause run-over kills. A cover intersection check protects soldiers behind walls. Command bosses survive vehicle contact.
 - Each tank starts with six ready explosive cannon rounds. The existing armored projectile, smoke trail, blast and cover collision are retained.
-- Q on PC and SWAP WEAPON on mobile cycle cannon, then the collected personal inventory, then cannon again. Collecting a weapon while driving the tank equips it immediately. All eleven weapon behaviors remain available from the tank.
-- The personal magazine/reserve bank is separate from the six-shell vehicle bank. Swapping cancels reloading without granting rounds. Exiting and reboarding preserve ammunition and tank firing mode. Cannon shells cannot be replenished with RELOAD; trying to fire an empty cannon switches to the last selected personal weapon.
+- Q on PC and SWAP WEAPON on mobile cycle cannon, then the collected personal inventory, then cannon again. Collecting a weapon automatically selects the strongest usable weapon or tank cannon. All eleven weapon behaviors remain available from the tank.
+- The personal magazine/reserve bank is separate from the six-shell vehicle bank. Swapping cancels reloading without granting rounds. Exiting and reboarding preserve ammunition and tank firing mode. Cannon shells cannot be replenished with RELOAD; trying to fire an empty cannon switches to the strongest usable personal weapon.
 - The HUD identifies CANNON / SHELLS or the equipped personal weapon and its magazine/reserve. When a personal weapon is selected, it also shows the remaining cannon shells. The jeep retains its twenty-shot mounted shotgun.
 
 ## Review

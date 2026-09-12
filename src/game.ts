@@ -15,6 +15,7 @@ import { routeFormation, relayFormation } from "./routes.mjs";
 import { difficultyConfig, terrainFactor, WORLD_BOUNDS } from "./campaign.mjs";
 import { WEAPONS, type WeaponSpec } from "./arsenal";
 import { Ride } from "./rides";
+import { ImpactEffects } from "./impacts";
 import * as T from "three";
 import { CharacterMotion, FallenBody, VehicleMotion } from "./animation";
 import { World, model } from "./world";
@@ -96,6 +97,7 @@ type Effect = {
 };
 export class Game {
   world: World;
+  impacts: ImpactEffects;
   player: T.Group;
   companion?: T.Group;
   playerMotion!: CharacterMotion;
@@ -143,6 +145,29 @@ export class Game {
   }
   get canSwapWeapon() {
     return this.riding?.kind !== "jeep";
+  }
+  private selectStrongestWeapon() {
+    this.magazines[this.weapon] = this.ammo;
+    const best = this.inventory
+      .filter((i) => this.magazines[i] > 0 || this.reserves[i] > 0)
+      .sort((a, b) => WEAPONS[b].priority - WEAPONS[a].priority)[0];
+    const tank = this.riding?.kind === "tank" ? this.riding : undefined;
+    const cannon =
+      !!tank &&
+      tank.ammo > 0 &&
+      (best === undefined ||
+        WEAPONS[tank.spec.weapon].priority >= WEAPONS[best].priority);
+    if (best === undefined && !cannon) return;
+    const selected = best ?? this.weapon;
+    const changed =
+      this.weapon !== selected || (!!tank && tank.personalWeapon === cannon);
+    this.weapon = selected;
+    this.ammo = this.magazines[selected];
+    if (tank) tank.personalWeapon = !cannon;
+    if (changed) {
+      this.reloadTime = 0;
+      this.shotTime = Math.max(this.shotTime, 0.25);
+    }
   }
   get nearestRide() {
     return this.rides.find(
@@ -235,6 +260,7 @@ export class Game {
   });
   constructor(world: World) {
     this.world = world;
+    this.impacts = new ImpactEffects(world.actors);
     this.player = model("commando");
   }
   get mag() {
@@ -390,6 +416,7 @@ export class Game {
     return root;
   }
   cleanup() {
+    this.impacts.clear();
     for (const corpse of this.corpses) corpse.dispose();
     this.corpses = [];
     this.companionMotion = undefined;
@@ -587,8 +614,23 @@ export class Game {
       }
     } else this.damageHealth(damage);
   }
-  blast(x: number, z: number, spec: WeaponSpec, damage: number) {
-    this.spark(x, z, true);
+  blast(
+    x: number,
+    z: number,
+    spec: WeaponSpec,
+    damage: number,
+    height?: number,
+  ) {
+    this.impacts.emit(
+      x,
+      height ?? this.world.groundHeight(x, z) + 0.6,
+      z,
+      spec.visual,
+      this.world.lowDetail,
+      spec.splash,
+      true,
+    );
+    this.onSound("explosion");
     for (const enemy of this.enemies) {
       const d = Math.hypot(enemy.x - x, enemy.z - z);
       if (
@@ -599,6 +641,7 @@ export class Game {
         this.hurt(
           enemy,
           damage * Math.max(0.25, 1 - d / (spec.splash + enemy.radius)),
+          spec,
         );
     }
     for (const prop of [...this.world.destructibles])
@@ -631,7 +674,7 @@ export class Game {
       for (const b of COVER) t = Math.min(t, segmentBox(x, z, tx, tz, b));
       for (const e of this.enemies)
         if (e.hp > 0 && segmentCircle(x, z, tx, tz, e.x, e.z, e.radius) < t)
-          this.hurt(e, damage);
+          this.hurt(e, damage, spec);
       const hitProp = this.world.destructibles.find(
         (p) => Math.abs(segmentBox(x, z, tx, tz, p.box) - t) < 0.001,
       );
@@ -763,7 +806,12 @@ export class Game {
       enemy,
     });
   }
-  hurt(e: Actor, damage: number) {
+  hurt(
+    e: Actor,
+    damage: number,
+    spec?: WeaponSpec,
+    contact?: { x: number; z: number },
+  ) {
     e.alerted = true;
     if (e.hp <= 0) return; // A dead actor can award score only once.
     e.motion?.hit();
@@ -781,7 +829,22 @@ export class Game {
         "Reinforcements on both flanks. Keep moving; the boss is escalating.",
       );
     }
-    this.spark(e.x, e.z);
+    if (spec) {
+      if (spec.splash === 0 || spec.visual === "gas")
+        this.impacts.emit(
+          contact?.x ?? e.x,
+          e.mesh.position.y + (e.boss ? 1.5 : 1),
+          contact?.z ?? e.z,
+          spec.visual,
+          this.world.lowDetail,
+          spec.visual === "sniper"
+            ? 1.2
+            : spec.visual === "flame"
+              ? 1.05
+              : 0.85,
+        );
+      this.onSound("hit");
+    } else this.spark(e.x, e.z);
     if (e.hp <= 0) {
       this.kills++;
       this.score += e.boss ? 1500 : 100;
@@ -1354,6 +1417,7 @@ export class Game {
     this.onRadio("Ghost is down. Signal fading...");
   }
   updatePresentation(dt: number) {
+    this.impacts.update(dt);
     for (let i = this.corpses.length - 1; i >= 0; i--)
       if (this.corpses[i].update(dt)) this.corpses.splice(i, 1);
   }
@@ -1411,21 +1475,12 @@ export class Game {
       this.ammo === 0 &&
       this.reserves[this.weapon] === 0
     ) {
-      this.magazines[this.weapon] = 0;
-      const at = this.inventory.indexOf(this.weapon);
-      for (let step = 1; step <= this.inventory.length; step++) {
-        const next = this.inventory[(at + step) % this.inventory.length];
-        if (this.magazines[next] > 0 || this.reserves[next] > 0) {
-          this.weapon = next;
-          this.ammo = this.magazines[next];
-          this.reloadTime = 0;
-          this.shotTime = Math.max(this.shotTime, 0.25);
-          this.onRadio(
-            "Ammunition depleted. Switched to " + this.weaponSpec.name + ".",
-          );
-          break;
-        }
-      }
+      this.selectStrongestWeapon();
+      this.onRadio(
+        "Ammunition depleted. Strongest usable weapon selected: " +
+          this.activeWeaponSpec.name +
+          ".",
+      );
     }
     if (
       this.usesPersonalWeapon &&
@@ -1624,10 +1679,10 @@ export class Game {
           this.reloadTime = this.weaponSpec.reload;
           this.onSound("reload");
         } else if (v.kind === "tank" && !v.personalWeapon) {
-          v.personalWeapon = true;
-          this.shotTime = 0.25;
+          this.selectStrongestWeapon();
+          this.shotTime = Math.max(this.shotTime, 0.25);
           this.onRadio(
-            "Cannon empty. Personal weapon ready. Q / SWAP cycles your loadout.",
+            "Cannon empty. Strongest usable personal weapon selected. Q / SWAP cycles your loadout.",
           );
         }
       }
@@ -1639,16 +1694,13 @@ export class Game {
         this.magazines[this.weapon] = this.ammo;
         if (!this.inventory.includes(drop.index))
           this.inventory.push(drop.index);
-        this.weapon = drop.index;
-        if (this.riding?.kind === "tank") this.riding.personalWeapon = true;
-        this.ammo = this.magazines[this.weapon];
-        this.reloadTime = 0;
+        this.selectStrongestWeapon();
         this.showWeapon();
         this.world.actors.remove(drop.mesh);
         this.weaponDrops.splice(i, 1);
         this.onRadio(
           WEAPONS[drop.index].name +
-            " acquired. WEAPON / Q cycles your loadout.",
+            " acquired. Strongest usable weapon selected. Q / SWAP still cycles your loadout.",
         );
       }
     }
@@ -1963,7 +2015,10 @@ export class Game {
           }
         }
         if (victim) {
-          this.hurt(victim, b.damage);
+          this.hurt(victim, b.damage, b.spec, {
+            x: b.x + (nx - b.x) * t,
+            z: b.z + (nz - b.z) * t,
+          });
           b.hits.add(victim);
         }
         if (hitPlayer && this.invincible === 0) {
@@ -1985,6 +2040,7 @@ export class Game {
           b.z - b.vz * dt + b.vz * dt * at,
           b.spec,
           b.damage * 0.8,
+          victim ? victim.mesh.position.y + 1 : undefined,
         );
       }
       b.mesh.position.set(
@@ -2031,7 +2087,7 @@ export class Game {
               (b) => segmentBox(cloud.x, cloud.z, e.x, e.z, b) !== Infinity,
             )
           )
-            this.hurt(e, 12);
+            this.hurt(e, 12, WEAPONS[10]);
       }
       if (cloud.time <= 0) {
         this.world.actors.remove(cloud.mesh);
