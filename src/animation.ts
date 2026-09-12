@@ -226,11 +226,26 @@ export class VehicleMotion {
   private turretRest?: T.Quaternion;
   private rotorRest?: T.Quaternion;
   private spin = 0;
+  private wheels: Joint[] = [];
+  private pods: Joint[] = [];
+  private wheelSpin = 0;
   constructor(
     private root: T.Group,
     private kind: string,
   ) {
     root.traverse((o) => {
+      if (String(o.userData.joint).startsWith("Wheel"))
+        this.wheels.push({
+          node: o,
+          position: o.position.clone(),
+          rotation: o.quaternion.clone(),
+        });
+      if (String(o.userData.joint).startsWith("Pod"))
+        this.pods.push({
+          node: o,
+          position: o.position.clone(),
+          rotation: o.quaternion.clone(),
+        });
       if (o.userData.joint === "Rotor") {
         this.rotor = o;
         this.rotorRest = o.quaternion.clone();
@@ -241,7 +256,40 @@ export class VehicleMotion {
       }
     });
   }
-  update(dt: number, vx: number, aim: number, time: number) {
+  update(
+    dt: number,
+    vx: number,
+    aim: number,
+    time: number,
+    vz = 0,
+    charging = false,
+  ) {
+    this.wheelSpin +=
+      ((vx * Math.sin(this.root.rotation.y) +
+        vz * Math.cos(this.root.rotation.y)) *
+        dt) /
+      0.6;
+    for (const w of this.wheels)
+      w.node.quaternion
+        .copy(w.rotation)
+        .multiply(
+          new T.Quaternion().setFromAxisAngle(
+            new T.Vector3(1, 0, 0),
+            this.wheelSpin,
+          ),
+        );
+    for (const p of this.pods)
+      p.node.quaternion.slerp(
+        p.rotation
+          .clone()
+          .multiply(
+            new T.Quaternion().setFromAxisAngle(
+              new T.Vector3(1, 0, 0),
+              charging ? -0.22 : -0.05,
+            ),
+          ),
+        1 - Math.exp(-dt * 4),
+      );
     if (this.rotor) {
       this.spin += dt * 38;
       this.rotor.quaternion

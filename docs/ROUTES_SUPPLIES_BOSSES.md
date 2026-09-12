@@ -1,5 +1,7 @@
 # Routes, supplies and boss attack plan
 
+Current route order and boss roster: [O loops and command bosses](LOOPS_COMMAND_BOSSES.md). Older layout notes below are retained as release history.
+
 The route-layout section below records the earlier four-direction release. [Square expeditions](SQUARE_EXPEDITIONS.md) supersede level 2/3 geometry and vehicle placement; supply and boss attack rules below remain applicable.
 
 ## Player experience

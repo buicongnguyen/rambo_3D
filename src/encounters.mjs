@@ -1,7 +1,19 @@
-import { sampleRoute, seededRandom, distanceToRoute } from "./routes.mjs";
+import {
+  sampleRoute,
+  seededRandom,
+  distanceToRoads,
+  vehicleAnchors,
+} from "./routes.mjs";
 import { segmentBox } from "./rules.mjs";
 /** Every candidate has a tank-width connection to the road, not just an empty center. */
-export function placeSupplies(route, boxes, patches, bounds, seed) {
+export function placeSupplies(
+  route,
+  boxes,
+  patches,
+  bounds,
+  seed,
+  roads = [route],
+) {
   const rand = seededRandom(seed),
     drops = [];
   const kinds = [
@@ -27,33 +39,35 @@ export function placeSupplies(route, boxes, patches, bounds, seed) {
     "health",
   ];
   const candidates = [];
-  for (let f = 0.035; f < 0.94; f += 0.004) {
-    const anchor = sampleRoute(route, f);
-    for (const offset of [-6.4, -5.4, -4.4, 4.4, 5.4, 6.4]) {
-      const x = anchor.x + anchor.nx * offset,
-        z = anchor.z + anchor.nz * offset;
-      if (
-        distanceToRoute(route, x, z) < 4.2 ||
-        Math.abs(x) > bounds.x - 3 ||
-        z < bounds.minZ + 3 ||
-        z > bounds.maxZ - 3 ||
-        boxes.some(
-          (b) => segmentBox(anchor.x, anchor.z, x, z, b, 2.5) !== Infinity,
-        ) ||
-        patches.some(
-          (p) =>
-            p.kind !== "ice" && Math.hypot(x - p.x, z - p.z) < p.radius + 1,
+  for (let branch = 0; branch < roads.length; branch++)
+    for (let f = 0.035; f < 0.94; f += 0.004) {
+      const anchor = sampleRoute(roads[branch], f);
+      for (const offset of [-6.4, -5.4, -4.4, 4.4, 5.4, 6.4]) {
+        const x = anchor.x + anchor.nx * offset,
+          z = anchor.z + anchor.nz * offset;
+        if (
+          distanceToRoads(roads, x, z) < 4.2 ||
+          Math.abs(x) > bounds.x - 3 ||
+          z < bounds.minZ + 3 ||
+          z > bounds.maxZ - 3 ||
+          boxes.some(
+            (b) => segmentBox(anchor.x, anchor.z, x, z, b, 2.5) !== Infinity,
+          ) ||
+          patches.some(
+            (p) =>
+              p.kind !== "ice" && Math.hypot(x - p.x, z - p.z) < p.radius + 1,
+          )
         )
-      )
-        continue;
-      candidates.push({ x, z, anchor, offset, fraction: f });
+          continue;
+        candidates.push({ x, z, anchor, offset, fraction: f, branch });
+      }
     }
-  }
   let weapon = 2;
   for (let i = 0; i < kinds.length; i++) {
     const target = 0.04 + ((i + rand() * 0.65) / kinds.length) * 0.89,
       side = rand() < 0.5 ? -1 : 1;
     const ranked = candidates
+      .filter((p) => p.branch === i % roads.length)
       .filter((p) => drops.every((d) => Math.hypot(p.x - d.x, p.z - d.z) > 2.5))
       .map((p) => ({
         p,
@@ -81,20 +95,21 @@ export const BOSS_ATTACKS = {
 };
 
 /** Stagger upgrades in shoulder bays, with a clear lane past every parked vehicle. */
-export function placeVehicles(route, boxes, patches, bounds) {
+export function placeVehicles(route, boxes, patches, bounds, roads = [route]) {
   const kinds = ["motorcycle", "jeep", "tank"],
     radii = [0.85, 1.65, 2.3];
-  const targets = [0.13, 0.4, 0.67],
+  const plans = vehicleAnchors(roads),
+    targets = plans.map((p) => p.fraction),
     result = [];
   for (let i = 0; i < kinds.length; i++) {
     const candidates = [];
     for (let f = targets[i] - 0.07; f <= targets[i] + 0.07; f += 0.004) {
-      const anchor = sampleRoute(route, f);
+      const anchor = sampleRoute(plans[i].route, f);
       for (const offset of [-8, -7, -6.4, 6.4, 7, 8]) {
         const x = anchor.x + anchor.nx * offset,
           z = anchor.z + anchor.nz * offset;
         if (
-          distanceToRoute(route, x, z) < radii[i] + 3.6 ||
+          distanceToRoads(roads, x, z) < radii[i] + 3.6 ||
           Math.abs(x) > bounds.x - radii[i] - 1 ||
           z < bounds.minZ + radii[i] + 1 ||
           z > bounds.maxZ - radii[i] - 1 ||
@@ -112,6 +127,7 @@ export function placeVehicles(route, boxes, patches, bounds) {
         )
           continue;
         candidates.push({
+          branch: plans[i].branch,
           kind: kinds[i],
           x,
           z,

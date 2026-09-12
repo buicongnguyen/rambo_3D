@@ -13,7 +13,7 @@ test("square expeditions offer guarded vehicle bays, collectable weapons and cle
     const { MISSIONS, COVER } = await import("/src/missions.ts");
     const { segmentBox } = await import("/src/rules.mjs");
     const result = [];
-    for (const index of [1, 4, 2, 5, 7, 10, 19]) {
+    for (const index of [1, 4, 2, 5, 8, 11, 20]) {
       g.start(index, { armor: 0, power: 0, mobility: 0 }, "normal");
       g.invincible = 10000;
       const m = MISSIONS[index],
@@ -82,7 +82,7 @@ test("permanent volcanic rock blocks bullets, laser and blasts in both detail mo
     const { WEAPONS } = await import("/src/arsenal.ts");
     const { landformModel } = await import("/src/world.ts");
     const T = await import("/tests/scene-fixtures.ts");
-    g.start(4, { armor: 0, power: 0, mobility: 0 }, "normal");
+    g.start(5, { armor: 0, power: 0, mobility: 0 }, "normal");
     const rock = COVER.find(
       (b: any) => b.kind === "basalt" && b.z === -9 && Math.abs(b.x) < 10,
     );

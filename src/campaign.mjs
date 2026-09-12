@@ -18,7 +18,7 @@ export const STAGES = [
   {
     name: "Dune Lifeline",
     biome: "sand",
-    boss: "laserTank",
+    boss: "missileTruck",
     ground: 0xc1a56c,
     fog: 0xc8b58b,
     tip: "Sand traps slow movement to one quarter. Follow the firm routes.",
@@ -26,7 +26,7 @@ export const STAGES = [
   {
     name: "Canopy Hold",
     biome: "jungle",
-    boss: "spider",
+    boss: "quadMech",
     ground: 0x354d30,
     fog: 0x6c8568,
     tip: "Dense trees block movement and gunfire. Blast a path through the jungle.",
@@ -42,7 +42,7 @@ export const STAGES = [
   {
     name: "Faultline Zero",
     biome: "quake",
-    boss: "gunship",
+    boss: "rocketMech",
     ground: 0x797164,
     fog: 0xa19481,
     tip: "Dust plumes warn of tremors. Soldiers and ground bosses freeze for 1–2 seconds.",

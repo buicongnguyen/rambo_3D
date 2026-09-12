@@ -1,5 +1,7 @@
 # Square expeditions and guarded equipment
 
+Current route order and boss roster: [O loops and command bosses](LOOPS_COMMAND_BOSSES.md). Older layout notes below are retained as release history.
+
 ## Experience and level plan
 
 The second and third levels use square expedition maps: 136 × 136 metres for S, mirrored S, L and U, and 196 × 196 metres for the 45-degree S variants. The first level keeps its northbound zigzag approach; Faultline Zero retains its southbound approach.

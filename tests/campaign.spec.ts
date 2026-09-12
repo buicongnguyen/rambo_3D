@@ -228,7 +228,7 @@ test("helicopter lands, spider climbs and rests, laser tank warns before firing"
     g.elapsed = 12 - ((spider.index * 1.7) % 14);
     g.updateBoss(spider, 1 / 60);
     const resting = spider.state === "RESTING";
-    const tank = start(8);
+    const tank = start(14);
     tank.x = 0;
     tank.z = 20;
     g.pos.set(0, 0, 25);

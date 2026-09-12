@@ -3,6 +3,8 @@ import {
   routeFormation,
   seededRandom,
   routeBox,
+  relayFormation,
+  vehicleAnchors,
 } from "./routes.mjs";
 import { segmentBox } from "./rules.mjs";
 
@@ -17,9 +19,10 @@ export function squareLandscape(m) {
     m.objective,
     m.extract,
     ...routeFormation(m.route, 0.9, 4),
+    ...relayFormation(m, 12),
   ];
-  const bays = [0.13, 0.4, 0.67].flatMap((f) => {
-    const p = sampleRoute(m.route, f);
+  const bays = vehicleAnchors(m.roads).flatMap(({ route, fraction }) => {
+    const p = sampleRoute(route, fraction);
     return [-7, 7].map((offset) => ({
       x: p.x + p.nx * offset,
       z: p.z + p.nz * offset,
@@ -42,12 +45,14 @@ export function squareLandscape(m) {
         ) === Infinity,
     );
   const onRoad = (b, pad = 3.8) =>
-    m.route
-      .slice(1)
-      .some(
-        (p, i) =>
-          segmentBox(m.route[i].x, m.route[i].z, p.x, p.z, b, pad) !== Infinity,
-      );
+    m.roads.some((route) =>
+      route
+        .slice(1)
+        .some(
+          (p, i) =>
+            segmentBox(route[i].x, route[i].z, p.x, p.z, b, pad) !== Infinity,
+        ),
+    );
   const overlaps = (b, pad = 0.8) =>
     boxes.some(
       (a) =>
@@ -76,9 +81,10 @@ export function squareLandscape(m) {
     for (let x = -reach; x <= 24; x += 8) ridge(x * mirror, -9, 8.1, 9);
     for (let x = -24; x <= reach; x += 8) ridge(x * mirror, -56, 8.1, 9);
   } else {
-    // Broad rocky interior prevents a diagonal shortcut through an L or U.
-    for (let x = -30; x <= (m.shape === "L" ? 66 : 30); x += 12)
-      for (let z = -105; z <= -21; z += 12) ridge(x, z, 12.1, 12.1);
+    // Broad rocky interior prevents a diagonal shortcut through an O or U.
+    for (let x = -30; x <= 30; x += 12)
+      for (let z = m.shape === "O" ? -75 : -105; z <= -21; z += 12)
+        ridge(x, z, 12.1, 12.1);
   }
   // Biome dressing covers the full square; the playable corridor stays tank-wide.
   const attempts = m.biome === "jungle" ? 220 : m.biome === "ice" ? 150 : 100;
@@ -101,7 +107,7 @@ export function squareLandscape(m) {
     if (!onRoad(b) && clearLandmark(b) && !overlaps(b)) boxes.push(b);
   }
   for (let i = 0; i < 34; i++) {
-    const p = sampleRoute(m.route, 0.04 + i * 0.025),
+    const p = sampleRoute(m.roads[i % m.roads.length], 0.04 + i * 0.025),
       side = i % 2 ? 1 : -1;
     const b = {
       x: p.x + p.nx * side * 7.5,
@@ -115,7 +121,7 @@ export function squareLandscape(m) {
   }
   if (["ice", "sand", "mud"].includes(m.biome))
     for (let i = 0; i < 20; i++) {
-      const p = sampleRoute(m.route, 0.05 + i * 0.042),
+      const p = sampleRoute(m.roads[i % m.roads.length], 0.05 + i * 0.042),
         side = (i % 3) - 1;
       const patch = {
         x: p.x + p.nx * side * 7,
@@ -132,7 +138,10 @@ export function squareLandscape(m) {
     }
   const soldiers = 24 + m.level * 4 + (m.biome === "city" ? 8 : 0);
   for (let i = 0; i < soldiers; i++) {
-    const p = sampleRoute(m.route, 0.075 + (i / (soldiers - 1)) * 0.85);
+    const p = sampleRoute(
+      m.roads[i % m.roads.length],
+      0.075 + (i / (soldiers - 1)) * 0.85,
+    );
     const side = i % 2 ? 1 : -1;
     let x = p.x + p.nx * side * 5,
       z = p.z + p.nz * side * 5;

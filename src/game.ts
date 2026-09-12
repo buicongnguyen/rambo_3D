@@ -4,7 +4,14 @@ import {
   placeVehicles,
   guardedPatrols,
 } from "./encounters.mjs";
-import { routeFormation } from "./routes.mjs";
+import {
+  BOSS_DEFS,
+  AUX_GUN,
+  QUAD_GUNS,
+  ROCKET_GUNS,
+  MISSILE_SALVOS,
+} from "./bosses.mjs";
+import { routeFormation, relayFormation } from "./routes.mjs";
 import { difficultyConfig, terrainFactor, WORLD_BOUNDS } from "./campaign.mjs";
 import { WEAPONS, type WeaponSpec } from "./arsenal";
 import { Ride } from "./rides";
@@ -40,6 +47,8 @@ export type Actor = {
   state?: string;
   anchor?: { x: number; z: number };
   volleys?: number;
+  auxCool?: number;
+  muzzles?: Map<string, T.Object3D>;
   laserAim?: number;
   beam?: T.Mesh<T.BufferGeometry, T.MeshBasicMaterial>;
   index: number;
@@ -60,8 +69,11 @@ type Hazard = {
   radius?: number;
   damage?: number;
   owner?: Actor;
+  from?: T.Vector3;
+  duration?: number;
 };
 type Bullet = {
+  originY: number;
   mesh: T.Object3D;
   spec?: WeaponSpec;
   age: number;
@@ -269,6 +281,7 @@ export class Game {
       COVER,
       PATCHES,
       WORLD_BOUNDS,
+      mission.roads,
     );
     this.rides = vehicleBays.map((p) => {
       const ride = new Ride(p.kind as "motorcycle" | "jeep" | "tank", p.x, p.z);
@@ -284,6 +297,7 @@ export class Game {
       PATCHES,
       WORLD_BOUNDS,
       this.supplySeed,
+      mission.roads,
     );
     for (const drop of drops) {
       const mesh = this.supplyCrate(
@@ -397,9 +411,16 @@ export class Game {
     this.pickups = [];
     this.companion = undefined;
   }
-  spawn(x: number, z: number, boss: boolean, index: number) {
-    if (!boss || MISSIONS[this.index].bossModel === "laserTank") {
-      const clearance = boss ? 2.4 : 0.6;
+  spawn(
+    x: number,
+    z: number,
+    boss: boolean,
+    index: number,
+    bossKind = MISSIONS[this.index].bossModel,
+  ) {
+    const def = BOSS_DEFS[bossKind as keyof typeof BOSS_DEFS];
+    if (!boss || def.ground) {
+      const clearance = boss ? def.radius : 0.6;
       const obstacles = [
         ...COVER,
         ...this.rides.filter((v) => v.hp > 0).map((v) => v.box),
@@ -429,40 +450,40 @@ export class Game {
       }
     }
     const mesh = model(
-      boss ? MISSIONS[this.index].bossModel : "rifleman",
+      boss ? bossKind : "rifleman",
       x,
       z,
-      boss ? 0.83 : 1,
+      boss ? def.scale : 1,
     );
-    if (boss && MISSIONS[this.index].bossModel === "gunship")
-      mesh.position.y = 4;
+    if (boss && bossKind === "gunship") mesh.position.y = 4;
     mesh.userData.lowRange = 48;
     const max = boss
-      ? 1100 + MISSIONS[this.index].stage * 100
+      ? def.hp + MISSIONS[this.index].stage * 100
       : 65 + MISSIONS[this.index].level * 8;
     const warn = new T.Mesh(this.warnGeo, this.warnMat);
     warn.rotation.x = -Math.PI / 2;
     warn.position.set(x, 0.07, z);
     this.world.actors.add(mesh, warn);
+    const muzzles = new Map<string, T.Object3D>();
+    mesh.traverse((o) => {
+      if (o.userData.joint) muzzles.set(o.userData.joint, o);
+    });
     this.enemies.push({
       mesh,
-      motion: boss ? undefined : new CharacterMotion(mesh),
+      muzzles,
+      auxCool: 1.4 + (index % 4) * 0.2,
+      motion: !boss || def.humanoid ? new CharacterMotion(mesh) : undefined,
       vehicleMotion: boss
-        ? new VehicleMotion(
-            mesh,
-            MISSIONS[this.index].bossModel === "laserTank"
-              ? "tank"
-              : MISSIONS[this.index].bossModel,
-          )
+        ? new VehicleMotion(mesh, bossKind === "laserTank" ? "tank" : bossKind)
         : undefined,
       x,
       z,
       hp: max,
       max,
       cool: 1.1 + (index % 8) * 0.22,
-      bossKind: boss ? MISSIONS[this.index].bossModel : undefined,
+      bossKind: boss ? bossKind : undefined,
       anchor: boss ? { x, z } : undefined,
-      radius: boss ? 2.4 : 0.65,
+      radius: boss ? def.radius : 0.65,
       boss,
       index,
       warn,
@@ -669,12 +690,14 @@ export class Game {
     damage: number,
     speed = enemy ? 11 : 45,
     spec?: WeaponSpec,
+    originY = 0.95,
+    flashOffset = 0.7,
   ) {
     const flash = new T.Mesh(this.effectGeo, this.effectMat.clone());
     flash.position.set(
-      x + Math.sin(angle) * 0.7,
-      1.1,
-      z + Math.cos(angle) * 0.7,
+      x + Math.sin(angle) * flashOffset,
+      originY,
+      z + Math.cos(angle) * flashOffset,
     );
     flash.scale.set(0.32, 0.32, 0.8);
     flash.rotation.y = angle;
@@ -702,11 +725,12 @@ export class Game {
       if (visual === "sniper") mesh.scale.z = 3;
     }
 
-    mesh.position.set(x, 0.95, z);
+    mesh.position.set(x, originY, z);
     mesh.rotation.y = angle;
     this.world.actors.add(mesh);
     this.bullets.push({
       mesh,
+      originY,
       spec,
       age: 0,
       maxLife: enemy ? 4 : (spec?.life ?? 1.05),
@@ -744,11 +768,7 @@ export class Game {
       this.score += e.boss ? 1500 : 100;
       this.world.actors.remove(e.warn);
       this.corpses.push(
-        new FallenBody(
-          e.mesh,
-          e.motion,
-          e.boss ? MISSIONS[this.index].bossModel : "human",
-        ),
+        new FallenBody(e.mesh, e.motion, e.boss ? e.bossKind : "human"),
       );
       if (e.boss) this.spark(e.x, e.z, true);
       if (e.beam) {
@@ -960,7 +980,7 @@ export class Game {
               ) * 0.22;
       });
       if (resting) e.cool = Math.max(e.cool, 1.2);
-    } else {
+    } else if (kind === "laserTank") {
       e.state = e.cool < 1.2 ? "LASER CHARGING" : "REPOSITIONING";
       if (e.cool > 1.2) {
         const m = moveCircle(
@@ -976,6 +996,8 @@ export class Game {
         e.z = m.z;
       }
     }
+    if (kind === "quadMech" || kind === "rocketMech" || kind === "missileTruck")
+      this.moveCommandBoss(e, dt, aim);
     e.x = T.MathUtils.clamp(e.x, -WORLD_BOUNDS.x + 3, WORLD_BOUNDS.x - 3);
     e.z = T.MathUtils.clamp(e.z, WORLD_BOUNDS.minZ + 3, WORLD_BOUNDS.maxZ - 3);
     e.mesh.position.x = e.x;
@@ -983,7 +1005,20 @@ export class Game {
     // Keep the weapon aimed along the locked warning while the laser charges.
     const facing = kind === "laserTank" ? (e.laserAim ?? aim) : aim;
     e.mesh.rotation.y = facing;
-    e.vehicleMotion?.update(dt, (e.x - beforeX) / dt, facing, this.elapsed);
+    e.vehicleMotion?.update(
+      dt,
+      (e.x - beforeX) / dt,
+      facing,
+      this.elapsed,
+      (e.z - beforeZ) / dt,
+      e.cool < 1.3,
+    );
+    e.motion?.update(dt, {
+      vx: (e.x - beforeX) / dt / 1.8,
+      vz: (e.z - beforeZ) / dt / 1.8,
+      aiming: true,
+    });
+    e.mesh.updateMatrixWorld(true);
     e.cool -= dt;
     const sight = !COVER.some(
       (b) => segmentBox(e.x, e.z, this.pos.x, this.pos.z, b) !== Infinity,
@@ -991,6 +1026,15 @@ export class Game {
     e.warn.visible = e.cool < 0.6 && sight;
     e.warn.position.set(e.x, 0.08, e.z);
     e.warn.scale.setScalar(3);
+    this.updateSecondaryGun(e, dt, sight);
+    if (
+      kind === "quadMech" ||
+      kind === "rocketMech" ||
+      kind === "missileTruck"
+    ) {
+      this.commandBossAttack(e, sight);
+      return;
+    }
     if (kind === "laserTank") {
       if (e.cool <= 1.2) {
         e.laserAim ??= aim;
@@ -1070,14 +1114,176 @@ export class Game {
       } else e.cool = 0.3;
     }
   }
-  private bossSalvo(e: Actor, aim: number) {
-    const profile = BOSS_ATTACKS.heavy;
+  private moveCommandBoss(e: Actor, dt: number, aim: number) {
+    const truck = e.bossKind === "missileTruck";
+    const reloading =
+      e.bossKind === "quadMech" &&
+      !!e.volleys &&
+      e.volleys % QUAD_GUNS.volleys === 0 &&
+      e.cool > QUAD_GUNS.interval;
+    const targetVisible =
+      Math.hypot(this.pos.x - e.x, this.pos.z - e.z) <= 36 &&
+      !COVER.some(
+        (b) => segmentBox(e.x, e.z, this.pos.x, this.pos.z, b) !== Infinity,
+      );
+    const charging =
+      e.bossKind !== "quadMech" && e.cool <= 1.3 && targetVisible;
+    e.state = reloading
+      ? "GUNS COOLING / RELOAD"
+      : charging
+        ? "MISSILES LOCKING"
+        : "TRACKING / ADVANCING";
+    e.mesh.position.y = this.world.groundHeight(e.x, e.z);
+    if (reloading || charging) return;
+    const obstacles = [
+      ...COVER,
+      ...this.rides.filter((v) => v.hp > 0).map((v) => v.box),
+    ];
+    const distance = Math.hypot(this.pos.x - e.x, this.pos.z - e.z);
+    const blocked = obstacles.some(
+      (b) =>
+        segmentBox(e.x, e.z, this.pos.x, this.pos.z, b, e.radius) !== Infinity,
+    );
+    let vx = 0,
+      vz = 0;
+    if (blocked) {
+      e.routeTime = (e.routeTime ?? 0) - dt;
+      if (e.routeTime <= 0 || !e.routeTarget) {
+        e.routeTarget = routeStep(
+          e.x,
+          e.z,
+          this.pos.x,
+          this.pos.z,
+          obstacles,
+          e.radius,
+          WORLD_BOUNDS,
+        );
+        e.routeTime = 0.8 + (e.index % 4) * 0.1;
+      }
+      const dx = e.routeTarget!.x - e.x,
+        dz = e.routeTarget!.z - e.z,
+        d = Math.hypot(dx, dz);
+      if (d > 0.01) {
+        vx = dx / d;
+        vz = dz / d;
+      }
+    } else {
+      const desired = truck ? 18 : 12;
+      const advance =
+        distance > desired ? 1 : distance < desired * 0.6 ? -0.6 : 0;
+      const strafe = truck ? 0 : Math.sin(this.elapsed * 0.6 + e.index) * 0.3;
+      vx = Math.sin(aim) * advance + Math.cos(aim) * strafe;
+      vz = Math.cos(aim) * advance - Math.sin(aim) * strafe;
+    }
+    for (const other of this.enemies) {
+      if (other === e || !other.boss || other.hp <= 0) continue;
+      const dx = e.x - other.x,
+        dz = e.z - other.z,
+        d = Math.hypot(dx, dz);
+      if (d > 0.01 && d < e.radius + other.radius + 1) {
+        vx += (dx / d) * 0.8;
+        vz += (dz / d) * 0.8;
+      }
+    }
+    const speed = truck ? 1.5 : 2.2;
+    const move = moveCircle(
+      e.x,
+      e.z,
+      vx * dt * speed,
+      vz * dt * speed,
+      e.radius,
+      obstacles,
+      WORLD_BOUNDS,
+    );
+    e.x = move.x;
+    e.z = move.z;
+  }
+  private fireMountedGuns(
+    e: Actor,
+    keys: string[],
+    damage: number,
+    speed: number,
+    spread = 0,
+  ) {
+    e.mesh.updateMatrixWorld(true);
+    for (let i = 0; i < keys.length; i++) {
+      const mount = e.muzzles?.get(keys[i]);
+      if (!mount) throw new Error(`${e.bossKind} is missing ${keys[i]}`);
+      const p = mount.getWorldPosition(new T.Vector3());
+      // Never let a long gun muzzle fire through the cover that surrounds its owner.
+      if (
+        COVER.some((b) => segmentBox(e.x, e.z, p.x, p.z, b, 0.05) !== Infinity)
+      )
+        continue;
+      const aim =
+        Math.atan2(this.pos.x - p.x, this.pos.z - p.z) +
+        (i - (keys.length - 1) / 2) * spread;
+      this.shoot(p.x, p.z, aim, true, damage, speed, undefined, p.y, 0);
+    }
+    e.motion?.kick();
+    this.onSound("shot");
+  }
+  private updateSecondaryGun(e: Actor, dt: number, sight: boolean) {
+    if (!e.muzzles?.has("MuzzleAux") && e.bossKind !== "rocketMech") return;
+    e.auxCool = Math.max(-0.1, (e.auxCool ?? 1.4) - dt);
+    const resting = e.state === "RESTING" || e.state === "LANDED / REARMING";
+    if (resting) {
+      e.auxCool = Math.max(e.auxCool, 0.65);
+      return;
+    }
+    if (
+      !sight ||
+      Math.hypot(this.pos.x - e.x, this.pos.z - e.z) > AUX_GUN.range ||
+      e.auxCool > 0
+    )
+      return;
+    const rocket = e.bossKind === "rocketMech",
+      profile = rocket ? ROCKET_GUNS : AUX_GUN;
+    this.fireMountedGuns(
+      e,
+      rocket ? ["Muzzle0", "Muzzle1"] : ["MuzzleAux"],
+      profile.damage,
+      profile.speed,
+      0.04,
+    );
+    e.auxCool = profile.interval;
+  }
+  private commandBossAttack(e: Actor, sight: boolean) {
+    if (e.cool > 0) return;
+    if (!sight || Math.hypot(this.pos.x - e.x, this.pos.z - e.z) > 36) {
+      e.cool = 0.3;
+      return;
+    }
+    if (e.bossKind === "quadMech") {
+      this.fireMountedGuns(
+        e,
+        ["Muzzle0", "Muzzle1", "Muzzle2", "Muzzle3"],
+        QUAD_GUNS.damage,
+        QUAD_GUNS.speed,
+        0.045,
+      );
+      e.volleys = (e.volleys ?? 0) + 1;
+      e.cool =
+        e.volleys % QUAD_GUNS.volleys === 0
+          ? QUAD_GUNS.reload
+          : QUAD_GUNS.interval;
+    } else {
+      const profile = MISSILE_SALVOS[e.bossKind as keyof typeof MISSILE_SALVOS];
+      this.bossSalvo(
+        e,
+        Math.atan2(this.pos.x - e.x, this.pos.z - e.z),
+        profile,
+      );
+      e.cool = profile.interval;
+    }
+  }
+  private bossSalvo(e: Actor, aim: number, profile = BOSS_ATTACKS.heavy) {
     e.state = "HEAVY SALVO / TAKE COVER";
     this.onRadio(
       "Heavy salvo! Leave the orange blast zones or get behind concrete.",
     );
     for (let i = 0; i < profile.count; i++) {
-      const offset = (i - 1) * 5;
+      const offset = (i - (profile.count - 1) / 2) * (profile.radius * 1.5);
       const x = T.MathUtils.clamp(
         this.pos.x + Math.cos(aim) * offset,
         -WORLD_BOUNDS.x + profile.radius,
@@ -1099,8 +1305,12 @@ export class Game {
       mesh.position.set(x, 0.09, z);
       mesh.rotation.x = -Math.PI / 2;
       const rock = model("projectile_rocket", x, z, 1.6);
-      rock.position.y = profile.warning * 12;
-      rock.rotation.x = Math.PI / 2;
+      const launch = e.muzzles?.get("Launch" + (i % 2));
+      const from = launch
+        ? launch.getWorldPosition(new T.Vector3())
+        : new T.Vector3(e.x, e.mesh.position.y + 2, e.z);
+      rock.position.copy(from);
+      rock.lookAt(x, 8, z);
       this.world.actors.add(mesh, rock);
       this.hazards.push({
         mesh,
@@ -1111,6 +1321,8 @@ export class Game {
         radius: profile.radius,
         damage: profile.damage,
         owner: e,
+        from,
+        duration: profile.warning,
       });
     }
   }
@@ -1428,7 +1640,7 @@ export class Game {
         const count = 3 * difficultyConfig(this.difficulty).soldiers;
         for (let n = 0; n < count; n++) {
           const before = this.enemies.length;
-          const p = routeFormation(mission.route, 0.82, count, 3.5, 3)[n];
+          const p = relayFormation(mission, count)[n];
           this.spawn(p.x, p.z, false, 200 + n);
           if (this.enemies.length > before)
             this.guardIds.add(this.enemies[this.enemies.length - 1]);
@@ -1730,7 +1942,7 @@ export class Game {
       }
       b.mesh.position.set(
         nx,
-        0.95 +
+        T.MathUtils.lerp(b.originY, 0.95, Math.min(1, b.age / 0.55)) +
           (b.spec?.visual === "grenade" || b.spec?.visual === "gas"
             ? Math.sin(Math.min(1, b.age / b.maxLife) * Math.PI) * 2
             : 0),
@@ -1808,7 +2020,15 @@ export class Game {
         continue;
       }
       h.time -= dt;
-      if (h.rock) h.rock.position.y = Math.max(0, h.time * 12);
+      if (h.rock && h.from && h.duration) {
+        const t = T.MathUtils.clamp(1 - h.time / h.duration, 0, 1);
+        const position = (u: number) =>
+          new T.Vector3()
+            .lerpVectors(h.from!, new T.Vector3(h.x, 0.2, h.z), u)
+            .add(new T.Vector3(0, Math.sin(u * Math.PI) * 8, 0));
+        h.rock.position.copy(position(t));
+        h.rock.lookAt(position(Math.min(1.001, t + 0.01)));
+      } else if (h.rock) h.rock.position.y = Math.max(0, h.time * 12);
       h.mesh.material.opacity = 0.4 + Math.abs(Math.sin(h.time * 10)) * 0.5;
       if (h.time <= 0) {
         this.spark(h.x, h.z, true);

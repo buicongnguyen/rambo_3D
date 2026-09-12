@@ -38,6 +38,7 @@ export type Mission = {
   ground: number;
   fog: number;
   route: { x: number; z: number }[];
+  roads: { x: number; z: number }[][];
   start: { x: number; z: number };
   direction: string;
   objective: { x: number; z: number };
@@ -48,6 +49,9 @@ const bossNames: Record<string, string> = {
   gunship: "COBRA FANG",
   spider: "IRON WIDOW",
   laserTank: "PRISM MAMMOTH",
+  quadMech: "FOURFOLD TITAN",
+  rocketMech: "SIEGE COLOSSUS",
+  missileTruck: "TWIN TEMPEST",
 };
 export const MISSIONS: Mission[] = STAGES.flatMap((s, stage) =>
   Array.from({ length: LEVELS_PER_STAGE }, (_, level) => {
@@ -62,8 +66,8 @@ export const MISSIONS: Mission[] = STAGES.flatMap((s, stage) =>
       region: s.name.toUpperCase(),
       tag: ["BREACH / APPROACH", "RECOVER / HOLD", "COMMAND / FINALE"][level],
       description: s.tip,
-      brief: `${s.tip} Level ${level + 1}/3: follow the ${plan.shape.toLowerCase()} road, fight for vehicles and weapon caches, secure the relay, ${level === 2 ? "destroy the command bosses" : "defeat the relay guards"} and reach extraction. Vale is coordinating the evacuation from the air.`,
-      radio: `${s.name}. ${s.tip} Follow the ${plan.direction.toLowerCase()}. Patrols hold vehicles and weapon caches ahead. Hills and basalt stop bullets. Your relay is marked yellow.`,
+      brief: `${s.tip} Level ${level + 1}/3: follow the ${plan.shape.toLowerCase()} road${plan.shape === "O" ? " � choose either arm around the central hills" : ""}, fight for vehicles and weapon caches, secure the relay, ${level === 2 ? "destroy the command bosses" : "defeat the relay guards"} and reach extraction. Vale is coordinating the evacuation from the air.`,
+      radio: `${s.name}. ${s.tip} Follow the ${plan.direction.toLowerCase()}. ${plan.shape === "O" ? "Both sides of the loop lead to the relay. Choose your approach. " : ""}Patrols hold vehicles and weapon caches ahead. Hills and basalt stop bullets. Your relay is marked yellow.`,
       success:
         level === 2
           ? `${s.name} secured. The evacuation route is open. Choose your next advantage.`

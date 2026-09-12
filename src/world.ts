@@ -28,6 +28,9 @@ const names = [
   "fuelDrum",
   "spider",
   "laserTank",
+  "quadMech",
+  "rocketMech",
+  "missileTruck",
   ...WEAPONS.map((w) => "weapon_" + w.id),
   "projectile_rocket",
   "projectile_arrow",
@@ -287,7 +290,9 @@ export class World {
       { map: this.roadMap, bumpMap: this.roadMap, bumpScale: 0.035 },
     );
     const roadSegments = [
-      ...mission.route.slice(1).map((p, i) => [mission.route[i], p]),
+      ...mission.roads.flatMap((route) =>
+        route.slice(1).map((p, i) => [route[i], p]),
+      ),
     ];
     for (const [a, b] of roadSegments) {
       const dx = b.x - a.x,
@@ -301,7 +306,7 @@ export class World {
       );
       strip.rotation.y = Math.atan2(dx, dz);
     }
-    for (const p of mission.route)
+    for (const p of mission.roads.flat())
       this.mesh(
         new T.CylinderGeometry(3.5, 3.5, 0.018, 24),
         road,
@@ -310,17 +315,19 @@ export class World {
         p.z,
       );
     const line = this.mat(biome === "ice" ? 0xeef6f8 : 0xbab88a);
-    const length = routeLength(mission.route);
-    for (let d = 3; d < length; d += 6) {
-      const p = sampleRoute(mission.route, d / length);
-      const stripe = this.mesh(
-        new T.BoxGeometry(0.13, 0.025, 1.7),
-        line,
-        p.x,
-        0.035,
-        p.z,
-      );
-      stripe.rotation.y = Math.atan2(p.nz, -p.nx);
+    for (const route of mission.roads) {
+      const length = routeLength(route);
+      for (let d = 3; d < length; d += 6) {
+        const p = sampleRoute(route, d / length);
+        const stripe = this.mesh(
+          new T.BoxGeometry(0.13, 0.025, 1.7),
+          line,
+          p.x,
+          0.035,
+          p.z,
+        );
+        stripe.rotation.y = Math.atan2(p.nz, -p.nx);
+      }
     }
     const concrete = this.mat(0x969c98, {
       map: this.soilMap,
@@ -465,19 +472,21 @@ export class World {
       const x = (rand() - 0.5) * width,
         z = WORLD_BOUNDS.maxZ - rand() * depth;
       if (
-        mission.route
-          .slice(1)
-          .some(
-            (p, i) =>
-              segmentBox(
-                mission.route[i].x,
-                mission.route[i].z,
-                p.x,
-                p.z,
-                { x, z, w: 0.1, d: 0.1 },
-                3.7,
-              ) !== Infinity,
-          ) ||
+        mission.roads.some((route) =>
+          route
+            .slice(1)
+            .some(
+              (p, i) =>
+                segmentBox(
+                  route[i].x,
+                  route[i].z,
+                  p.x,
+                  p.z,
+                  { x, z, w: 0.1, d: 0.1 },
+                  3.7,
+                ) !== Infinity,
+            ),
+        ) ||
         COVER.some(
           (b) =>
             Math.abs(x - b.x) < b.w / 2 + 0.4 &&

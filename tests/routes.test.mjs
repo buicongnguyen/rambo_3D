@@ -14,6 +14,8 @@ import {
   routeFormation,
   expeditionRoute,
   routePoint,
+  relayFormation,
+  distanceToRoads,
 } from "../src/routes.mjs";
 import {
   placeSupplies,
@@ -32,7 +34,9 @@ test("all 21 winding roads and relay spurs are traversable by a tank", () => {
         m.square ? ["hill", "basalt"].includes(b.kind) : b.kind === "concrete",
       ),
     );
-    const segments = [...m.route.slice(1).map((p, i) => [m.route[i], p])];
+    const segments = m.roads.flatMap((route) =>
+      route.slice(1).map((p, i) => [route[i], p]),
+    );
     for (const [a, b] of segments) {
       assert.ok(
         COVER.every(
@@ -78,13 +82,13 @@ test("all 21 winding roads and relay spurs are traversable by a tank", () => {
     if (m.square) {
       assert.equal(WORLD_BOUNDS.x * 2, WORLD_BOUNDS.maxZ - WORLD_BOUNDS.minZ);
       assert.ok(
-        Math.max(...m.route.map((p) => p.x)) -
-          Math.min(...m.route.map((p) => p.x)) >=
+        Math.max(...m.roads.flat().map((p) => p.x)) -
+          Math.min(...m.roads.flat().map((p) => p.x)) >=
           100,
       );
       assert.ok(
-        Math.max(...m.route.map((p) => p.z)) -
-          Math.min(...m.route.map((p) => p.z)) >=
+        Math.max(...m.roads.flat().map((p) => p.z)) -
+          Math.min(...m.roads.flat().map((p) => p.z)) >=
           100,
       );
     }
@@ -93,7 +97,13 @@ test("all 21 winding roads and relay spurs are traversable by a tank", () => {
 test("seeded roadside crates keep quotas, clearance and varied distribution across every biome", () => {
   for (const m of MISSIONS) {
     buildLayout(m);
-    const vehicles = placeVehicles(m.route, COVER, PATCHES, WORLD_BOUNDS);
+    const vehicles = placeVehicles(
+      m.route,
+      COVER,
+      PATCHES,
+      WORLD_BOUNDS,
+      m.roads,
+    );
     const obstacles = [
       ...COVER,
       ...vehicles.map((v) => ({
@@ -111,7 +121,7 @@ test("seeded roadside crates keep quotas, clearance and varied distribution acro
       const v = vehicles[i];
       assert.ok(v.fraction > 0.05 && v.fraction < 0.75);
       if (i) assert.ok(v.fraction > vehicles[i - 1].fraction + 0.1);
-      assert.ok(distanceToRoute(m.route, v.x, v.z) >= v.radius + 3.6);
+      assert.ok(distanceToRoads(m.roads, v.x, v.z) >= v.radius + 3.6);
       assert.ok(
         COVER.every(
           (b) =>
@@ -126,6 +136,7 @@ test("seeded roadside crates keep quotas, clearance and varied distribution acro
         PATCHES,
         WORLD_BOUNDS,
         seed,
+        m.roads,
       );
       const targets = [
         ...vehicles,
@@ -154,7 +165,7 @@ test("seeded roadside crates keep quotas, clearance and varied distribution acro
       assert.ok(Math.max(...drops.map((d) => d.fraction)) > 0.8);
       for (const d of drops) {
         assert.ok(Math.abs(d.offset) >= 4.4 && Math.abs(d.offset) <= 6.4);
-        assert.ok(distanceToRoute(m.route, d.x, d.z) >= 4.2);
+        assert.ok(distanceToRoads(m.roads, d.x, d.z) >= 4.2);
         assert.ok(
           obstacles.every(
             (b) =>
@@ -196,7 +207,7 @@ test("light boss bullets have faster cadence than heavy attacks and heavy footpr
 test("square S routes span every quadrant and ridges block cross-map shortcuts", () => {
   assert.deepEqual(
     new Set(MISSIONS.map((m) => m.shape)),
-    new Set(["ZIGZAG", "S", "L", "MIRRORED S", "U", "S 45°", "MIRRORED S 45°"]),
+    new Set(["ZIGZAG", "S", "O", "MIRRORED S", "U", "S 45°", "MIRRORED S 45°"]),
   );
   for (const m of MISSIONS.filter((m) => m.square)) {
     buildLayout(m);
@@ -243,5 +254,45 @@ test("diagonal S variants are true 45 degree rotations with unchanged road lengt
           p.z < m.bounds.maxZ - 10,
       );
     }
+  }
+});
+
+test("route length rises within each biome and both O arms reach the common relay", () => {
+  for (let stage = 0; stage < 7; stage++) {
+    const missions = MISSIONS.filter((m) => m.stage === stage);
+    const shortest = missions.map((m) => Math.min(...m.roads.map(routeLength)));
+    assert.ok(
+      shortest[0] < shortest[1] && shortest[1] < shortest[2],
+      `${stage}: ${shortest}`,
+    );
+    assert.ok(missions[2].shape.includes("S"));
+  }
+  for (const m of MISSIONS.filter((m) => m.shape === "O")) {
+    buildLayout(m);
+    assert.equal(m.roads.length, 2);
+    for (const road of m.roads) {
+      assert.deepEqual(road[0], m.start);
+      assert.ok(
+        Math.hypot(road.at(-1).x - m.extract.x, road.at(-1).z - m.extract.z) <
+          1e-8,
+      );
+      assert.ok(distanceToRoute(road, m.objective.x, m.objective.z) < 0.01);
+    }
+    const drops = placeSupplies(
+      m.route,
+      COVER,
+      PATCHES,
+      WORLD_BOUNDS,
+      45,
+      m.roads,
+    );
+    assert.equal(drops.filter((d) => d.branch === 0).length, 10);
+    assert.equal(drops.filter((d) => d.branch === 1).length, 10);
+    for (const p of relayFormation(m, 12))
+      assert.ok(
+        COVER.every(
+          (b) => segmentBox(p.x, p.z, p.x, p.z, b, 0.85) === Infinity,
+        ),
+      );
   }
 });

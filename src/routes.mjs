@@ -116,12 +116,16 @@ export function expeditionRoute(shape) {
       [50, -80],
       [50, -96],
     ],
-    L: [
-      [-50, -96],
-      [-50, -8],
-      [-46, 5],
+    O: [
+      [0, 14],
       [-34, 14],
-      [50, 14],
+      [-46, 5],
+      [-50, -8],
+      [-50, -70],
+      [-46, -85],
+      [-34, -96],
+      [0, -96],
+      [0, -108],
     ],
     U: [
       [-50, -96],
@@ -143,21 +147,25 @@ export function expeditionRoute(shape) {
   });
 }
 export function routePlan(stage, level) {
-  const diagonal = level === 1 && stage % 4 >= 2;
+  const diagonal = level === 2 && stage % 4 >= 2;
   const baseShape =
     level === 0
       ? "ZIGZAG"
       : level === 1
         ? stage % 2
-          ? "MIRRORED S"
-          : "S"
-        : stage % 2
           ? "U"
-          : "L";
+          : "O"
+        : stage % 2
+          ? "MIRRORED S"
+          : "S";
   const shape = baseShape + (diagonal ? " 45°" : "");
   const square = shape !== "ZIGZAG";
   const layout = square ? 0 : stage === 5 ? 3 : 0;
   const route = square ? expeditionRoute(shape) : missionRoute(layout);
+  const roads =
+    shape === "O"
+      ? [route, route.map((p) => ({ x: -p.x || 0, z: p.z }))]
+      : [route];
   const bounds = diagonal
     ? { x: 98, minZ: -141, maxZ: 55 }
     : square
@@ -169,11 +177,17 @@ export function routePlan(stage, level) {
     square,
     layout,
     route,
+    roads,
     bounds,
     direction: square ? shape : layout === 3 ? "SOUTHBOUND" : "NORTHBOUND",
     start: route[0],
     extract: route.at(-1),
-    objective: square ? sampleRoute(route, 0.78) : routePoint(layout, 0, -76),
+    objective:
+      shape === "O"
+        ? { x: 0, z: -96 }
+        : square
+          ? sampleRoute(route, 0.78)
+          : routePoint(layout, 0, -76),
     bossPos: square ? sampleRoute(route, 0.9) : routePoint(layout, 0, -94),
   };
 }
@@ -188,4 +202,30 @@ export function routeFormation(route, fraction, count, width = 5, spacing = 7) {
     const side = count === 1 ? 0 : i % 2 ? width : -width;
     return { x: p.x + p.nx * side, z: p.z + p.nz * side };
   });
+}
+
+/** All O branches join before the relay fight; either approach completes the mission. */
+export function relayFormation(mission, count) {
+  return mission.shape === "O"
+    ? routeFormation(
+        [
+          { x: 0, z: -80 },
+          { x: 0, z: -110 },
+        ],
+        0.5,
+        count,
+        3.5,
+        3,
+      )
+    : routeFormation(mission.route, 0.82, count, 3.5, 3);
+}
+export function vehicleAnchors(roads) {
+  return [0.13, 0.4, 0.67].map((fraction, i) => ({
+    fraction,
+    branch: i % roads.length,
+    route: roads[i % roads.length],
+  }));
+}
+export function distanceToRoads(roads, x, z) {
+  return Math.min(...roads.map((route) => distanceToRoute(route, x, z)));
 }

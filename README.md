@@ -2,7 +2,7 @@
 
 **Play:** https://buicongnguyen.github.io/rambo_3D/
 
-A three.js / Blender solo action game with seven stages, three levels per stage, eleven weapons, and playable motorcycles, jeeps and tanks. Each stage begins with a zigzag approach, followed by an S or mirrored S sweep (including 45-degree variants) and an L or U expedition. Square maps measure 136 × 136 metres, or 196 × 196 metres for diagonal S routes. Permanent hills and volcanic basalt divide the road arms; all routes remain tank-accessible. Secure the relay, clear its counterattack, and follow the tactical map to extraction. Level three of each stage ends with command bosses.
+A three.js / Blender solo action game with seven stages, three levels per stage, eleven weapons, and playable motorcycles, jeeps and tanks. Each stage begins with a 164 m zigzag approach, followed by a 202 m O loop with a choice of two arms or a 301 m U expedition, then a 372 m S or mirrored S finale (including 45-degree variants). Square maps measure 136 × 136 metres, or 196 × 196 metres for diagonal S routes. Permanent hills and volcanic basalt divide the road arms; all routes remain tank-accessible. Secure the relay, clear its counterattack, and follow the tactical map to extraction. Level three of each stage ends with command bosses: helicopters, climbing spiders, laser tanks, four-gun humanoids, rocket-and-gun humanoids or twin-launcher missile trucks. Existing bosses also have an independent light gun.
 
 ## Campaign
 
@@ -80,3 +80,5 @@ Built separately from `buicongnguyen/rambo_game`. Models, story and synthesized 
 The [routes, supplies and boss plan](docs/ROUTES_SUPPLIES_BOSSES.md) records design choices, review and validation.
 
 The [square expedition plan](docs/SQUARE_EXPEDITIONS.md) describes the current S, mirrored S, L and U layouts, permanent terrain and guarded equipment encounters.
+
+The current [O loops and command bosses plan](docs/LOOPS_COMMAND_BOSSES.md) documents route progression, Blender art, combat tuning and release validation.

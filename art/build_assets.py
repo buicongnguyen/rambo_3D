@@ -1,4 +1,6 @@
-import bpy, math, os, random
+import bpy, math, os, random, sys
+sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
+import boss_assets
 from mathutils import Vector, Matrix
 ROOT=os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 OUT=os.path.join(ROOT,'public','models')
@@ -54,6 +56,7 @@ def beam(name,a,b,width,material):
     o.rotation_euler=d.to_track_quat('Z','Y').to_euler(); return o
 def export(name):
     detail_asset(name)
+    if name in ["gunship","spider","laserTank"]: boss_assets.auxiliary(name)
     if name=='tank':
         for i,o in enumerate(list(current)):
             if o.type=='MESH' and (o.name.startswith('Road wheel') or o.name.startswith('Wheel hub')):
@@ -123,6 +126,8 @@ def soldier(name,uniform,band):
             attach(box('Magazine',(.28,-.55,1.07),(.075,.12,.18),dark,.015),weapon)
             attach(box('Sight',(.28,-.52,1.29),(.06,.075,.07),dark,.01),weapon)
     export(name)
+
+boss_assets.configure(globals())
 
 # Secondary construction detail stays within the original gameplay footprint.
 def detail_asset(name):
@@ -440,6 +445,8 @@ for old,n in clones.items():
 for z in [1.4,1.65,1.9]:box('Laser capacitor',(0,.5,z),(1.0,.7,.12),cyan,.04)
 box('Laser aperture',(0,-2.0,1.6),(.6,.5,.55),cyan,.05)
 export('laserTank')
+
+boss_assets.build()
 
 # Arrange the editable source as an asset gallery. GLBs above retain origin pivots.
 for i,(name,objects) in enumerate(assets.items()):

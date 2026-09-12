@@ -113,6 +113,7 @@ test("boss light volleys are frequent and heavy salvos warn, cover broad areas a
     g.spawn(0, 10, true, 100);
     const boss = g.boss;
     boss.cool = 0;
+    boss.auxCool = 100; // Isolate the primary volley; the independent light gun has its own regression.
     g.elapsed = 0;
     for (let i = 0; i < 160; i++) g.updateBoss(boss, 0.01);
     const light = { bullets: g.bullets.length, damage: g.bullets[0].damage };
@@ -163,7 +164,7 @@ test("heavy laser warning matches its wide hit zone and concrete blocks damage",
   const result = await page.evaluate(async () => {
     const { game: g } = (window as any).__nightfall;
     const { COVER } = await import("/src/missions.ts");
-    g.start(6, { armor: 0, power: 0, mobility: 0 }, "normal");
+    g.start(12, { armor: 0, power: 0, mobility: 0 }, "normal");
     COVER.length = 0;
     g.enemies.forEach((e: any) => (e.hp = 0));
     g.spawn(0, 10, true, 100);
