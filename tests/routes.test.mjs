@@ -288,6 +288,12 @@ test("route length rises within each biome and both O arms reach the common rela
     );
     assert.equal(drops.filter((d) => d.branch === 0).length, 10);
     assert.equal(drops.filter((d) => d.branch === 1).length, 10);
+    for (const branch of [0, 1]) {
+      const arm = drops.filter((d) => d.branch === branch);
+      assert.ok(arm.filter((d) => d.kind === "weapon").length >= 4);
+      assert.equal(arm.filter((d) => d.kind === "health").length, 3);
+      assert.ok(arm.filter((d) => d.kind === "shield").length >= 2);
+    }
     for (const p of relayFormation(m, 12))
       assert.ok(
         COVER.every(

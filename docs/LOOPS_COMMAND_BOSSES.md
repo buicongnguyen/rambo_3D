@@ -9,7 +9,7 @@ This release supersedes the level order in [Square expeditions](SQUARE_EXPEDITIO
 3. Put O/U routes in level two and the longest S variants in level three. Length means the shortest intended road journey from insertion to extraction, not the sum of optional branches. Either O arm is about 202 m; its unique road network is about 392 m. U is 301 m and S is 372 m. The finale is therefore the longest required route in every biome.
 4. Preserve regular S, mirrored S and both 45-degree variants. Regular square maps are 136 by 136 m; diagonal maps are 196 by 196 m. Hills and volcanic basalt divide route arms and cannot be destroyed by gunfire.
 5. Render every road branch in the world and tactical map. Use the same geometry to exclude scenery, reserve vehicle bays, distribute supplies and place patrols. O relay reinforcements spawn at the shared junction so either approach can finish.
-6. Put ten of the twenty supply crates along each O arm. Keep nine additional weapons, six health and five shield crates overall. Bike and tank bays sit on one arm and the jeep on the other; each vehicle and premium weapon cache retains defenders. Rewards keep a tank-width approach from the road, spacing from every other road arm and clearance from solid objects, fuel and dangerous terrain.
+6. Put ten of the twenty supply crates along each O arm. Alternate within each reward type so each side gets four or five weapons, three health crates and two or three shields; alternating raw list indices would bias almost every weapon to one arm. Keep nine additional weapons, six health and five shield crates overall. Bike and tank bays sit on one arm and the jeep on the other; each vehicle and premium weapon cache retains defenders. Rewards keep a tank-width approach from the road, spacing from every other road arm and clearance from solid objects, fuel and dangerous terrain.
 
 | Biome          | Level 1           | Level 2 | Level 3               | Finale boss                |
 | -------------- | ----------------- | ------- | --------------------- | -------------------------- |
@@ -70,7 +70,7 @@ New ground bosses use cover-aware navigation and collision, with local separatio
 - Production TypeScript/Vite build passed. The 35 GLBs total 9,089,448 bytes, below the 9.5 MB budget. Regenerated Blender exports are retained alongside the updated editable gallery.
 - Desktop High visual fixtures show approximately 107–131 draw calls and 48k–111k triangles for the new encounters and O junction. These counts describe the captured scenes; they are not a physical-device frame-rate guarantee.
 - Desktop High views inspected for all three new bosses and the O junction. Mobile Low inspected at 390 × 844: route map, touch controls, weapon swap and HUD work with no horizontal overflow or page errors.
-- GitHub Pages release checks follow the required full CI suite.
+- The final O-arm reward balance correction passed all 24 Node checks, the production build and 12 affected browser checks. Each arm has mixed supplies and remains tank-accessible. GitHub Pages release checks follow the required full CI suite.
 
 ![Twin-launcher truck and warning zones](command-tempest-gameplay.png)
 ![O route on mobile Low](command-loop-mobile.png)

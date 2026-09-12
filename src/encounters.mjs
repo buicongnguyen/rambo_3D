@@ -63,11 +63,14 @@ export function placeSupplies(
       }
     }
   let weapon = 2;
+  // Balance each reward type independently: the kind list is not parity-neutral.
+  const nextBranch = { weapon: 0, health: 0, shield: 1 };
   for (let i = 0; i < kinds.length; i++) {
+    const branch = nextBranch[kinds[i]]++ % roads.length;
     const target = 0.04 + ((i + rand() * 0.65) / kinds.length) * 0.89,
       side = rand() < 0.5 ? -1 : 1;
     const ranked = candidates
-      .filter((p) => p.branch === i % roads.length)
+      .filter((p) => p.branch === branch)
       .filter((p) => drops.every((d) => Math.hypot(p.x - d.x, p.z - d.z) > 2.5))
       .map((p) => ({
         p,
