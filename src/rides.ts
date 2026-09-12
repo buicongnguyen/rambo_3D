@@ -8,6 +8,8 @@ export class Ride {
   mesh: T.Group;
   hp: number;
   ammo: number;
+  // The cannon bank stays with this tank across weapon swaps and dismounts.
+  personalWeapon = false;
   cool = 0;
   speed = 0;
   heading = 0;

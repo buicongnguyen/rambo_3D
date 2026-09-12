@@ -276,7 +276,7 @@ $("#home").onclick = (e) => {
 };
 $("#controls-open").onclick = () => {
   showOverlay(
-    `<span class="eyebrow">FIELD MANUAL / 01</span><h2>Get in. Get them out.</h2><p>Each stage has three long levels: a short zigzag approach, a longer O or U expedition, then the longest S or mirrored S sweep, including rotated 45-degree routes. On O loops, choose either arm around the central hills; both lead to the relay. Gray ridges on the map are permanent terrain. Secure the yellow relay and clear its guards; level three has command bosses. Defeat every boss to open green extraction.</p><div class="manual-grid"><span>WASD / ARROWS</span><b>Move</b><span>MOUSE + CLICK</span><b>Aim and fire</b><span>HOLD SPACE</span><b>Assisted aim and fire</b><span>SHIFT + MOVE</span><b>Dodge incoming fire</b><span>E / R / Q</span><b>Interact / reload / switch</b><span>ESCAPE</span><b>Pause and settings</b></div><p>The Fourfold Titan fires four hand cannons and pauses to reload. Siege Colossus combines twin guns with shoulder rockets. Twin Tempest launches wide salvos from two truck-mounted missile magazines. Leave the orange blast zones before impact. Helicopter, spider and laser-tank bosses also carry a rapid light gun. Orange rings warn of attacks and volcanic rockfalls. Ice slides, sand slows to one quarter, and mud holes gradually sink you. Quake dust signals a brief ground-enemy freeze. Shoot fuel drums for chain explosions and blast jungle trees to clear a path. Drive a moving tank over infantry to crush them. Orange rings warn of an attack. Crates stop bullets. Green pickups restore health. The scattergun excels at close range. Blue map dots mark vehicles: the bike, jeep and tank are stationed along the road with defenders. E / USE boards or exits. Sniper, rocket and laser caches also have guards. Hills and volcanic basalt block movement and fire and cannot be destroyed. Purple dots mark weapons: walk over them to collect, then Q / WEAPON cycles your loadout. Motorcycles use your selected weapon; jeeps have 20 shotgun rounds and tanks have five missiles. Exit to use objectives or extract. Touch controls appear on touch devices.</p><button id="close-manual" class="primary">READY FOR THE FIELD <span>↗</span></button>`,
+    `<span class="eyebrow">FIELD MANUAL / 01</span><h2>Get in. Get them out.</h2><p>Each stage has three long levels: a short zigzag approach, a longer O or U expedition, then the longest S or mirrored S sweep, including rotated 45-degree routes. On O loops, choose either arm around the central hills; both lead to the relay. Gray ridges on the map are permanent terrain. Secure the yellow relay and clear its guards; level three has command bosses. Defeat every boss to open green extraction.</p><div class="manual-grid"><span>WASD / ARROWS</span><b>Move</b><span>MOUSE + CLICK</span><b>Aim and fire</b><span>HOLD SPACE</span><b>Assisted aim and fire</b><span>SHIFT + MOVE</span><b>Dodge incoming fire</b><span>E / R / Q</span><b>Interact / reload / switch</b><span>ESCAPE</span><b>Pause and settings</b></div><p>The Fourfold Titan fires four hand cannons and pauses to reload. Siege Colossus combines twin guns with shoulder rockets. Twin Tempest launches wide salvos from two truck-mounted missile magazines. Leave the orange blast zones before impact. Helicopter, spider and laser-tank bosses also carry a rapid light gun. Orange rings warn of attacks and volcanic rockfalls. Ice slides, sand slows to one quarter, and mud holes gradually sink you. Quake dust signals a brief ground-enemy freeze. Shoot fuel drums for chain explosions and blast jungle trees to clear a path. Drive a moving tank or jeep over infantry to crush them. Orange rings warn of an attack. Crates stop bullets. Green pickups restore health. The scattergun excels at close range. Blue map dots mark vehicles: the bike, jeep and tank are stationed along the road with defenders. E / USE boards or exits. Sniper, rocket and laser caches also have guards. Hills and volcanic basalt block movement and fire and cannot be destroyed. Purple dots mark weapons: walk over them to collect, then Q / WEAPON cycles your loadout. Motorcycles use your selected weapon; jeeps have 20 shotgun rounds. Tanks start with six ready explosive cannon shells. Q / SWAP WEAPON cycles the cannon and your collected weapons, which keep their own magazines and reload reserves. Picking up a weapon in a tank equips it immediately; cannon shells remain stored and cannot be reloaded. Exit to use objectives or extract. Touch controls appear on touch devices.</p><button id="close-manual" class="primary">READY FOR THE FIELD <span>↗</span></button>`,
   );
   $("#close-manual").onclick = () => {
     $("#overlay").hidden = true;
@@ -360,38 +360,44 @@ function updateHud() {
       game.riding.spec.hp;
   $("#score").textContent = `${game.score.toString().padStart(6, "0")} PTS`;
   const ride = game.riding;
+  const personalWeapon = game.usesPersonalWeapon;
   $("#weapon-name").textContent = ride
     ? ride.spec.name +
       " / " +
-      (ride.kind === "tank"
-        ? "MISSILES"
-        : ride.kind === "jeep"
-          ? "MOUNTED SHOTGUN"
-          : game.weaponSpec.name)
+      (personalWeapon
+        ? game.weaponSpec.name
+        : ride.kind === "tank"
+          ? "CANNON"
+          : "MOUNTED SHOTGUN")
     : game.weaponSpec.name;
-  $("#ammo-reserve").textContent =
-    ride && ride.kind !== "motorcycle"
-      ? "/ VEHICLE AMMO"
-      : Number.isFinite(game.reserves[game.weapon])
-        ? "/ " + game.reserves[game.weapon]
-        : "/ ∞";
-  $("#ammo").textContent = (
-    ride && ride.kind !== "motorcycle" ? ride.ammo : game.ammo
-  )
+  $("#ammo-reserve").textContent = !personalWeapon
+    ? ride?.kind === "tank"
+      ? "/ SHELLS"
+      : "/ VEHICLE AMMO"
+    : Number.isFinite(game.reserves[game.weapon])
+      ? "/ " + game.reserves[game.weapon]
+      : "/ ∞";
+  $("#ammo").textContent = (personalWeapon ? game.ammo : ride!.ammo)
     .toString()
     .padStart(2, "0");
   $("#reload-label").textContent =
     game.reloadTime > 0
       ? `RELOADING ${game.reloadTime.toFixed(1)}s`
-      : ride && ride.kind !== "motorcycle"
-        ? "LIMITED AMMO · USE TO EXIT"
-        : "R RELOAD · Q SWITCH";
-  const mountedGun = Boolean(ride && ride.kind !== "motorcycle");
+      : ride?.kind === "tank"
+        ? personalWeapon
+          ? `R RELOAD · CANNON ${ride.ammo} SHELLS`
+          : "Q / SWAP TO USE COLLECTED WEAPONS"
+        : !personalWeapon
+          ? "LIMITED AMMO · USE TO EXIT"
+          : "R RELOAD · Q SWITCH";
+  const mountedGun = !game.canSwapWeapon;
   for (const button of [$("#weapon-swap"), $('[data-action="swap"]')]) {
     (button as HTMLButtonElement).disabled = mountedGun;
     button.title = mountedGun
       ? "Exit the vehicle to switch personal weapons"
-      : "Cycle collected weapons (Q on keyboard)";
+      : ride?.kind === "tank"
+        ? "Cycle cannon and collected weapons (Q on keyboard)"
+        : "Cycle collected weapons (Q on keyboard)";
   }
   $("#weapon-swap").textContent = mountedGun
     ? "MOUNTED GUN - EXIT TO SWAP"

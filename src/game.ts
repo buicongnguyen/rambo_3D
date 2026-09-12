@@ -129,6 +129,21 @@ export class Game {
   get weaponSpec() {
     return WEAPONS[this.weapon];
   }
+  get usesPersonalWeapon() {
+    return (
+      !this.riding ||
+      this.riding.kind === "motorcycle" ||
+      (this.riding.kind === "tank" && this.riding.personalWeapon)
+    );
+  }
+  get activeWeaponSpec() {
+    return this.usesPersonalWeapon
+      ? this.weaponSpec
+      : WEAPONS[this.riding!.spec.weapon];
+  }
+  get canSwapWeapon() {
+    return this.riding?.kind !== "jeep";
+  }
   get nearestRide() {
     return this.rides.find(
       (v) =>
@@ -490,7 +505,7 @@ export class Game {
     });
   }
   showWeapon() {
-    if (this.riding?.kind === "motorcycle")
+    if (this.riding && this.usesPersonalWeapon)
       this.riding.showWeapon(this.weaponSpec.id);
     if (this.shownWeapon === this.weapon) return;
     let grip: T.Object3D | undefined;
@@ -541,7 +556,11 @@ export class Game {
     this.reloadTime = 0;
     this.pos.copy(v.mesh.position);
     this.onRadio(
-      v.spec.name + " boarded. Move to drive, FIRE to shoot, USE to exit.",
+      v.spec.name +
+        " boarded. Move to drive, FIRE to shoot, USE to exit." +
+        (v.kind === "tank"
+          ? " Q / SWAP cycles cannon and collected weapons."
+          : ""),
     );
   }
   private damageHealth(damage: number) {
@@ -1368,12 +1387,18 @@ export class Game {
         this.reserves[this.weapon] -= add;
       }
     }
-    if (input.swap && (!this.riding || this.riding.kind === "motorcycle")) {
+    if (input.swap && this.canSwapWeapon) {
       this.magazines[this.weapon] = this.ammo;
-      this.weapon =
-        this.inventory[
-          (this.inventory.indexOf(this.weapon) + 1) % this.inventory.length
-        ];
+      const next = this.inventory.indexOf(this.weapon) + 1;
+      if (this.riding?.kind === "tank") {
+        // Cannon -> collected weapons in inventory order -> cannon.
+        if (!this.riding.personalWeapon) {
+          this.riding.personalWeapon = true;
+          this.weapon = this.inventory[0];
+        } else if (next >= this.inventory.length) {
+          this.riding.personalWeapon = false;
+        } else this.weapon = this.inventory[next];
+      } else this.weapon = this.inventory[next % this.inventory.length];
       this.ammo = this.magazines[this.weapon];
       this.reloadTime = 0;
       this.shotTime = Math.max(this.shotTime, 0.25);
@@ -1382,7 +1407,7 @@ export class Game {
     }
     input.swap = false;
     if (
-      (!this.riding || this.riding.kind === "motorcycle") &&
+      this.usesPersonalWeapon &&
       this.ammo === 0 &&
       this.reserves[this.weapon] === 0
     ) {
@@ -1403,7 +1428,7 @@ export class Game {
       }
     }
     if (
-      (!this.riding || this.riding.kind === "motorcycle") &&
+      this.usesPersonalWeapon &&
       input.reload &&
       this.ammo < this.mag &&
       this.reloadTime === 0 &&
@@ -1495,7 +1520,7 @@ export class Game {
         (e) =>
           e.hp > 0 &&
           Math.hypot(e.x - this.pos.x, e.z - this.pos.z) <
-            (this.weaponSpec.visual === "flame" ? 8 : 38) &&
+            (this.activeWeaponSpec.visual === "flame" ? 8 : 38) &&
           !COVER.some(
             (b) => segmentBox(this.pos.x, this.pos.z, e.x, e.z, b) < 1,
           ),
@@ -1555,35 +1580,56 @@ export class Game {
       );
       this.pos.copy(v.mesh.position);
       if (
-        v.kind === "tank" &&
+        (v.kind === "tank" || v.kind === "jeep") &&
         Math.hypot(this.pos.x - previousX, this.pos.z - previousZ) > 0.002
-      )
-        for (const enemy of this.enemies)
+      ) {
+        for (const enemy of this.enemies) {
+          if (enemy.boss || enemy.hp <= 0) continue;
+          const contact = segmentCircle(
+            previousX,
+            previousZ,
+            this.pos.x,
+            this.pos.z,
+            enemy.x,
+            enemy.z,
+            v.spec.radius + enemy.radius,
+          );
+          if (!Number.isFinite(contact)) continue;
+          // Contact must be reachable: overlapping radii alone cannot crush through cover.
+          const x = previousX + (this.pos.x - previousX) * contact;
+          const z = previousZ + (this.pos.z - previousZ) * contact;
           if (
-            !enemy.boss &&
-            enemy.hp > 0 &&
-            segmentCircle(
-              previousX,
-              previousZ,
-              this.pos.x,
-              this.pos.z,
-              enemy.x,
-              enemy.z,
-              v.spec.radius + enemy.radius,
-            ) !== Infinity
+            !COVER.some((box) =>
+              Number.isFinite(segmentBox(x, z, enemy.x, enemy.z, box)),
+            )
           )
             this.hurt(enemy, enemy.hp);
+        }
+      }
       v.cool = Math.max(0, v.cool - dt);
-      if (input.fire && v.cool === 0 && this.reloadTime === 0) {
-        const spec =
-          v.kind === "motorcycle" ? this.weaponSpec : WEAPONS[v.spec.weapon];
-        if (v.kind === "motorcycle" ? this.ammo > 0 : v.ammo > 0) {
+      if (
+        input.fire &&
+        v.cool === 0 &&
+        this.shotTime === 0 &&
+        this.reloadTime === 0
+      ) {
+        const spec = this.activeWeaponSpec;
+        if (this.usesPersonalWeapon ? this.ammo > 0 : v.ammo > 0) {
           this.fireWeapon(spec, angle, true);
           v.cool = spec.cool;
-          if (v.kind === "motorcycle") this.ammo--;
+          this.shotTime = spec.cool;
+          if (this.usesPersonalWeapon) this.ammo--;
           else v.ammo--;
-        } else if (v.kind === "motorcycle" && this.reserves[this.weapon] > 0)
+        } else if (this.usesPersonalWeapon && this.reserves[this.weapon] > 0) {
           this.reloadTime = this.weaponSpec.reload;
+          this.onSound("reload");
+        } else if (v.kind === "tank" && !v.personalWeapon) {
+          v.personalWeapon = true;
+          this.shotTime = 0.25;
+          this.onRadio(
+            "Cannon empty. Personal weapon ready. Q / SWAP cycles your loadout.",
+          );
+        }
       }
     }
     for (let i = this.weaponDrops.length - 1; i >= 0; i--) {
@@ -1594,6 +1640,7 @@ export class Game {
         if (!this.inventory.includes(drop.index))
           this.inventory.push(drop.index);
         this.weapon = drop.index;
+        if (this.riding?.kind === "tank") this.riding.personalWeapon = true;
         this.ammo = this.magazines[this.weapon];
         this.reloadTime = 0;
         this.showWeapon();
