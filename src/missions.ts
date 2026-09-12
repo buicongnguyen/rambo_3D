@@ -1,4 +1,5 @@
-import { missionRoute, routePoint, routeBox } from "./routes.mjs";
+import { routePlan, routePoint, routeBox } from "./routes.mjs";
+import { squareLandscape } from "./landscapes.mjs";
 import { segmentBox } from "./rules.mjs";
 import { STAGES, LEVELS_PER_STAGE, WORLD_BOUNDS } from "./campaign.mjs";
 export type Box = {
@@ -18,6 +19,9 @@ export type Mission = {
   stage: number;
   level: number;
   layout: number;
+  shape: string;
+  square: boolean;
+  bounds: { x: number; minZ: number; maxZ: number };
   biome: string;
   finale: boolean;
   region: string;
@@ -44,44 +48,37 @@ const bossNames: Record<string, string> = {
   spider: "IRON WIDOW",
   laserTank: "PRISM MAMMOTH",
 };
-const layoutFor = (stage: number, level: number) =>
-  stage === 5 && level === 0 ? 3 : level;
 export const MISSIONS: Mission[] = STAGES.flatMap((s, stage) =>
-  Array.from({ length: LEVELS_PER_STAGE }, (_, level) => ({
-    name: s.name,
-    stage,
-    level,
-    layout: layoutFor(stage, level),
-    biome: s.biome,
-    finale: level === 2,
-    region: s.name.toUpperCase(),
-    tag: ["BREACH / APPROACH", "RECOVER / HOLD", "COMMAND / FINALE"][level],
-    description: s.tip,
-    brief: `${s.tip} Level ${level + 1}/3: follow the winding road and concrete chicanes, secure the relay, ${level === 2 ? "destroy the command bosses" : "defeat the relay guards"} and reach extraction. Vale is coordinating the evacuation from the air.`,
-    radio: `${s.name}. ${s.tip} Follow the ${["northbound", "eastbound", "diagonal northeast", "southbound"][layoutFor(stage, level)]} zigzag road. Your relay is marked yellow.`,
-    success:
-      level === 2
-        ? `${s.name} secured. The evacuation route is open. Choose your next advantage.`
-        : "Relay secured. Refit your equipment before the next level.",
-    action: [
-      "Secure forward relay",
-      "Recover evacuation codes",
-      "Disable command uplink",
-    ][level],
-    boss: bossNames[s.boss],
-    bossModel: s.boss,
-    color: 0xe1ed98,
-    ground: s.ground,
-    fog: s.fog,
-    route: missionRoute(layoutFor(stage, level)),
-    start: routePoint(layoutFor(stage, level), 0, 23),
-    direction: ["NORTHBOUND", "EASTBOUND", "NORTHEAST", "SOUTHBOUND"][
-      layoutFor(stage, level)
-    ],
-    objective: routePoint(layoutFor(stage, level), 0, -76),
-    extract: routePoint(layoutFor(stage, level), 0, -108),
-    bossPos: routePoint(layoutFor(stage, level), 0, -94),
-  })),
+  Array.from({ length: LEVELS_PER_STAGE }, (_, level) => {
+    const plan = routePlan(stage, level);
+    return {
+      ...plan,
+      name: s.name,
+      stage,
+      level,
+      biome: s.biome,
+      finale: level === 2,
+      region: s.name.toUpperCase(),
+      tag: ["BREACH / APPROACH", "RECOVER / HOLD", "COMMAND / FINALE"][level],
+      description: s.tip,
+      brief: `${s.tip} Level ${level + 1}/3: follow the ${plan.shape.toLowerCase()} road, fight for vehicles and weapon caches, secure the relay, ${level === 2 ? "destroy the command bosses" : "defeat the relay guards"} and reach extraction. Vale is coordinating the evacuation from the air.`,
+      radio: `${s.name}. ${s.tip} Follow the ${plan.direction.toLowerCase()}. Patrols hold vehicles and weapon caches ahead. Hills and basalt stop bullets. Your relay is marked yellow.`,
+      success:
+        level === 2
+          ? `${s.name} secured. The evacuation route is open. Choose your next advantage.`
+          : "Relay secured. Refit your equipment before the next level.",
+      action: [
+        "Secure forward relay",
+        "Recover evacuation codes",
+        "Disable command uplink",
+      ][level],
+      boss: bossNames[s.boss],
+      bossModel: s.boss,
+      color: 0xe1ed98,
+      ground: s.ground,
+      fog: s.fog,
+    };
+  }),
 );
 export const COVER: Box[] = [];
 export const PATCHES: Patch[] = [];
@@ -99,12 +96,14 @@ const base: Box[] = [
 ];
 export function buildLayout(m: Mission) {
   COVER.length = PATCHES.length = SPAWNS.length = 0;
-  Object.assign(
-    WORLD_BOUNDS,
-    m.layout === 1
-      ? { x: 72, minZ: -71.5, maxZ: -14.5 }
-      : { x: m.layout === 2 ? 72 : 28.5, minZ: -115, maxZ: 28.5 },
-  );
+  Object.assign(WORLD_BOUNDS, m.bounds);
+  if (m.square) {
+    const landscape = squareLandscape(m);
+    COVER.push(...landscape.boxes);
+    PATCHES.push(...landscape.patches);
+    SPAWNS.push(...landscape.spawns);
+    return;
+  }
   const clearLandmark = (x: number, z: number, r = 6) =>
     [
       { x: 0, z: -76 },

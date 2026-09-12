@@ -1,5 +1,10 @@
-import { BOSS_ATTACKS, placeSupplies } from "./encounters.mjs";
-import { routePoint } from "./routes.mjs";
+import {
+  BOSS_ATTACKS,
+  placeSupplies,
+  placeVehicles,
+  guardedPatrols,
+} from "./encounters.mjs";
+import { routeFormation } from "./routes.mjs";
 import { difficultyConfig, terrainFactor, WORLD_BOUNDS } from "./campaign.mjs";
 import { WEAPONS, type WeaponSpec } from "./arsenal";
 import { Ride } from "./rides";
@@ -30,6 +35,8 @@ export type Actor = {
   boss: boolean;
   bossKind?: string;
   guard?: boolean;
+  cacheGuard?: boolean;
+  alerted?: boolean;
   state?: string;
   anchor?: { x: number; z: number };
   volleys?: number;
@@ -257,25 +264,17 @@ export class Game {
     this.bossSpawned = false;
     this.bossDead = false;
     this.phase = "playing";
-    const multiplier = difficultyConfig(difficulty).soldiers;
-    SPAWNS.forEach(([x, z], i) => {
-      for (let n = 0; n < multiplier; n++)
-        this.spawn(
-          x + (n % 2) * 1.5,
-          z - Math.floor(n / 2) * 1.5,
-          false,
-          i * multiplier + n,
-        );
-    });
-    this.rides = (
-      [
-        ["motorcycle", -4, 23],
-        ["jeep", 7, 21],
-        ["tank", -14, 21],
-      ] as const
-    ).map(([kind, x, z]) => {
-      const p = routePoint(mission.layout, x, z);
-      return new Ride(kind, p.x, p.z);
+    const vehicleBays = placeVehicles(
+      mission.route,
+      COVER,
+      PATCHES,
+      WORLD_BOUNDS,
+    );
+    this.rides = vehicleBays.map((p) => {
+      const ride = new Ride(p.kind as "motorcycle" | "jeep" | "tank", p.x, p.z);
+      ride.heading = Math.atan2(p.anchor.nz, -p.anchor.nx);
+      ride.mesh.rotation.y = ride.heading;
+      return ride;
     });
     for (const v of this.rides) this.world.actors.add(v.mesh);
     this.supplySeed = crypto.getRandomValues(new Uint32Array(1))[0];
@@ -297,6 +296,34 @@ export class Game {
         this.weaponDrops.push({ mesh, index: drop.index });
       else this.pickups.push(mesh);
     }
+    const obstacles = [...COVER, ...this.rides.map((v) => v.box)];
+    const patrols = guardedPatrols(
+      SPAWNS,
+      [
+        ...vehicleBays,
+        ...drops.filter(
+          (d) => d.kind === "weapon" && [3, 7, 8].includes(d.index),
+        ),
+      ],
+      obstacles,
+      WORLD_BOUNDS,
+    );
+    const multiplier = difficultyConfig(difficulty).soldiers;
+    patrols.forEach(
+      (p: { x: number; z: number; cacheGuard: boolean }, i: number) => {
+        for (let n = 0; n < multiplier; n++) {
+          const before = this.enemies.length;
+          this.spawn(
+            p.x + (n % 2) * 1.5,
+            p.z - Math.floor(n / 2) * 1.5,
+            false,
+            i * multiplier + n,
+          );
+          if (p.cacheGuard && this.enemies.length > before)
+            this.enemies.at(-1)!.cacheGuard = true;
+        }
+      },
+    );
     this.showWeapon();
   }
   private supplyCrate(
@@ -694,6 +721,7 @@ export class Game {
     });
   }
   hurt(e: Actor, damage: number) {
+    e.alerted = true;
     if (e.hp <= 0) return; // A dead actor can award score only once.
     e.motion?.hit();
     e.hp -= damage;
@@ -1389,11 +1417,7 @@ export class Game {
       if (mission.finale) {
         const count = difficultyConfig(this.difficulty).bosses;
         for (let n = 0; n < count; n++) {
-          const p = routePoint(
-            mission.layout,
-            count === 1 ? 0 : n % 2 ? 8 : -8,
-            -94 - Math.floor(n / 2) * 9,
-          );
+          const p = routeFormation(mission.route, 0.9, count)[n];
           this.spawn(p.x, p.z, true, 100 + n);
         }
         this.bossSpawned = true;
@@ -1404,12 +1428,8 @@ export class Game {
         const count = 3 * difficultyConfig(this.difficulty).soldiers;
         for (let n = 0; n < count; n++) {
           const before = this.enemies.length;
-          this.spawn(
-            mission.objective.x + (n % 2 ? 4 : -4),
-            mission.objective.z - 6 - Math.floor(n / 2) * 2,
-            false,
-            200 + n,
-          );
+          const p = routeFormation(mission.route, 0.82, count, 3.5, 3)[n];
+          this.spawn(p.x, p.z, false, 200 + n);
           if (this.enemies.length > before)
             this.guardIds.add(this.enemies[this.enemies.length - 1]);
         }
@@ -1503,6 +1523,20 @@ export class Game {
         (b) =>
           segmentBox(e.x, e.z, this.pos.x, this.pos.z, b, 0.06) !== Infinity,
       );
+      if (
+        !hasSight &&
+        !e.alerted &&
+        COVER.some(
+          (b) =>
+            (b.kind === "hill" || b.kind === "basalt") &&
+            segmentBox(e.x, e.z, this.pos.x, this.pos.z, b) !== Infinity,
+        )
+      ) {
+        e.warn.visible = false;
+        e.motion?.update(dt, { vx: 0, vz: 0 });
+        continue;
+      }
+      if (hasSight) e.alerted = true;
       // Keep a readable windup after an enemy emerges from cover.
       e.cool = hasSight ? e.cool - dt : Math.max(e.cool, 0.6);
       e.warn.visible = hasSight && e.cool < 0.6;

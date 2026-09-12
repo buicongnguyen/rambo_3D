@@ -200,11 +200,12 @@ test("helicopter lands, spider climbs and rests, laser tank warns before firing"
   await setup(page);
   const result = await page.evaluate(async () => {
     const { game: g, input } = (window as any).__nightfall;
-    const { COVER } = await import("/src/missions.ts");
+    const { COVER, MISSIONS } = await import("/src/missions.ts");
     const start = (index: number) => {
       g.start(index, { armor: 0, power: 0, mobility: 0 }, "normal");
       g.enemies.forEach((e: any) => (e.hp = 0));
-      g.spawn(0, -94, true, 100);
+      const anchor = MISSIONS[index].bossPos;
+      g.spawn(anchor.x, anchor.z, true, 100);
       return g.boss;
     };
     const heli = start(2);

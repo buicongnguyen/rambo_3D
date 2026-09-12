@@ -1,5 +1,7 @@
 # Routes, supplies and boss attack plan
 
+The route-layout section below records the earlier four-direction release. [Square expeditions](SQUARE_EXPEDITIONS.md) supersede level 2/3 geometry and vehicle placement; supply and boss attack rules below remain applicable.
+
 ## Player experience
 
 - Each stage keeps three long levels. Level 1 follows a northbound zigzag, level 2 turns east across the map, and level 3 follows a southwest-to-northeast zigzag. Faultline Zero's approach reverses south, giving a top-to-bottom route too.

@@ -8,7 +8,7 @@ import * as T from "three";
 import "./style.css";
 import { World, loadAssets, model } from "./world";
 import { Game, type Input } from "./game";
-import { MISSIONS } from "./missions";
+import { MISSIONS, COVER } from "./missions";
 import { freshSave, validateSave, advanceCampaign } from "./rules.mjs";
 const $ = <E extends HTMLElement = HTMLElement>(s: string) =>
   document.querySelector<E>(s)!;
@@ -276,7 +276,7 @@ $("#home").onclick = (e) => {
 };
 $("#controls-open").onclick = () => {
   showOverlay(
-    `<span class="eyebrow">FIELD MANUAL / 01</span><h2>Get in. Get them out.</h2><p>Each stage has three long levels. Secure the yellow relay and clear its guards; level three has command bosses. Defeat every boss to open green extraction.</p><div class="manual-grid"><span>WASD / ARROWS</span><b>Move</b><span>MOUSE + CLICK</span><b>Aim and fire</b><span>HOLD SPACE</span><b>Assisted aim and fire</b><span>SHIFT + MOVE</span><b>Dodge incoming fire</b><span>E / R / Q</span><b>Interact / reload / switch</b><span>ESCAPE</span><b>Pause and settings</b></div><p>Orange rings warn of attacks and volcanic rockfalls. Ice slides, sand slows to one quarter, and mud holes gradually sink you. Quake dust signals a brief ground-enemy freeze. Shoot fuel drums for chain explosions and blast jungle trees to clear a path. Drive a moving tank over infantry to crush them. Orange rings warn of an attack. Crates stop bullets. Green pickups restore health. The scattergun excels at close range. Blue map dots mark vehicles: E / USE boards or exits. Purple dots mark weapons: walk over them to collect, then Q / WEAPON cycles your loadout. Motorcycles use your selected weapon; jeeps have 20 shotgun rounds and tanks have five missiles. Exit to use objectives or extract. Touch controls appear on touch devices.</p><button id="close-manual" class="primary">READY FOR THE FIELD <span>↗</span></button>`,
+    `<span class="eyebrow">FIELD MANUAL / 01</span><h2>Get in. Get them out.</h2><p>Each stage has three long levels: a zigzag approach, an S or mirrored S sweep, then an L or U expedition. Gray ridges on the map are permanent terrain. Secure the yellow relay and clear its guards; level three has command bosses. Defeat every boss to open green extraction.</p><div class="manual-grid"><span>WASD / ARROWS</span><b>Move</b><span>MOUSE + CLICK</span><b>Aim and fire</b><span>HOLD SPACE</span><b>Assisted aim and fire</b><span>SHIFT + MOVE</span><b>Dodge incoming fire</b><span>E / R / Q</span><b>Interact / reload / switch</b><span>ESCAPE</span><b>Pause and settings</b></div><p>Orange rings warn of attacks and volcanic rockfalls. Ice slides, sand slows to one quarter, and mud holes gradually sink you. Quake dust signals a brief ground-enemy freeze. Shoot fuel drums for chain explosions and blast jungle trees to clear a path. Drive a moving tank over infantry to crush them. Orange rings warn of an attack. Crates stop bullets. Green pickups restore health. The scattergun excels at close range. Blue map dots mark vehicles: the bike, jeep and tank are stationed along the road with defenders. E / USE boards or exits. Sniper, rocket and laser caches also have guards. Hills and volcanic basalt block movement and fire and cannot be destroyed. Purple dots mark weapons: walk over them to collect, then Q / WEAPON cycles your loadout. Motorcycles use your selected weapon; jeeps have 20 shotgun rounds and tanks have five missiles. Exit to use objectives or extract. Touch controls appear on touch devices.</p><button id="close-manual" class="primary">READY FOR THE FIELD <span>↗</span></button>`,
   );
   $("#close-manual").onclick = () => {
     $("#overlay").hidden = true;
@@ -453,6 +453,15 @@ function updateHud() {
   const mapX = (x: number) => 72 + x * scale;
   const mapZ = (z: number) =>
     72 + (z - (WORLD_BOUNDS.minZ + WORLD_BOUNDS.maxZ) / 2) * scale;
+  ctx.fillStyle = "#555b58";
+  for (const b of COVER)
+    if (b.kind === "hill" || b.kind === "basalt")
+      ctx.fillRect(
+        mapX(b.x - b.w / 2),
+        mapZ(b.z - b.d / 2),
+        b.w * scale,
+        b.d * scale,
+      );
   ctx.strokeStyle = "#83988d";
   ctx.lineWidth = 2;
   ctx.beginPath();

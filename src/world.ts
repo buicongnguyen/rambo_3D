@@ -120,6 +120,42 @@ export function coverModel(box: Box, layout: number) {
   return root;
 }
 
+/** Blender rock silhouettes share the exact ground footprint used for collision. */
+export function landformModel(box: Box, material: T.Material) {
+  const root = new T.Group(),
+    rock = model("rock");
+  rock.rotation.y = (box.x * 1.73 + box.z * 0.37) % (Math.PI * 2);
+  const bounds = new T.Box3().setFromObject(rock),
+    size = bounds.getSize(new T.Vector3()),
+    center = bounds.getCenter(new T.Vector3());
+  const height =
+    Math.min(box.w, box.d) *
+    (box.kind === "basalt" ? 0.58 : 0.44) *
+    (0.82 + Math.abs(Math.sin(box.x + box.z)) * 0.18);
+  const wrapper = new T.Group();
+  wrapper.add(rock);
+  wrapper.scale.set(box.w / size.x, height / size.y, box.d / size.z);
+  wrapper.position.set(
+    -center.x * wrapper.scale.x,
+    -bounds.min.y * wrapper.scale.y,
+    -center.z * wrapper.scale.z,
+  );
+  rock.traverse((o) => {
+    if (o instanceof T.Mesh) {
+      o.material = material;
+      o.userData.highDetail = false;
+    }
+  });
+  root.add(wrapper);
+  // A low bedrock plinth joins neighboring outcrops without invisible ground gaps.
+  const base = new T.Mesh(new T.BoxGeometry(box.w, 0.08, box.d), material);
+  base.position.y = -0.065;
+  base.castShadow = base.receiveShadow = true;
+  root.add(base);
+  root.position.set(box.x, 0, box.z);
+  return root;
+}
+
 export class World {
   scene = new T.Scene();
   lowDetail = false;
@@ -329,8 +365,21 @@ export class World {
           rim.rotation.x = -Math.PI / 2;
         }
     }
+    const bedrock = this.mat(
+      biome === "volcano" ? 0x49413b : biome === "ice" ? 0xa7b7bf : 0x65634f,
+      {
+        map: this.soilMap,
+        bumpMap: this.soilMap,
+        bumpScale: 0.13,
+        roughness: 1,
+      },
+    );
     for (const box of COVER) {
-      if (
+      if (box.kind === "hill" || box.kind === "basalt") {
+        const landform = landformModel(box, bedrock);
+        this.ownedGeometries.push((landform.children[1] as T.Mesh).geometry);
+        this.terrain.add(landform);
+      } else if (
         box.kind === "tree" ||
         box.kind === "snowTree" ||
         box.kind === "fuel"

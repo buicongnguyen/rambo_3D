@@ -95,3 +95,87 @@ export function distanceToRoute(route, x, z) {
     }),
   );
 }
+
+/** Square expedition layouts. Coordinates are shared by terrain, loot and encounters. */
+export function expeditionRoute(shape) {
+  const paths = {
+    S: [
+      [-50, 14],
+      [32, 14],
+      [44, 8],
+      [50, -4],
+      [50, -14],
+      [44, -25],
+      [32, -32],
+      [-32, -32],
+      [-44, -39],
+      [-50, -50],
+      [-50, -60],
+      [-44, -72],
+      [-32, -80],
+      [50, -80],
+      [50, -96],
+    ],
+    L: [
+      [-50, -96],
+      [-50, -8],
+      [-46, 5],
+      [-34, 14],
+      [50, 14],
+    ],
+    U: [
+      [-50, -96],
+      [-50, -8],
+      [-46, 5],
+      [-34, 14],
+      [34, 14],
+      [46, 5],
+      [50, -8],
+      [50, -96],
+    ],
+  };
+  const path = paths[shape === "MIRRORED S" ? "S" : shape];
+  return path.map(([x, z]) => ({ x: shape === "MIRRORED S" ? -x : x, z }));
+}
+export function routePlan(stage, level) {
+  const shape =
+    level === 0
+      ? "ZIGZAG"
+      : level === 1
+        ? stage % 2
+          ? "MIRRORED S"
+          : "S"
+        : stage % 2
+          ? "U"
+          : "L";
+  const square = shape !== "ZIGZAG";
+  const layout = square ? 0 : stage === 5 ? 3 : 0;
+  const route = square ? expeditionRoute(shape) : missionRoute(layout);
+  const bounds = square
+    ? { x: 68, minZ: -111, maxZ: 25 }
+    : { x: 28.5, minZ: -115, maxZ: 28.5 };
+  return {
+    shape,
+    square,
+    layout,
+    route,
+    bounds,
+    direction: square ? shape : layout === 3 ? "SOUTHBOUND" : "NORTHBOUND",
+    start: route[0],
+    extract: route.at(-1),
+    objective: square ? sampleRoute(route, 0.78) : routePoint(layout, 0, -76),
+    bossPos: square ? sampleRoute(route, 0.9) : routePoint(layout, 0, -94),
+  };
+}
+/** Keep every reinforcement on the final road arm, independent of compass direction. */
+export function routeFormation(route, fraction, count, width = 5, spacing = 7) {
+  const length = routeLength(route);
+  return Array.from({ length: count }, (_, i) => {
+    const p = sampleRoute(
+      route,
+      Math.min(0.96, fraction + (Math.floor(i / 2) * spacing) / length),
+    );
+    const side = count === 1 ? 0 : i % 2 ? width : -width;
+    return { x: p.x + p.nx * side, z: p.z + p.nz * side };
+  });
+}

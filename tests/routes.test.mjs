@@ -1,21 +1,36 @@
 import test from "node:test";
 import assert from "node:assert/strict";
-import { MISSIONS, COVER, PATCHES, buildLayout } from "../src/missions.ts";
+import {
+  MISSIONS,
+  COVER,
+  PATCHES,
+  SPAWNS,
+  buildLayout,
+} from "../src/missions.ts";
 import { WORLD_BOUNDS } from "../src/campaign.mjs";
-import { routeLength, distanceToRoute } from "../src/routes.mjs";
-import { placeSupplies, BOSS_ATTACKS } from "../src/encounters.mjs";
+import {
+  routeLength,
+  distanceToRoute,
+  routeFormation,
+} from "../src/routes.mjs";
+import {
+  placeSupplies,
+  BOSS_ATTACKS,
+  placeVehicles,
+  guardedPatrols,
+} from "../src/encounters.mjs";
 import { moveCircle, segmentBox } from "../src/rules.mjs";
 
 test("all 21 winding roads and relay spurs are traversable by a tank", () => {
   for (const m of MISSIONS) {
     buildLayout(m);
     assert.ok(routeLength(m.route) > 155);
-    assert.ok(COVER.some((b) => b.kind === "concrete"));
-    const segments = [
-      ...m.route.slice(1).map((p, i) => [m.route[i], p]),
-      [m.route[5], m.objective],
-      [m.objective, m.route[6]],
-    ];
+    assert.ok(
+      COVER.some((b) =>
+        m.square ? ["hill", "basalt"].includes(b.kind) : b.kind === "concrete",
+      ),
+    );
+    const segments = [...m.route.slice(1).map((p, i) => [m.route[i], p])];
     for (const [a, b] of segments) {
       assert.ok(
         COVER.every(
@@ -24,7 +39,7 @@ test("all 21 winding roads and relay spurs are traversable by a tank", () => {
         `${m.name}/${m.level} road obstructed`,
       );
       let pos = { ...a };
-      for (let i = 0; i < 200; i++) {
+      for (let i = 0; i < 400; i++) {
         const dx = b.x - pos.x,
           dz = b.z - pos.z,
           d = Math.hypot(dx, dz);
@@ -44,20 +59,88 @@ test("all 21 winding roads and relay spurs are traversable by a tank", () => {
         `${m.name}/${m.level} tank stuck`,
       );
     }
-    assert.ok(
-      m.layout === 3
-        ? m.extract.z > m.start.z
-        : m.level === 0
-          ? m.extract.z < m.start.z
-          : m.extract.x > m.start.x,
-    );
+    assert.ok(distanceToRoute(m.route, m.objective.x, m.objective.z) < 0.01);
+    for (const p of routeFormation(m.route, 0.9, 4)) {
+      assert.ok(
+        COVER.every(
+          (box) => segmentBox(p.x, p.z, p.x, p.z, box, 2.5) === Infinity,
+        ),
+        `${m.name} boss arena blocked`,
+      );
+      assert.ok(
+        Math.abs(p.x) < WORLD_BOUNDS.x - 3 &&
+          p.z > WORLD_BOUNDS.minZ + 3 &&
+          p.z < WORLD_BOUNDS.maxZ - 3,
+      );
+    }
+    if (m.square) {
+      assert.equal(WORLD_BOUNDS.x * 2, WORLD_BOUNDS.maxZ - WORLD_BOUNDS.minZ);
+      assert.ok(
+        Math.max(...m.route.map((p) => p.x)) -
+          Math.min(...m.route.map((p) => p.x)) >=
+          100,
+      );
+      assert.ok(
+        Math.max(...m.route.map((p) => p.z)) -
+          Math.min(...m.route.map((p) => p.z)) >=
+          100,
+      );
+    }
   }
 });
 test("seeded roadside crates keep quotas, clearance and varied distribution across every biome", () => {
   for (const m of MISSIONS) {
     buildLayout(m);
+    const vehicles = placeVehicles(m.route, COVER, PATCHES, WORLD_BOUNDS);
+    const obstacles = [
+      ...COVER,
+      ...vehicles.map((v) => ({
+        x: v.x,
+        z: v.z,
+        w: v.radius * 2,
+        d: v.radius * 2,
+      })),
+    ];
+    assert.deepEqual(
+      vehicles.map((v) => v.kind),
+      ["motorcycle", "jeep", "tank"],
+    );
+    for (let i = 0; i < vehicles.length; i++) {
+      const v = vehicles[i];
+      assert.ok(v.fraction > 0.05 && v.fraction < 0.75);
+      if (i) assert.ok(v.fraction > vehicles[i - 1].fraction + 0.1);
+      assert.ok(distanceToRoute(m.route, v.x, v.z) >= v.radius + 3.6);
+      assert.ok(
+        COVER.every(
+          (b) =>
+            segmentBox(v.anchor.x, v.anchor.z, v.x, v.z, b, 2.5) === Infinity,
+        ),
+      );
+    }
     for (let seed = 0; seed < 30; seed++) {
-      const drops = placeSupplies(m.route, COVER, PATCHES, WORLD_BOUNDS, seed);
+      const drops = placeSupplies(
+        m.route,
+        obstacles,
+        PATCHES,
+        WORLD_BOUNDS,
+        seed,
+      );
+      const targets = [
+        ...vehicles,
+        ...drops.filter(
+          (d) => d.kind === "weapon" && [3, 7, 8].includes(d.index),
+        ),
+      ];
+      const guards = guardedPatrols(SPAWNS, targets, obstacles, WORLD_BOUNDS);
+      assert.equal(guards.length, SPAWNS.length);
+      assert.equal(guards.filter((g) => g.cacheGuard).length, 12);
+      for (const target of targets)
+        assert.ok(
+          guards.filter(
+            (g) =>
+              g.cacheGuard && Math.hypot(g.x - target.x, g.z - target.z) < 7,
+          ).length >= 2,
+        );
       assert.equal(drops.length, 20);
       assert.equal(drops.filter((d) => d.kind === "health").length, 6);
       assert.equal(drops.filter((d) => d.kind === "shield").length, 5);
@@ -71,7 +154,7 @@ test("seeded roadside crates keep quotas, clearance and varied distribution acro
         assert.ok(Math.abs(d.offset) >= 4.4 && Math.abs(d.offset) <= 6.4);
         assert.ok(distanceToRoute(m.route, d.x, d.z) >= 4.2);
         assert.ok(
-          COVER.every(
+          obstacles.every(
             (b) =>
               segmentBox(d.anchor.x, d.anchor.z, d.x, d.z, b, 2.5) === Infinity,
           ),
@@ -106,4 +189,27 @@ test("light boss bullets have faster cadence than heavy attacks and heavy footpr
     BOSS_ATTACKS.heavy.warning >= 1.2 && BOSS_ATTACKS.heavy.radius >= 3,
   );
   assert.ok(BOSS_ATTACKS.laserTank.width >= 3);
+});
+
+test("square S routes span every quadrant and ridges block cross-map shortcuts", () => {
+  assert.deepEqual(
+    new Set(MISSIONS.map((m) => m.shape)),
+    new Set(["ZIGZAG", "S", "L", "MIRRORED S", "U"]),
+  );
+  for (const m of MISSIONS.filter((m) => m.square)) {
+    buildLayout(m);
+    assert.ok(
+      COVER.some(
+        (b) =>
+          ["hill", "basalt"].includes(b.kind) &&
+          segmentBox(m.start.x, m.start.z, m.extract.x, m.extract.z, b, 0.5) !==
+            Infinity,
+      ),
+      `${m.name}/${m.shape} shortcut`,
+    );
+    if (m.shape.includes("S")) {
+      const quadrants = new Set(m.route.map((p) => `${p.x < 0}:${p.z < -43}`));
+      assert.equal(quadrants.size, 4);
+    }
+  }
 });

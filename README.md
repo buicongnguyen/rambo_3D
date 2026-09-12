@@ -2,7 +2,7 @@
 
 **Play:** https://buicongnguyen.github.io/rambo_3D/
 
-A three.js / Blender solo action game with seven stages, three levels per stage, eleven weapons, and playable motorcycles, jeeps and tanks. Each level has a winding road of about 160 metres. Three layouts per stage run north, east and diagonally northeast (Faultline Zero also reverses south), with tank-width concrete chicanes. Secure the relay, clear its counterattack, and follow the tactical map to extraction. Level three of each stage ends with command bosses.
+A three.js / Blender solo action game with seven stages, three levels per stage, eleven weapons, and playable motorcycles, jeeps and tanks. Each stage begins with a zigzag approach, followed by an S or mirrored S sweep and an L or U expedition on a 136 × 136 metre map. Permanent hills and volcanic basalt divide the road arms; all routes remain tank-accessible. Secure the relay, clear its counterattack, and follow the tactical map to extraction. Level three of each stage ends with command bosses.
 
 ## Campaign
 
@@ -42,7 +42,7 @@ Normal retains the standard health and soldier damage. Base patrol counts increa
 
 Mobile has movement, FIRE, SWAP WEAPON, RELOAD, DODGE, BOARD/EXIT/USE and PAUSE buttons. Motorcycles use personal weapons; jeeps and tanks use mounted weapons. Exit them to switch personal weapons, activate objectives or extract. Moving tanks crush infantry; stationary contact does not award kills. Vehicle collision still respects solid cover.
 
-Each deployment scatters nine purple weapon crates, six green medical crates and five blue shield crates along accessible roadsides. Walk or drive nearby to collect them. Green supplies heal the player and repair the occupied vehicle; full health/armor leaves supplies available. Blue crates add 40 personal shield points up to 80. Shields absorb personal damage before health and remain stored while vehicle armor takes hits. Shoot red fuel drums for chain explosions; the blast can hurt you too. Trees can be shot or blasted apart. Enemy helicopters fly and land to rearm behind cover; spiders climb across obstacles and pause to rest; laser tanks telegraph a locked 3.2-metre-wide beam. Gunships and spiders fire frequent light volleys, then a slower heavy salvo with three warned 3.4-metre blast zones. Leave the warning rings or use solid cover.
+The motorcycle, jeep and tank appear in guarded roadside bays around 13%, 40% and 67% of the route. Sniper, rocket and laser caches also have nearby defenders drawn from the existing patrol quota. Permanent hills and basalt stop movement and fire in both graphics modes. Each deployment scatters nine purple weapon crates, six green medical crates and five blue shield crates along accessible roadsides. Walk or drive nearby to collect them. Green supplies heal the player and repair the occupied vehicle; full health/armor leaves supplies available. Blue crates add 40 personal shield points up to 80. Shields absorb personal damage before health and remain stored while vehicle armor takes hits. Shoot red fuel drums for chain explosions; the blast can hurt you too. Trees can be shot or blasted apart. Enemy helicopters fly and land to rearm behind cover; spiders climb across obstacles and pause to rest; laser tanks telegraph a locked 3.2-metre-wide beam. Gunships and spiders fire frequent light volleys, then a slower heavy salvo with three warned 3.4-metre blast zones. Leave the warning rings or use solid cover.
 
 ## Run and build
 
@@ -78,3 +78,5 @@ See [campaign expansion plan and behavior](docs/CAMPAIGN_EXPANSION.md), [vehicle
 Built separately from `buicongnguyen/rambo_game`. Models, story and synthesized effects are authored for this unofficial prototype; it includes no film assets or commercial soundtrack. Local co-op, physical controller integration and Android packaging remain future work.
 
 The [routes, supplies and boss plan](docs/ROUTES_SUPPLIES_BOSSES.md) records design choices, review and validation.
+
+The [square expedition plan](docs/SQUARE_EXPEDITIONS.md) describes the current S, mirrored S, L and U layouts, permanent terrain and guarded equipment encounters.
