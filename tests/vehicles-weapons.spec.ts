@@ -46,7 +46,10 @@ test("all three vehicles board, move with wheels, fire, retain ammo and eject sa
       g.pos.copy(v.mesh.position);
       g.useRide();
       const remaining = v.ammo;
-      g.takeDamage(999);
+      // Test the actual armor boundary instead of assuming a fixed hit is lethal.
+      g.takeDamage(v.hp - 1);
+      const lastArmorProtects = g.riding === v && v.hp === 1 && g.hp === hp;
+      g.takeDamage(1);
       const destroyed =
         !g.riding && g.player.visible && v.hp === 0 && g.corpses.length > 0;
       results.push({
@@ -59,6 +62,7 @@ test("all three vehicles board, move with wheels, fire, retain ammo and eject sa
         exitDistance,
         radius: v.spec.radius,
         destroyed,
+        lastArmorProtects,
         remaining,
       });
     }
@@ -72,6 +76,7 @@ test("all three vehicles board, move with wheels, fire, retain ammo and eject sa
     expect(r.protectedPlayer).toBe(true);
     expect(r.exited).toBe(true);
     expect(r.exitDistance).toBeGreaterThan(r.radius);
+    expect(r.lastArmorProtects).toBe(true);
     expect(r.destroyed).toBe(true);
   }
 });

@@ -31,3 +31,5 @@ Local validation: 33 unit tests passed; TypeScript/production build passed; 11 f
 ![Compact warm rounds on snow, Low](compact-rounds-low.png)
 
 ![Compact warm rounds on snow, High](compact-rounds-high.png)
+
+The vehicle emergency-exit regression now uses each vehicle's current armor: it verifies protection at one armor point and destruction/ejection at zero. This replaces the older fixed 999-damage assumption, which is no longer lethal to a 1,680-armor tank.
