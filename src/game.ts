@@ -114,8 +114,8 @@ export class Game {
   private coverGrid = new SpatialGrid(8);
   private coverCount = -1;
   private liveCover = new Set<(typeof COVER)[number]>();
-  private friendlyTracer = tracerGeometry(0xff620a);
-  private hostileTracer = tracerGeometry(0xff319a, true);
+  private friendlyTracer = tracerGeometry(0xff9418);
+  private hostileTracer = tracerGeometry(0xff7914, true);
   private tracerMaterial = new T.MeshBasicMaterial({
     vertexColors: true,
     toneMapped: false,
@@ -427,7 +427,7 @@ export class Game {
     const mission = MISSIONS[index];
     this.friendlyTracer.dispose();
     this.friendlyTracer = tracerGeometry(
-      ["ice", "sand", "city"].includes(mission.biome) ? 0xff620a : 0xffce19,
+      ["ice", "sand", "city"].includes(mission.biome) ? 0xff9418 : 0xffc62b,
     );
     this.refreshCoverGrid();
     this.player = model("commando", mission.start.x, mission.start.z);

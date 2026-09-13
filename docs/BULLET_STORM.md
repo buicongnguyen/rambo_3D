@@ -12,7 +12,7 @@
 - Add small dark-red ground splashes with brief airborne droplets on infantry deaths. These are cosmetic, fade out and never block movement.
 - Explosive kills on tanks detach several actual model parts, throw them upward/outward, collide with ground/cover, and fade. Non-explosive tank kills retain a settling wreck. Preserve one kill/score award.
 - Trees require several rifle hits, shed green leaf dust and wood fragments when destroyed, and immediately release collision. Convert large rock, hill and concrete/block obstacles to clusters of small destructible trees in all 21 levels. Retain city buildings, roads, relay clearings and safe vehicle bays.
-- Bright stages use orange cores with red edges for player tracers; dark stages use saturated gold. Enemy rounds use vivid magenta with dark edges to distinguish dangerous incoming fire. Keep laser/flame/gas identities.
+- Updated by the compact-round balance pass: both sides use half-sized rounded orange/yellow bullets with small red tails. See WEAPON_BALANCE.md for the current machine-gun and tank tuning. Laser/flame/gas keep their weapon identities.
 
 ## Turbo controls and upgrades
 
