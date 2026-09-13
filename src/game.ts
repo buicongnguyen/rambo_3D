@@ -1,3 +1,10 @@
+import {
+  ENEMY_TANK,
+  armorMultiplier,
+  healthDropEvery,
+  depotGuardPositions,
+  explosiveTarget,
+} from "./tactics.mjs";
 import { ENV_BLAST, blastDamage } from "./environment.mjs";
 import {
   BOSS_ATTACKS,
@@ -41,6 +48,7 @@ export type Input = {
   interact: boolean;
   swap: boolean;
   turbo?: boolean;
+  blast?: boolean;
 };
 export type Actor = {
   mesh: T.Group;
@@ -134,6 +142,31 @@ export class Game {
   shield = 0;
   readonly maxShield = 80;
   supplySeed = 0;
+  combatNotice = "";
+  combatNoticeUntil = 0;
+  blastTarget?: (typeof COVER)[number];
+  private blastAimTime = 0;
+  private blastAimWeapon = "";
+  private blastMarker = new T.Mesh(
+    new T.RingGeometry(0.7, 0.85, 24),
+    new T.MeshBasicMaterial({
+      color: 0xff8b24,
+      transparent: true,
+      opacity: 0.9,
+      side: T.DoubleSide,
+      depthWrite: false,
+    }),
+  );
+  private combatMessage(text: string, seconds = 1.2) {
+    if (
+      this.elapsed < this.combatNoticeUntil &&
+      this.combatNotice.startsWith("CHAIN BLAST") &&
+      !text.startsWith("CHAIN BLAST")
+    )
+      return;
+    this.combatNotice = text;
+    this.combatNoticeUntil = this.elapsed + seconds;
+  }
   hazards: Hazard[] = [];
   private followTarget = { x: 0, z: 0 };
   private followClock = 0;
@@ -438,6 +471,13 @@ export class Game {
     this.world.actors.add(this.player);
     this.difficulty = difficulty;
     this.power = save.power;
+    this.combatNotice = "";
+    this.combatNoticeUntil = 0;
+    this.blastAimTime = 0;
+    this.blastTarget = undefined;
+    this.blastMarker.visible = false;
+    this.blastMarker.rotation.x = -Math.PI / 2;
+    this.world.actors.add(this.blastMarker);
     this.mobility = save.mobility;
     this.maxHp = difficultyConfig(difficulty).health + save.armor * 35;
     this.hp = this.maxHp;
@@ -525,6 +565,22 @@ export class Game {
         }
       },
     );
+    for (const p of depotGuardPositions(
+      this.enemies,
+      COVER,
+      WORLD_BOUNDS,
+      mission.start,
+      this.rides.map((v) => ({
+        x: v.mesh.position.x,
+        z: v.mesh.position.z,
+        radius: v.spec.radius,
+      })),
+    )) {
+      const e = this.enemies[p.index];
+      e.x = p.x;
+      e.z = p.z;
+      e.mesh.position.set(p.x, this.world.groundHeight(p.x, p.z), p.z);
+    }
     const tanks =
       Math.max(3, Math.floor(patrols.length / 8)) *
       difficultyConfig(difficulty).soldiers;
@@ -1038,8 +1094,12 @@ export class Game {
   ) {
     e.alerted = true;
     if (e.hp <= 0) return; // A dead actor can award score only once.
+    const armor = armorMultiplier(e, spec);
+    damage *= armor;
     e.motion?.hit();
     e.hp -= damage;
+    if (armor < 1 && e.hp > 0)
+      this.combatMessage("ARMOR DEFLECTS · USE ROCKETS / LASER");
     if (e.boss && e.hp > 0 && e.hp < e.max * 0.5 && !e.reinforced) {
       e.reinforced = true;
       for (let n = 0; n < 2 * difficultyConfig(this.difficulty).soldiers; n++)
@@ -1059,7 +1119,7 @@ export class Game {
           contact?.x ?? e.x,
           e.mesh.position.y + (e.boss ? 1.5 : 1),
           contact?.z ?? e.z,
-          spec.visual,
+          armor < 1 ? "armor" : spec.visual,
           this.world.lowDetail,
           spec.visual === "sniper"
             ? 1.2
@@ -1067,7 +1127,7 @@ export class Game {
               ? 1.05
               : 0.85,
         );
-      this.onSound("hit");
+      this.onSound(armor < 1 ? "armor" : "hit");
     } else this.spark(e.x, e.z);
     if (e.hp <= 0) {
       this.kills++;
@@ -1114,7 +1174,7 @@ export class Game {
       }
       if (e.boss) {
         this.checkExtraction();
-      } else if (e.index % 2 === 0) {
+      } else if (e.index % healthDropEvery(this.difficulty) === 0) {
         const p = this.supplyCrate("health", e.x, e.z);
         this.pickups.push(p);
         this.world.actors.add(p);
@@ -1157,6 +1217,7 @@ export class Game {
   }
   private environmentExplosion(x: number, z: number) {
     const { radius } = ENV_BLAST;
+    const beforeKills = this.kills;
     this.onSound("explosion");
     // Walls and buildings contain a blast; soft foliage and other explosive stores do not.
     const solid = COVER.filter(
@@ -1209,6 +1270,11 @@ export class Game {
       radius,
       true,
     );
+    if (this.kills > beforeKills)
+      this.combatMessage(
+        `CHAIN BLAST · ${this.kills - beforeKills} HOSTILES DOWN`,
+        2,
+      );
   }
   private updateTerrainEvents(dt: number) {
     this.quakeTime = Math.max(0, this.quakeTime - dt);
@@ -1881,25 +1947,75 @@ export class Game {
     // Root remains grounded; articulated joints provide all locomotion motion.
     this.pos.y = this.world.groundHeight(this.pos.x, this.pos.z) - this.sink;
     let aim = input.aim;
-    const nearest = this.enemies
-      .filter(
-        (e) =>
-          e.hp > 0 &&
-          Math.hypot(e.x - this.pos.x, e.z - this.pos.z) <
-            (this.activeWeaponSpec.visual === "flame" ? 8 : 38) &&
-          !this.coverGrid
-            .segment(this.pos.x, this.pos.z, e.x, e.z)
-            .some(
-              (b: (typeof COVER)[number]) =>
-                segmentBox(this.pos.x, this.pos.z, e.x, e.z, b) < 1,
-            ),
-      )
-      .sort(
-        (a, b) =>
-          Math.hypot(a.x - this.pos.x, a.z - this.pos.z) -
-          Math.hypot(b.x - this.pos.x, b.z - this.pos.z),
-      )[0];
-    if (input.assist && nearest) aim = new T.Vector3(nearest.x, 0, nearest.z);
+    this.blastAimTime -= dt;
+    if (!input.blast) {
+      this.blastTarget = undefined;
+      this.blastAimTime = 0;
+    } else if (
+      this.blastAimTime <= 0 ||
+      this.blastAimWeapon !== this.activeWeaponSpec.id ||
+      (this.blastTarget && !COVER.includes(this.blastTarget))
+    ) {
+      const spec = this.activeWeaponSpec;
+      this.blastTarget = explosiveTarget(
+        this.pos,
+        this.enemies,
+        [...COVER, ...parked],
+        spec.visual === "laser" ? 38 : Math.min(35, spec.speed * spec.life - 1),
+        this.riding?.spec.radius ?? 0.5,
+        (box: (typeof COVER)[number]) => {
+          const screen = new T.Vector3(
+            box.x,
+            this.world.groundHeight(box.x, box.z) + 0.5,
+            box.z,
+          ).project(this.world.camera);
+          return (
+            Math.abs(screen.x) < 0.9 &&
+            screen.y > -0.65 &&
+            screen.y < 0.65 &&
+            Math.abs(screen.z) <= 1
+          );
+        },
+      );
+      this.blastAimTime = 0.12;
+      this.blastAimWeapon = spec.id;
+    }
+    this.blastMarker.visible = !!input.blast && !!this.blastTarget;
+    if (this.blastTarget)
+      this.blastMarker.position.set(
+        this.blastTarget.x,
+        this.world.groundHeight(this.blastTarget.x, this.blastTarget.z) + 0.15,
+        this.blastTarget.z,
+      );
+    // A hold is a deliberate fire command. No safe target means no ammunition spent.
+    const firing = input.blast ? !!this.blastTarget : input.fire;
+    if (input.blast && !this.blastTarget)
+      this.combatMessage("NO SAFE EXPLOSIVE IN SIGHT", 0.3);
+    const nearest =
+      input.assist && !input.blast
+        ? this.enemies
+            .filter(
+              (e) =>
+                e.hp > 0 &&
+                Math.hypot(e.x - this.pos.x, e.z - this.pos.z) <
+                  (this.activeWeaponSpec.visual === "flame" ? 8 : 38) &&
+                !this.coverGrid
+                  .segment(this.pos.x, this.pos.z, e.x, e.z)
+                  .some(
+                    (b: (typeof COVER)[number]) =>
+                      segmentBox(this.pos.x, this.pos.z, e.x, e.z, b) < 1,
+                  ),
+            )
+            .sort(
+              (a, b) =>
+                Math.hypot(a.x - this.pos.x, a.z - this.pos.z) -
+                Math.hypot(b.x - this.pos.x, b.z - this.pos.z),
+            )[0]
+        : undefined;
+    if (input.blast && this.blastTarget)
+      aim = new T.Vector3(this.blastTarget.x, 0, this.blastTarget.z);
+    else if (input.assist && nearest)
+      aim = new T.Vector3(nearest.x, 0, nearest.z);
     else if (input.assist)
       aim = new T.Vector3(
         this.pos.x + dx * 4,
@@ -1909,7 +2025,7 @@ export class Game {
     const angle = Math.atan2(aim.x - this.pos.x, aim.z - this.pos.z);
     const moving =
       Math.hypot(this.pos.x - previousX, this.pos.z - previousZ) > 0.001;
-    if (input.fire || this.reloadTime > 0) this.player.rotation.y = angle;
+    if (firing || this.reloadTime > 0) this.player.rotation.y = angle;
     else if (moving)
       this.player.rotation.y = Math.atan2(
         this.pos.x - previousX,
@@ -1917,7 +2033,7 @@ export class Game {
       );
     if (
       !this.riding &&
-      input.fire &&
+      firing &&
       this.shotTime === 0 &&
       this.reloadTime === 0
     ) {
@@ -1978,7 +2094,7 @@ export class Game {
       }
       v.cool = Math.max(0, v.cool - dt);
       if (
-        input.fire &&
+        firing &&
         v.cool === 0 &&
         this.shotTime === 0 &&
         this.reloadTime === 0
@@ -2006,7 +2122,7 @@ export class Game {
         }
       }
     }
-    this.updateTurbo(dt, input.fire, angle);
+    this.updateTurbo(dt, firing, angle);
     for (let i = this.weaponDrops.length - 1; i >= 0; i--) {
       const drop = this.weaponDrops[i];
 
@@ -2027,7 +2143,7 @@ export class Game {
     this.playerMotion.update(dt, {
       vx: (this.pos.x - previousX) / dt,
       vz: (this.pos.z - previousZ) / dt,
-      aiming: input.fire,
+      aiming: firing,
       reload:
         this.reloadTime > 0 ? 1 - this.reloadTime / this.weaponSpec.reload : 0,
       dodging: this.dashTime > 0,
@@ -2143,7 +2259,7 @@ export class Game {
       const beforeX = e.x,
         beforeZ = e.z;
       const distance = Math.hypot(e.x - this.pos.x, e.z - this.pos.z);
-      const active = distance < (e.armored ? 30 : 27);
+      const active = distance < (e.alerted ? 42 : e.armored ? 30 : 27);
       if (!active) {
         e.warn.visible = false;
         continue;
@@ -2169,10 +2285,13 @@ export class Game {
       }
       if (hasSight) e.alerted = true;
       // Keep a readable windup after an enemy emerges from cover.
-      e.cool = hasSight ? e.cool - dt : Math.max(e.cool, 0.6);
-      e.warn.visible = hasSight && e.cool < 0.6;
+      e.cool = hasSight
+        ? e.cool - dt
+        : Math.max(e.cool, e.armored ? ENEMY_TANK.warning : 0.6);
+      e.warn.visible =
+        hasSight && e.cool < (e.armored ? ENEMY_TANK.warning : 0.6);
       e.warn.position.set(e.x, this.world.groundHeight(e.x, e.z) + 0.08, e.z);
-      e.warn.scale.setScalar(e.boss ? 3.5 : 1.2);
+      e.warn.scale.setScalar(e.armored ? 2 : 1.2);
       if (!e.boss) {
         let vx = 0,
           vz = 0;
@@ -2264,8 +2383,8 @@ export class Game {
       if (e.armored && hasSight) {
         e.auxCool = (e.auxCool ?? 1) - dt;
         if (e.auxCool <= 0) {
-          this.shoot(e.x, e.z, a, true, 4, 12);
-          e.auxCool = 0.95;
+          this.shoot(e.x, e.z, a, true, ENEMY_TANK.gun, 12);
+          e.auxCool = ENEMY_TANK.gunInterval;
         }
       }
       if (e.cool <= 0) {
@@ -2275,12 +2394,13 @@ export class Game {
           )
         ) {
           e.motion?.kick();
-          if (e.armored) this.shoot(e.x, e.z, a, true, 18, 12, WEAPONS[7]);
+          if (e.armored)
+            this.shoot(e.x, e.z, a, true, ENEMY_TANK.shell, 12, WEAPONS[7]);
           else
             for (const spread of [-0.07, 0.07])
               this.shoot(e.x, e.z, a + spread, true, 6, 9);
         }
-        e.cool = e.armored ? 2.7 : 1.6 + (e.index % 8) * 0.06;
+        e.cool = e.armored ? ENEMY_TANK.interval : 1.6 + (e.index % 8) * 0.06;
       }
     }
     for (let i = this.bullets.length - 1; i >= 0; i--) {

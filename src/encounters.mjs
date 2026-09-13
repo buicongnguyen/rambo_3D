@@ -120,7 +120,9 @@ export function placeVehicles(route, boxes, patches, bounds, roads = [route]) {
             (b) => segmentBox(anchor.x, anchor.z, x, z, b, 2.5) !== Infinity,
           ) ||
           boxes.some(
-            (b) => b.kind === "fuel" && Math.hypot(x - b.x, z - b.z) < 7,
+            (b) =>
+              ["fuel", "explosive"].includes(b.kind) &&
+              Math.hypot(x - b.x, z - b.z) < 7,
           ) ||
           patches.some(
             (p) =>

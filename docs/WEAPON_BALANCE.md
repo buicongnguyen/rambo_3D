@@ -1,16 +1,18 @@
 # Compact bullets and combat balance
 
+Historical notes for release `78e10ec`. The M249/rifle and enemy armor values below were superseded by the [tactical combat pass](TACTICAL_COMBAT_REVIEW.md); compact bullet visuals and playable tank armor are retained.
+
 ## Implemented tuning
 
-| Item | Previous | New | Purpose |
-| --- | --- | --- | --- |
-| Ordinary bullet envelope | 0.95 m long, 0.20 m wide | 0.475 m long, 0.10 m wide | Short, rounded rounds instead of long blocks |
-| Bullet palette | Orange/gold friendly, magenta hostile | Orange bodies, yellow cores/tips, small red tails | Warm high contrast on snow; deeper orange incoming rounds |
-| M249 damage | 30 per round | 15 per round | Half damage per impact |
-| M249 cooldown | 0.061 s | 0.0305 s | Twice the actual 60 Hz fire rate: 15 to 30 rounds/s |
-| M249 belt / initial reserve | 60 / 180 | 120 / 360 | Preserve firing duration and total carried damage |
-| M249 reload | 2.4 s | 2.4 s | Keep its sustained-fire role |
-| Playable tank armor | 420 | 1,680 | Four times the survivability |
+| Item                        | Previous                              | New                                               | Purpose                                                   |
+| --------------------------- | ------------------------------------- | ------------------------------------------------- | --------------------------------------------------------- |
+| Ordinary bullet envelope    | 0.95 m long, 0.20 m wide              | 0.475 m long, 0.10 m wide                         | Short, rounded rounds instead of long blocks              |
+| Bullet palette              | Orange/gold friendly, magenta hostile | Orange bodies, yellow cores/tips, small red tails | Warm high contrast on snow; deeper orange incoming rounds |
+| M249 damage                 | 30 per round                          | 15 per round                                      | Half damage per impact                                    |
+| M249 cooldown               | 0.061 s                               | 0.0305 s                                          | Twice the actual 60 Hz fire rate: 15 to 30 rounds/s       |
+| M249 belt / initial reserve | 60 / 180                              | 120 / 360                                         | Preserve firing duration and total carried damage         |
+| M249 reload                 | 2.4 s                                 | 2.4 s                                             | Keep its sustained-fire role                              |
+| Playable tank armor         | 420                                   | 1,680                                             | Four times the survivability                              |
 
 ## Balance rationale
 

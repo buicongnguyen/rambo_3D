@@ -1,5 +1,5 @@
 import { test, expect } from "@playwright/test";
-test("M249 delivers double-rate half-damage fire on foot, in vehicles and Turbo, and tank armor absorbs damage", async ({
+test("M249 delivers 30-round-per-second reduced-damage fire on foot, in vehicles and Turbo, and tank armor absorbs damage", async ({
   page,
 }) => {
   await page.goto("/");
@@ -42,7 +42,7 @@ test("M249 delivers double-rate half-damage fire on foot, in vehicles and Turbo,
       g.fireWeapon = (spec: any, ...args: any[]) => {
         if (spec.id === "machineGun") {
           shots++;
-          wrongDamage ||= spec.damage !== 15;
+          wrongDamage ||= spec.damage !== 10;
         }
         return original(spec, ...args);
       };
@@ -63,7 +63,7 @@ test("M249 delivers double-rate half-damage fire on foot, in vehicles and Turbo,
       if (mode === "foot") {
         for (let i = 60; i < 240; i++) g.update(1 / 60, cmd);
         rows.push({ mode: "belt", shots, empty: g.ammo === 0 });
-        for (let i = 0; i < 150; i++) g.update(1 / 60, cmd);
+        for (let i = 0; i < 175; i++) g.update(1 / 60, cmd);
         rows.push({
           mode: "reload",
           reserve: g.reserves[2],

@@ -23,13 +23,13 @@ test("compact rounds have a half-size envelope and only warm vertex colors", () 
     g.dispose();
   }
 });
-test("machine-gun ammo damage budget is preserved while tank armor is quadrupled", () => {
+test("machine gun retains dense fire but has a lower sustained damage budget", () => {
   const m = WEAPONS.find((w) => w.id === "machineGun");
-  assert.equal(m.damage * 2, 30);
+  assert.equal(m.damage, 10);
   assert.equal(m.mag, 120);
   assert.equal(m.cool * 2, 0.061);
-  assert.equal(m.mag * 4 * m.damage, 60 * 4 * 30);
-  assert.equal(m.reload, 2.4);
+  assert.ok((m.mag * m.damage) / (4 + m.reload) / ((120 * 15) / 6.4) < 0.64);
+  assert.equal(m.reload, 2.8);
   assert.equal(VEHICLES.tank.hp, 420 * 4);
   assert.equal(VEHICLES.tank.ammo, 6);
 });

@@ -153,13 +153,15 @@ export class ImpactEffects {
     b.group.position.set(x, y, z);
     b.group.visible = true;
     const color =
-      kind === "laser"
-        ? 0x65eaff
-        : kind === "gas" || kind === "leaf"
-          ? 0x9be747
-          : kind === "flame"
-            ? 0xff681c
-            : 0xffb336;
+      kind === "armor"
+        ? 0xffe4a0
+        : kind === "laser"
+          ? 0x65eaff
+          : kind === "gas" || kind === "leaf"
+            ? 0x9be747
+            : kind === "flame"
+              ? 0xff681c
+              : 0xffb336;
     b.glow.material.color.setHex(color);
     const fiery = (blast && kind !== "gas") || kind === "flame";
     b.core.material.map = fiery ? this.fireTexture : this.texture;

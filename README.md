@@ -25,21 +25,22 @@ Choose a stage from the briefing selector, or continue your saved level. Changin
 | Hard       |         150 |       2× |                           2 |
 | Crazy      |         150 |       4× |                           4 |
 
-Patrols now contain four times the previous infantry population: 96–128 soldiers per normal stage level, with 32 additional soldiers in city levels. Regular enemy tanks add 3–5 more targets. Hard doubles these populations and Crazy quadruples them (640 soldiers plus 20 tanks in the city finale). Infantry fire two-round spreads; regular tanks combine heavy rockets and a light gun. Player weapon damage rises by about 65% and cooldowns are 18% shorter. Difficulty also scales relay reinforcements. Every finale boss must be destroyed before extraction opens.
+Patrols now contain four times the previous infantry population: 96–128 soldiers per normal stage level, with 32 additional soldiers in city levels. Regular enemy tanks add 3–5 more targets. Hard doubles these populations and Crazy quadruples them (640 soldiers plus 20 tanks in the city finale). Infantry fire two-round spreads; regular tanks combine heavy rockets and a light gun. The tactical balance pass gives the rifle 28 damage and M249 10 damage at 30 rounds/s; rockets and laser retain their heavy-target role. Difficulty also scales relay reinforcements. Every finale boss must be destroyed before extraction opens.
 
 ## Controls
 
-| Input              | Action                                |
-| ------------------ | ------------------------------------- |
-| WASD / arrows      | Move or drive                         |
-| Mouse + left click | Aim and fire                          |
-| Hold Space         | Assisted aim and fire                 |
-| Shift while moving | Dodge                                 |
-| E                  | Interact, board or exit               |
-| R                  | Reload                                |
-| Q / SWAP WEAPON    | Cycle collected weapons / tank cannon |
-| F / TURBO          | Fire two weapons together for 3s      |
-| Escape             | Pause / resume                        |
+| Input              | Action                                 |
+| ------------------ | -------------------------------------- |
+| WASD / arrows      | Move or drive                          |
+| Mouse + left click | Aim and fire                           |
+| Hold Space         | Assisted aim and fire                  |
+| Hold B / BLAST     | Aim and fire at a safe explosive store |
+| Shift while moving | Dodge                                  |
+| E                  | Interact, board or exit                |
+| R                  | Reload                                 |
+| Q / SWAP WEAPON    | Cycle collected weapons / tank cannon  |
+| F / TURBO          | Fire two weapons together for 3s       |
+| Escape             | Pause / resume                         |
 
 Mobile has movement, FIRE, SWAP WEAPON, RELOAD, DODGE, TURBO, BOARD/EXIT/USE and PAUSE buttons. Motorcycles use personal weapons; jeeps carry a mounted shotgun. Playable tanks have 1,680 armor (previously 420), start with six explosive cannon shells and can also fire collected weapons: Q / SWAP WEAPON cycles cannon → collected weapons → cannon. Picking up a weapon automatically selects the strongest usable loadout, including the tank cannon. Personal magazines/reserves and cannon shells remain separate across swaps and exits; shells cannot be reloaded. Empty cannon fire falls back to a personal weapon. Exit vehicles to activate objectives or extract; exit the jeep to switch personal weapons. Moving tanks and jeeps crush infantry, with the normal fall/fade and score; stationary contact and soldiers behind solid cover do not award kills. Armored enemies and bosses cannot be run over.
 
@@ -96,4 +97,8 @@ The current [O loops and command bosses plan](docs/LOOPS_COMMAND_BOSSES.md) docu
 
 ## Compact rounds and balance
 
-The M249 now fires 30 rounds/second at 15 damage per round, with a 120-round belt and a 2.4-second reload. Doubling rate and ammunition while halving per-round damage preserves its approximate sustained damage and total ammunition damage. Tank armor rises fourfold to 1,680; its speed, six-shell bank and +30 supply repairs keep attrition and ammunition management relevant. Enemy and player-on-foot health retain their existing difficulty balance. See [the balance notes](docs/WEAPON_BALANCE.md).
+The M249 fires 30 rounds/second at 10 damage per round, with a 120-round belt and a 2.8-second reload: approximately 37% less sustained damage than the previous release. The rifle deals 28 per shot. Enemy tanks resist 80% of ordinary bullet damage; rockets, grenades, explosive stores and laser bypass that resistance. Sniper retains 70% damage against armor, flame 15%, and gas 10%. Enemy tank shells deal 36 damage and light guns 8 (both doubled), with a 0.8-second main-gun warning. Damaged enemies respond out to 42 metres instead of remaining inactive under long-range fire.
+
+Hold **B** on PC or **BLAST** on mobile to use the current gun against a visible explosive store. An orange ground ring marks the target; selection favors crowds and excludes blocked shots, insufficient range and chains inside a safety buffer around the player or occupied vehicle. Ordinary mouse aiming remains available. Small depot squads reuse existing infantry slots. Explosion kill counts and metallic armor feedback make the consequences clear. Normal drops medical supplies from roughly one in six enemies; Hard/Crazy keep the same overall recovery budget despite larger populations. Easy retains one in two. The six roadside medical crates, shields, 1,680 playable tank armor and six cannon shells remain available.
+
+See the [combat review and balance plan](docs/TACTICAL_COMBAT_REVIEW.md) for source comparisons, measured causes, implementation and validation.
