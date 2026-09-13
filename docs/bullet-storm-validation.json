@@ -153,25 +153,25 @@
       "low": true,
       "population": 660,
       "active": 146,
-      "meanUpdateMs": 3.8725000003973644,
-      "p95UpdateMs": 5.100000023841858,
-      "maxBullets": 153,
-      "drawCalls": 773,
-      "triangles": 3328823,
+      "meanUpdateMs": 6.016666666169962,
+      "p95UpdateMs": 7.600000023841858,
+      "maxBullets": 144,
+      "drawCalls": 811,
+      "triangles": 3299203,
       "fragments": 64,
-      "corpses": 17
+      "corpses": 16
     },
     {
       "low": false,
       "population": 660,
-      "active": 149,
-      "meanUpdateMs": 3.618333333233992,
-      "p95UpdateMs": 4.300000011920929,
-      "maxBullets": 149,
-      "drawCalls": 939,
-      "triangles": 5186491,
-      "fragments": 112,
-      "corpses": 16
+      "active": 152,
+      "meanUpdateMs": 6.358333332836628,
+      "p95UpdateMs": 8.199999988079071,
+      "maxBullets": 167,
+      "drawCalls": 985,
+      "triangles": 5380934,
+      "fragments": 119,
+      "corpses": 17
     }
   ],
   "renderer": "WebKit WebGL"

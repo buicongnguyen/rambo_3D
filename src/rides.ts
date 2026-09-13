@@ -1,3 +1,4 @@
+import { isSmallTree } from "./environment.mjs";
 import { WORLD_BOUNDS } from "./campaign.mjs";
 import * as T from "three";
 import { model } from "./world";
@@ -12,6 +13,8 @@ export class Ride {
   personalWeapon = false;
   cool = 0;
   speed = 0;
+  treeSlowdown = 1;
+  private crushedTrees: (typeof COVER)[number][] = [];
   heading = 0;
   private heldWeapon = "";
   wheels: T.Object3D[] = [];
@@ -75,6 +78,7 @@ export class Ride {
     river = false,
     terrainSpeed = 1,
     icy = false,
+    onCrush?: (box: (typeof COVER)[number]) => void,
   ) {
     const len = Math.min(1, Math.hypot(x, z));
     this.speed = T.MathUtils.damp(
@@ -91,8 +95,10 @@ export class Ride {
           Math.cos(desired - this.heading),
         ) * Math.min(1, dt * (this.kind === "tank" ? 3 : 6));
     }
+    const canCrush = this.kind === "tank" && !!onCrush;
+    const trees = canCrush ? COVER.filter(isSmallTree) : [];
     const obstacles = [
-      ...COVER,
+      ...COVER.filter((b) => !canCrush || !isSmallTree(b)),
       ...(river
         ? [
             { x: -18.25, z: -14, w: 29.5, d: 7 },
@@ -101,16 +107,60 @@ export class Ride {
         : []),
       ...others.filter((v) => v !== this && v.hp > 0).map((v) => v.box),
     ];
-    const before = this.mesh.position.clone(),
-      m = moveCircle(
+    const before = this.mesh.position.clone();
+    const advance = (factor: number) =>
+      moveCircle(
         before.x,
         before.z,
-        Math.sin(this.heading) * this.speed * dt,
-        Math.cos(this.heading) * this.speed * dt,
+        Math.sin(this.heading) * this.speed * dt * factor,
+        Math.cos(this.heading) * this.speed * dt * factor,
         this.spec.radius,
         obstacles,
         WORLD_BOUNDS,
       );
+    const candidate = advance(1);
+    const touches = (
+      box: (typeof COVER)[number],
+      end: { x: number; z: number },
+    ) => {
+      const at = segmentBox(
+        before.x,
+        before.z,
+        end.x,
+        end.z,
+        box,
+        this.spec.radius,
+      );
+      if (!Number.isFinite(at)) return false;
+      const x = before.x + (end.x - before.x) * at,
+        z = before.z + (end.z - before.z) * at;
+      return !obstacles.some(
+        (solid) => segmentBox(x, z, box.x, box.z, solid) !== Infinity,
+      );
+    };
+    this.crushedTrees = this.crushedTrees.filter(
+      (b) =>
+        segmentBox(
+          before.x,
+          before.z,
+          before.x,
+          before.z,
+          b,
+          this.spec.radius,
+        ) !== Infinity,
+    );
+    this.treeSlowdown =
+      canCrush &&
+      (this.crushedTrees.length > 0 || trees.some((b) => touches(b, candidate)))
+        ? 0.5
+        : 1;
+    const m = this.treeSlowdown === 1 ? candidate : advance(this.treeSlowdown);
+    if (canCrush && Math.hypot(m.x - before.x, m.z - before.z) > 0.001)
+      for (const tree of trees)
+        if (touches(tree, m)) {
+          this.crushedTrees.push(tree);
+          onCrush!(tree);
+        }
     this.mesh.position.set(m.x, before.y, m.z);
     this.mesh.rotation.y = this.heading;
     const traveled = Math.hypot(m.x - before.x, m.z - before.z);

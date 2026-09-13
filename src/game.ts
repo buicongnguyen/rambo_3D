@@ -1,3 +1,4 @@
+import { ENV_BLAST, blastDamage } from "./environment.mjs";
 import {
   BOSS_ATTACKS,
   placeSupplies,
@@ -1145,37 +1146,69 @@ export class Game {
     this.world.destructibles.splice(this.world.destructibles.indexOf(prop), 1);
     COVER.splice(COVER.indexOf(box), 1);
     this.liveCover.delete(box);
-    if (prop.kind !== "fuel") {
+    if (prop.kind !== "fuel" && prop.kind !== "explosive") {
       prop.mesh.removeFromParent();
       this.impacts.emit(box.x, 1.2, box.z, "leaf", this.world.lowDetail, 1.8);
       this.destruction.tree(box.x, box.z, this.world.lowDetail);
       return;
     }
-    this.addCorpse(new FallenBody(prop.mesh, undefined, prop.kind));
-    this.spark(box.x, box.z, true);
-    for (const e of this.enemies)
-      if (e.hp > 0 && Math.hypot(e.x - box.x, e.z - box.z) < 4.8 + e.radius)
-        this.hurt(e, 140);
-    if (
-      Math.hypot(this.pos.x - box.x, this.pos.z - box.z) <
-      4.8 + (this.riding?.spec.radius ?? 0.5)
-    ) {
-      this.takeDamage(45);
-      this.invincible = Math.max(this.invincible, 0.25);
+    this.destruction.vehicle(prop.mesh, this.world.lowDetail);
+    this.environmentExplosion(box.x, box.z);
+  }
+  private environmentExplosion(x: number, z: number) {
+    const { radius } = ENV_BLAST;
+    this.onSound("explosion");
+    // Walls and buildings contain a blast; soft foliage and other explosive stores do not.
+    const solid = COVER.filter(
+      (b) => !["tree", "snowTree", "fuel", "explosive"].includes(b.kind ?? ""),
+    );
+    const damageAt = (tx: number, tz: number, maximum: number, r = 0) =>
+      solid.some((b) => segmentBox(x, z, tx, tz, b) !== Infinity)
+        ? 0
+        : blastDamage(Math.hypot(tx - x, tz - z), radius, maximum, r);
+    for (const e of this.enemies) {
+      const damage = damageAt(e.x, e.z, ENV_BLAST.enemy, e.radius);
+      if (e.hp > 0 && damage > 0)
+        this.hurt(e, damage, WEAPONS[7], undefined, { x: e.x - x, z: e.z - z });
     }
-    for (const v of this.rides)
-      if (
-        v !== this.riding &&
-        v.hp > 0 &&
-        Math.hypot(v.mesh.position.x - box.x, v.mesh.position.z - box.z) <
-          4.8 + v.spec.radius
-      ) {
-        v.hp = Math.max(0, v.hp - 70);
-        if (!v.hp) this.addCorpse(new FallenBody(v.mesh, undefined, v.kind));
-      }
-    for (const next of [...this.world.destructibles])
-      if (Math.hypot(next.box.x - box.x, next.box.z - box.z) < 4.8)
-        this.damageProp(next.box, 90);
+    const occupied = this.riding;
+    const personal = damageAt(
+      this.pos.x,
+      this.pos.z,
+      occupied ? ENV_BLAST.vehicle : ENV_BLAST.player,
+      occupied?.spec.radius ?? 0.5,
+    );
+    if (personal > 0 && this.invincible === 0) {
+      this.takeDamage(personal);
+      this.invincible = Math.max(this.invincible, 0.25);
+      this.playerMotion.hit();
+      this.onSound("damage");
+    }
+    for (const v of this.rides) {
+      const damage = damageAt(
+        v.mesh.position.x,
+        v.mesh.position.z,
+        ENV_BLAST.vehicle,
+        v.spec.radius,
+      );
+      if (v === occupied || v.hp <= 0 || damage <= 0) continue;
+      v.hp = Math.max(0, v.hp - damage);
+      if (v.hp === 0) this.destruction.vehicle(v.mesh, this.world.lowDetail);
+    }
+    // Each store was removed before detonation, so reciprocal chains cannot score or explode twice.
+    for (const next of [...this.world.destructibles]) {
+      const damage = damageAt(next.box.x, next.box.z, ENV_BLAST.prop);
+      if (damage > 0) this.damageProp(next.box, damage);
+    }
+    this.impacts.emit(
+      x,
+      this.world.groundHeight(x, z) + 0.2,
+      z,
+      "fuel",
+      this.world.lowDetail,
+      radius,
+      true,
+    );
   }
   private updateTerrainEvents(dt: number) {
     this.quakeTime = Math.max(0, this.quakeTime - dt);
@@ -1909,6 +1942,7 @@ export class Game {
         false,
         terrainSpeed,
         patch?.kind === "ice",
+        (box) => this.damageProp(box, 9999),
       );
       v.mesh.position.y = this.world.groundHeight(
         v.mesh.position.x,

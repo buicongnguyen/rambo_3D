@@ -164,6 +164,23 @@ export class World {
   scene = new T.Scene();
   lowDetail = false;
   private missionIndex = 0;
+  private explosiveLabel = (() => {
+    const canvas = document.createElement("canvas");
+    canvas.width = 256;
+    canvas.height = 128;
+    const c = canvas.getContext("2d")!;
+    c.fillStyle = "#e2ad22";
+    c.fillRect(0, 0, 256, 128);
+    c.fillStyle = "#241b13";
+    c.font = "bold 37px sans-serif";
+    c.textAlign = "center";
+    c.fillText("EXPLOSIVE", 128, 51);
+    c.font = "bold 45px sans-serif";
+    c.fillText("TNT", 128, 107);
+    const texture = new T.CanvasTexture(canvas);
+    texture.colorSpace = T.SRGBColorSpace;
+    return texture;
+  })();
   private soilMap = surface("soil");
   private roadMap = surface("road");
   private waterMap = surface("water");
@@ -230,6 +247,42 @@ export class World {
     this.camera.position.set(35, 42, 48);
     this.camera.lookAt(0, 0, 0);
     this.resize();
+  }
+  private explosiveCrate(box: Box) {
+    const root = new T.Group(),
+      crate = model("crate");
+    const bounds = new T.Box3().setFromObject(crate),
+      size = bounds.getSize(new T.Vector3());
+    crate.scale.set(box.w / size.x, 0.7 / size.y, box.d / size.z);
+    crate.position.y = -bounds.min.y * crate.scale.y;
+    root.add(crate);
+    root.position.set(box.x, 0, box.z);
+    const red = this.mat(0x9e271e),
+      warning = this.mat(0xffffff, {
+        map: this.explosiveLabel,
+        roughness: 0.85,
+      });
+    root.add(
+      this.mesh(
+        new T.BoxGeometry(box.w + 0.015, 0.17, box.d + 0.015),
+        red,
+        0,
+        0.56,
+        0,
+      ),
+    );
+    for (const side of [-1, 1]) {
+      const sign = this.mesh(
+        new T.PlaneGeometry(box.w * 0.94, 0.38),
+        warning,
+        0,
+        0.31,
+        side * (box.d / 2 + 0.012),
+      );
+      sign.rotation.y = side === 1 ? 0 : Math.PI;
+      root.add(sign);
+    }
+    return root;
   }
   mat(color: number, extra: T.MeshStandardMaterialParameters = {}) {
     const m = new T.MeshStandardMaterial({ color, roughness: 0.95, ...extra });
@@ -392,24 +445,30 @@ export class World {
       } else if (
         box.kind === "tree" ||
         box.kind === "snowTree" ||
-        box.kind === "fuel"
+        box.kind === "fuel" ||
+        box.kind === "explosive"
       ) {
-        const mesh = model(
-          box.kind === "tree"
-            ? "palm"
-            : box.kind === "snowTree"
-              ? "snowPine"
-              : "fuelDrum",
-          box.x,
-          box.z,
-          box.scale ?? (box.kind === "tree" ? 1.2 : 1),
-        );
+        const mesh =
+          box.kind === "explosive"
+            ? this.explosiveCrate(box)
+            : model(
+                box.kind === "tree"
+                  ? "palm"
+                  : box.kind === "snowTree"
+                    ? "snowPine"
+                    : "fuelDrum",
+                box.x,
+                box.z,
+                box.scale ?? (box.kind === "tree" ? 1.2 : 1),
+              );
         mesh.userData.lowRange = 52;
         mesh.userData.batchActor = true;
-        mesh.userData.batchRadius = box.kind === "fuel" ? 2 : 6;
+        mesh.userData.batchRadius = ["fuel", "explosive"].includes(box.kind)
+          ? 2
+          : 6;
         this.actors.add(mesh);
         this.destructibles.push({ box, mesh, hp: box.hp!, kind: box.kind });
-      } else if (box.kind === "concrete") {
+      } else if (box.kind === "concrete" || box.kind === "boundary") {
         this.mesh(
           new T.BoxGeometry(box.w, 1.35, box.d),
           concrete,
@@ -431,6 +490,24 @@ export class World {
           0.09,
           box.z,
         );
+        if (box.kind === "boundary") {
+          const horizontal = box.w > box.d,
+            length = horizontal ? box.w : box.d;
+          for (let offset = -length / 2 + 4; offset < length / 2; offset += 8) {
+            const seam = this.mesh(
+              new T.BoxGeometry(
+                horizontal ? 0.12 : box.w + 0.04,
+                1.42,
+                horizontal ? box.d + 0.04 : 0.12,
+              ),
+              concrete,
+              box.x + (horizontal ? offset : 0),
+              0.71,
+              box.z + (horizontal ? 0 : offset),
+            );
+            seam.userData.boundary = true;
+          }
+        }
       } else if (box.kind === "building") {
         const house = model("house", box.x, box.z);
         house.scale.set(box.w / 5, 1 + (index % 3) * 0.15, box.d / 7);

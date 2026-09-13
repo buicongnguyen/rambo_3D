@@ -230,8 +230,9 @@ test("helicopter lands, spider climbs and rests, laser tank warns before firing"
     const resting = spider.state === "RESTING";
     const tank = start(14);
     tank.x = 0;
-    tank.z = 20;
-    g.pos.set(0, 0, 25);
+    // Keep both actors inside the physical perimeter (maxZ is 25).
+    tank.z = 17;
+    g.pos.set(0, 0, 22);
     tank.cool = 1.1;
     g.updateBoss(tank, 0.01);
     const warning = !!tank.beam && g.hp === 150;

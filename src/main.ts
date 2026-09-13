@@ -1,3 +1,4 @@
+import { InteractionHint } from "./environment.mjs";
 import {
   STAGES,
   LEVEL_COUNT,
@@ -60,6 +61,7 @@ app.innerHTML = `
 <div id="overlay" class="overlay" hidden></div><div id="toast" role="status" hidden></div>`;
 const canvas = $<HTMLCanvasElement>("#scene");
 let world: World, game: Game;
+const interactionHint = new InteractionHint();
 const input: Input = {
   x: 0,
   z: 0,
@@ -222,6 +224,7 @@ function menu() {
 }
 function start() {
   if (!ready) return;
+  interactionHint.reset();
   clearInput();
   game.start(save.mission, save, difficulty);
   world.marker.visible = true;
@@ -278,7 +281,7 @@ $("#home").onclick = (e) => {
 };
 $("#controls-open").onclick = () => {
   showOverlay(
-    `<span class="eyebrow">FIELD MANUAL / 01</span><h2>Get in. Get them out.</h2><p>Each stage has three long levels: a short zigzag approach, a longer O or U expedition, then the longest S or mirrored S sweep, including rotated 45-degree routes. On O loops, choose either arm around the central woodland; both lead to the relay. Small trees take several hits to destroy and burst into green leaf dust. Buildings still provide solid cover. Secure the yellow relay and clear its guards; level three has command bosses. Defeat every boss to open green extraction.</p><div class="manual-grid"><span>WASD / ARROWS</span><b>Move</b><span>MOUSE + CLICK</span><b>Aim and fire</b><span>HOLD SPACE</span><b>Assisted aim and fire</b><span>SHIFT + MOVE</span><b>Dodge incoming fire</b><span>E / R / Q</span><b>Interact / reload / switch</b><span>F / TURBO</span><b>Two weapons for 3 seconds</b><span>ESCAPE</span><b>Pause and settings</b></div><p>The Fourfold Titan fires four hand cannons and pauses to reload. Siege Colossus combines twin guns with shoulder rockets. Twin Tempest launches wide salvos from two truck-mounted missile magazines. Leave the orange blast zones before impact. Helicopter, spider and laser-tank bosses also carry a rapid light gun. Orange rings warn of attacks and volcanic rockfalls. Ice slides, sand slows to one quarter, and mud holes gradually sink you. Quake dust signals a brief ground-enemy freeze. Shoot fuel drums for chain explosions and blast jungle trees to clear a path. Drive a moving tank or jeep over infantry to crush them. Orange rings warn of an attack. Crates stop bullets. Green pickups restore health. The scattergun excels at close range. Blue map dots mark vehicles: the bike, jeep and tank are stationed along the road with defenders. E / USE boards or exits. Sniper, rocket and laser caches also have guards. Rock and concrete barriers have been replaced by small destructible trees. Destroy cover to open new firing lanes. Purple dots mark weapons: walk over them to collect, then Q / WEAPON cycles your loadout. Picking up a weapon or exhausting its ammunition automatically chooses the strongest usable weapon; manual switching remains available. Automatic priority favors laser, missile, machine gun, sniper, grenade launcher, explosive bow, flamethrower, frag grenade, rifle, shotgun, then gas grenade. Motorcycles use your selected weapon; jeeps have 20 shotgun rounds. Tanks start with six ready explosive cannon shells. Q / SWAP WEAPON cycles the cannon and your collected weapons, which keep their own magazines and reload reserves. Picking up a weapon automatically selects the strongest usable loadout, including the tank cannon; cannon shells remain stored and cannot be reloaded. Exit to use objectives or extract. F / TURBO activates two different available weapons for 3 seconds; hold FIRE to shoot both. Each consumes its own ammo. Switching is locked until the burst ends, then Turbo cools down for 14 seconds. Tuned Weapons unlocks extra guns on bikes, jeeps and tanks and adds 0.4 seconds per rank, up to 5; vehicle rank 3 permits three guns. Light Kit reduces Turbo cooldown to a minimum of 8 seconds. Touch controls appear on touch devices.</p><button id="close-manual" class="primary">READY FOR THE FIELD <span>↗</span></button>`,
+    `<span class="eyebrow">FIELD MANUAL / 01</span><h2>Get in. Get them out.</h2><p>Each stage has three long levels: a short zigzag approach, a longer O or U expedition, then the longest S or mirrored S sweep, including rotated 45-degree routes. On O loops, choose either arm around the central woodland; both lead to the relay. Small trees take several hits to destroy and burst into green leaf dust. Buildings still provide solid cover. Secure the yellow relay and clear its guards; level three has command bosses. Defeat every boss to open green extraction.</p><div class="manual-grid"><span>WASD / ARROWS</span><b>Move</b><span>MOUSE + CLICK</span><b>Aim and fire</b><span>HOLD SPACE</span><b>Assisted aim and fire</b><span>SHIFT + MOVE</span><b>Dodge incoming fire</b><span>E / R / Q</span><b>Interact / reload / switch</b><span>F / TURBO</span><b>Two weapons for 3 seconds</b><span>ESCAPE</span><b>Pause and settings</b></div><p>The Fourfold Titan fires four hand cannons and pauses to reload. Siege Colossus combines twin guns with shoulder rockets. Twin Tempest launches wide salvos from two truck-mounted missile magazines. Leave the orange blast zones before impact. Helicopter, spider and laser-tank bosses also carry a rapid light gun. Orange rings warn of attacks and volcanic rockfalls. Ice slides, sand slows to one quarter, and mud holes gradually sink you. Quake dust signals a brief ground-enemy freeze. Shoot fuel drums and red EXPLOSIVE crates for chain explosions; walls and buildings shield you from the blast. Tanks crush small trees at half speed until their hull clears the debris. Long concrete walls mark the map boundary. Drive a moving tank or jeep over infantry to crush them. Orange rings warn of an attack. Crates stop bullets. Green pickups restore health. The scattergun excels at close range. Blue map dots mark vehicles: the bike, jeep and tank are stationed along the road with defenders. E / USE boards or exits. Nearby interaction hints disappear after one second; the USE / EXIT button and E key remain available. Sniper, rocket and laser caches also have guards. Rock and concrete barriers have been replaced by small destructible trees. Destroy cover to open new firing lanes. Purple dots mark weapons: walk over them to collect, then Q / WEAPON cycles your loadout. Picking up a weapon or exhausting its ammunition automatically chooses the strongest usable weapon; manual switching remains available. Automatic priority favors laser, missile, machine gun, sniper, grenade launcher, explosive bow, flamethrower, frag grenade, rifle, shotgun, then gas grenade. Motorcycles use your selected weapon; jeeps have 20 shotgun rounds. Tanks start with six ready explosive cannon shells. Q / SWAP WEAPON cycles the cannon and your collected weapons, which keep their own magazines and reload reserves. Picking up a weapon automatically selects the strongest usable loadout, including the tank cannon; cannon shells remain stored and cannot be reloaded. Exit to use objectives or extract. F / TURBO activates two different available weapons for 3 seconds; hold FIRE to shoot both. Each consumes its own ammo. Switching is locked until the burst ends, then Turbo cools down for 14 seconds. Tuned Weapons unlocks extra guns on bikes, jeeps and tanks and adds 0.4 seconds per rank, up to 5; vehicle rank 3 permits three guns. Light Kit reduces Turbo cooldown to a minimum of 8 seconds. Touch controls appear on touch devices.</p><button id="close-manual" class="primary">READY FOR THE FIELD <span>↗</span></button>`,
   );
   $("#close-manual").onclick = () => {
     $("#overlay").hidden = true;
@@ -432,12 +435,28 @@ function updateHud() {
   }
   const d = Math.hypot(game.pos.x - m.objective.x, game.pos.z - m.objective.z),
     prompt = $("#interact-prompt");
-  prompt.hidden = game.objective || d >= 3;
-  prompt.innerHTML = `<kbd>E</kbd> ${m.action.toUpperCase()} <span>/ TAP USE</span>`;
-  if (game.interaction) {
-    prompt.hidden = false;
-    prompt.innerHTML =
-      "<kbd>E</kbd> " + game.interaction + " <span>/ TAP USE</span>";
+  const hintKey = game.riding
+    ? `exit:${game.rides.indexOf(game.riding)}`
+    : game.nearestRide
+      ? `board:${game.rides.indexOf(game.nearestRide)}`
+      : !game.objective && d < 3
+        ? `objective:${game.index}`
+        : null;
+  const changed = interactionHint.key !== hintKey;
+  prompt.hidden = !interactionHint.update(hintKey, performance.now());
+  prompt.innerHTML = game.interaction
+    ? "<kbd>E</kbd> " + game.interaction + " <span>/ TAP USE</span>"
+    : `<kbd>E</kbd> ${m.action.toUpperCase()} <span>/ TAP USE</span>`;
+  if (changed && hintKey && !prefs.reduced) {
+    prompt.getAnimations().forEach((a) => a.cancel());
+    prompt.animate(
+      [
+        { opacity: 1, offset: 0 },
+        { opacity: 1, offset: 0.75 },
+        { opacity: 0, offset: 1 },
+      ],
+      { duration: 1000 },
+    );
   }
   const useButton = $('[data-action="interact"]');
   useButton.textContent = game.riding

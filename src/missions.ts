@@ -1,3 +1,4 @@
+import { finishEnvironment } from "./environment.mjs";
 import { routePlan, routePoint, routeBox } from "./routes.mjs";
 import { squareLandscape } from "./landscapes.mjs";
 import { softenObstacles } from "./combat.mjs";
@@ -109,6 +110,7 @@ export function buildLayout(m: Mission) {
     COVER.push(...landscape.boxes);
     PATCHES.push(...landscape.patches);
     SPAWNS.push(...landscape.spawns);
+    finishEnvironment(COVER, m.bounds);
     return;
   }
   const clearLandmark = (x: number, z: number, r = 6) =>
@@ -225,4 +227,5 @@ export function buildLayout(m: Mission) {
   COVER.push(...gates);
   const trees = softenObstacles(COVER, m.biome);
   COVER.splice(0, COVER.length, ...trees);
+  finishEnvironment(COVER, m.bounds);
 }
