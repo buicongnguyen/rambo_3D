@@ -13,7 +13,7 @@ test("square expeditions offer guarded vehicle bays, collectable weapons and cle
     const { MISSIONS, COVER } = await import("/src/missions.ts");
     const { segmentBox } = await import("/src/rules.mjs");
     const result = [];
-    for (const index of [1, 4, 2, 5, 8, 11, 20]) {
+    for (const index of [7, 4, 2, 5, 8, 11, 20]) {
       g.start(index, { armor: 0, power: 0, mobility: 0 }, "normal");
       g.invincible = 10000;
       const m = MISSIONS[index],

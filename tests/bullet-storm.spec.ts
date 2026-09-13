@@ -3,6 +3,13 @@ async function ready(page: Page) {
   await page.goto("/");
   await expect(page.locator("#deploy")).toBeEnabled();
   await page.locator("#deploy").click();
+  await page.evaluate(() =>
+    (window as any).__nightfall.game.start(
+      3,
+      { armor: 0, power: 0, mobility: 0 },
+      "normal",
+    ),
+  );
   await page.evaluate(async () => {
     const { game: g } = (window as any).__nightfall;
     const { COVER, PATCHES } = await import("/src/missions.ts");
@@ -123,6 +130,9 @@ test("Turbo consumes independent magazines, reloads, locks swaps, cools down and
   page,
 }) => {
   await ready(page);
+  await page.evaluate(() => {
+    (window as any).__nightfall.game.inventory = [0, 1];
+  });
   await page.keyboard.press("KeyF");
   await expect(page.locator("#turbo")).toContainText("TURBO 2.");
   const result = await page.evaluate(() => {
@@ -155,7 +165,7 @@ test("Turbo consumes independent magazines, reloads, locks swaps, cools down and
     for (let i = 0; i < 150; i++) g.update(1 / 60, { ...cmd, fire: true });
     const reload =
       g.reserves[1] === 0 && g.magazines[1] > 0 && g.magazines[1] < 6;
-    g.start(0, { armor: 0, power: 0, mobility: 0 }, "normal");
+    g.start(3, { armor: 0, power: 0, mobility: 0 }, "normal");
     return {
       active,
       locked,
@@ -275,7 +285,7 @@ test("touch Turbo remains reachable beside simultaneous move and fire controls",
     .poll(() =>
       page.evaluate(() => {
         const { game: g } = (window as any).__nightfall;
-        return g.ammo < 24 && g.magazines[1] < 6 && g.pos.x < 15;
+        return g.ammo < 24 && g.magazines[9] < 1 && g.pos.x < 15;
       }),
     )
     .toBe(true);

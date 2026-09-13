@@ -1,0 +1,28 @@
+# Progressive missions and tactical flanking
+
+## Why change the opening
+The former first mission placed 99 enemies, three vehicles and nine advanced weapon caches across a 143-meter-long map. The AI immediately faced the player and routed toward their current position even through cover. That made both the equipment decisions and the space feel repetitive: holding fire solved encounters, while a planned flank had little advantage.
+
+## Implemented plan
+1. **Short first operation.** A 44 × 69 meter snow map has a 66-meter winding route, 12 soldiers on Normal, and two relay response guards. Secure the relay, clear those two guards and extract; clearing every patrol is optional. Hard/Crazy retain 2×/4× enemy multipliers.
+2. **Earn the arsenal.** Start each mission with an unlimited-reserve rifle and four finite frag grenades. The first map offers a grenade refill and medical/shield supplies. Mission two introduces the shotgun, M249, grenade launcher, bike and jeep with 48 infantry and one tank. The first finale restores the full nine-cache assortment and all three vehicles. Later stages remain independently playable with full roadside equipment. Longer O/U and S routes preserve branch choice and existing tank-width clearance.
+3. **Cover and awareness.** New Blender-crate screens provide low and tall cover. Idle infantry see a 120-degree forward cone within 24 meters, with close awareness within 2.5 meters. Alerted enemies see a 144-degree cone up to 42 meters. Sight is blocked by physical cover. Hidden players are pursued only to their last seen/heard location, which expires after six seconds (eight after taking damage). Gunfire reveals its source within 14 meters. A thrown frag stays quiet until detonation, which draws nearby enemies to the blast site rather than revealing a hidden thrower. Infantry turn at 2.2 radians/second; tanks at 1.1. They cannot fire until facing within 0.22 radians. No omniscient position update through walls.
+4. **Reward the flank.** Direct rifle, machine gun, shotgun, sniper and laser hits in a rear 120-degree sector deal 1.75× damage to infantry. Regular tank rear armor admits at least 65% of direct bullet damage, compared with 20% at the front. Splash attacks and bosses do not receive this bonus. The HUD confirms rear hits; the map shows enemy facing and alert state, and a status line reports whether enemies currently see the player.
+5. **Real grenade arcs.** Q / SWAP selects the frag. Mouse aim controls a 3–12.75 meter throw, with an amber three-meter landing ring. Assisted/mobile FIRE targets a nearby enemy. The 0.85-second arc rises above three meters, clears low cover when physically above it, and stops against tall cover. The grenade detonates on landing, with falloff and existing wall shielding; it no longer behaves like an ordinary flat bullet with a cosmetic hop. It does not explode on a soldier halfway through the arc.
+6. **One-third loot.** Each defeated enemy independently rolls a 1/3 drop chance, including bosses. A successful roll yields one equally likely reward: +15 health/vehicle armor, +20 shield, or one magazine for owned finite-reserve weapons (one extra frag). Reserves cap at four magazines, and collecting ammunition selects the strongest usable owned weapon. Roadside supplies keep their existing larger values. Enemy packages expire after 45 seconds and cap at 48, evicting the oldest if needed. Health/shield packages remain until useful or expired.
+
+## Verification and remaining tuning
+
+The local scripted Easy route completed with normal movement, targeting, damage and extraction in approximately 12.4 seconds of simulated game time. That verifies a short, winnable opening; it is not a human playtime or enjoyment measurement. The 660-enemy stress fixture recorded mean update times of 2.2 ms (Low) and 3.7 ms (High), with 624 and 767 draw calls. These are local engine-update measurements, not phone frame-rate guarantees.
+Automated checks cover opening extraction without clearing every patrol, all difficulty ratios, every map's route and cache clearance, equipment unlocks, occlusion and last-seen behavior, rear damage, low/tall-cover grenade collisions in both detail modes, mobile swap/fire, probabilistic loot, collection and expiry. Existing weapon, boss, vehicle and dense-combat regressions continue to run. Full-equipment tests explicitly deploy a later mission rather than relying on the opening loadout.
+
+Next player playtests should measure first-mission completion time, damage taken, grenade accuracy and whether players discover a flank without reading the manual. Defer further damage or enemy-density increases until those measurements establish the bottleneck.
+
+
+## Release checks
+- 40 local unit tests passed, and the production TypeScript/Vite build succeeded.
+- The complete local browser run identified seven old starter-kit/layout assumptions; all were corrected and rechecked. Sixteen targeted combat and input checks passed, followed by geometry and mobile layout checks.
+- The release workflow runs the complete 72-test browser suite across three runners before GitHub Pages can publish.
+- Scene captures: [desktop](progression-desktop.png), [phone](progression-mobile.png), [landscape phone](progression-landscape.png).
+
+Review fixes also removed the tank animation's unintended hull steering, kept retreat behavior active while an enemy turns, opened extraction immediately after the last relay guard dies, and made delayed bullets report their launch position instead of the shooter's new location. Grenade clearance uses actual Blender cover height, and mobile radio/control panels have explicit placement in both orientations.

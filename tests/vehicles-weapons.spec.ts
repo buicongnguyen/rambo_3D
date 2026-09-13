@@ -3,6 +3,13 @@ async function ready(page: any) {
   await page.goto("/");
   await expect(page.locator("#deploy")).toBeEnabled();
   await page.locator("#deploy").click();
+  await page.evaluate(() =>
+    (window as any).__nightfall.game.start(
+      3,
+      { armor: 0, power: 0, mobility: 0 },
+      "normal",
+    ),
+  );
 }
 test("all three vehicles board, move with wheels, fire, retain ammo and eject safely", async ({
   page,
@@ -21,7 +28,7 @@ test("all three vehicles board, move with wheels, fire, retain ammo and eject sa
     };
     const results = [];
     for (let index = 0; index < 3; index++) {
-      g.start(0, { armor: 0, power: 0, mobility: 0 }, "story");
+      g.start(3, { armor: 0, power: 0, mobility: 0 }, "story");
       g.enemies.forEach((e: any) => (e.hp = 0));
       const v = g.rides[index];
       g.pos.copy(v.mesh.position);
@@ -96,7 +103,7 @@ test("vehicle extended map boundaries and mission restart preserve valid state",
     for (let i = 0; i < 180; i++)
       g.update(1 / 60, { ...input, x: 0, z: -1, fire: false, interact: false });
     const stopped = v.mesh.position.z >= -115 + v.spec.radius - 0.05;
-    g.start(0, { armor: 0, power: 0, mobility: 0 }, "story");
+    g.start(3, { armor: 0, power: 0, mobility: 0 }, "story");
     return {
       stopped,
       reset: !g.riding && g.player.visible && g.rides.length === 3,
@@ -133,6 +140,7 @@ test("eleven collectible weapons shoot distinct projectiles and respect finite r
       enemy.cool = 999;
       g.weapon = index;
       g.showWeapon();
+      g.throwDistance = 5;
       g.fireWeapon(WEAPONS[index], Math.PI / 2);
       for (let t = 0; t < 100; t++) {
         enemy.x = 20;
@@ -195,7 +203,7 @@ test("riders collect nearby weapons and supplies without losing mounted ammo", a
     const { game: g, input } = (window as any).__nightfall;
     const results = [];
     for (let index = 0; index < 3; index++) {
-      g.start(0, { armor: 0, power: 0, mobility: 0 }, "story");
+      g.start(3, { armor: 0, power: 0, mobility: 0 }, "story");
       g.enemies.forEach((e: any) => (e.hp = 0));
       const v = g.rides[index];
       v.mesh.position.set(15, 0, 20);

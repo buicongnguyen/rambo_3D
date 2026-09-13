@@ -152,7 +152,7 @@ test("mobile layout and touch input release", async ({ browser }) => {
   await context.close();
 });
 
-test("easy long level can be completed through simulated movement and normal weapon damage", async ({
+test("short opening can be completed on Easy through simulated movement and normal weapon damage", async ({
   page,
 }) => {
   await page.goto("/");

@@ -24,10 +24,7 @@ export function armorMultiplier(actor, spec) {
   if (spec.visual === "gas") return 0.1;
   return 1;
 }
-/** Preserve Easy's recovery; extra difficulty density must not multiply medical supply. */
-export function healthDropEvery(difficulty) {
-  return { easy: 2, normal: 6, hard: 12, crazy: 24 }[difficulty] ?? 6;
-}
+
 /** Reassign existing infantry, never add enemies or move objective/cache defenders. */
 export function depotGuardPositions(
   actors,

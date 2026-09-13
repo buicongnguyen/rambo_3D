@@ -5,6 +5,13 @@ test("enemies relocate behind close cover, retreat, separate, and respect shot w
   await page.goto("/");
   await expect(page.locator("#deploy")).toBeEnabled();
   await page.locator("#deploy").click();
+  await page.evaluate(() =>
+    (window as any).__nightfall.game.start(
+      3,
+      { armor: 0, power: 0, mobility: 0 },
+      "normal",
+    ),
+  );
   const result = await page.evaluate(() => {
     const { game: g, input } = (window as any).__nightfall;
     const cmd = { ...input, x: 0, z: 0, fire: false, interact: false };
@@ -16,6 +23,9 @@ test("enemies relocate behind close cover, retreat, separate, and respect shot w
     e.x = -7;
     e.z = 16.6;
     e.cool = 0;
+    e.alerted = true;
+    e.memory = 8;
+    e.lastSeen = { x: g.pos.x, z: g.pos.z };
     g.update(1 / 60, { ...cmd });
     const hiddenWarning = e.warn.visible,
       hiddenShots = g.bullets.length;

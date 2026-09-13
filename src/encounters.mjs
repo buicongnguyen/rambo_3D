@@ -1,3 +1,4 @@
+import { missionPacing } from "./progression.mjs";
 import {
   sampleRoute,
   seededRandom,
@@ -13,10 +14,11 @@ export function placeSupplies(
   bounds,
   seed,
   roads = [route],
+  pacing = missionPacing(1, 0),
 ) {
   const rand = seededRandom(seed),
     drops = [];
-  const kinds = [
+  const kinds = pacing.supplies ?? [
     "weapon",
     "health",
     "shield",
@@ -62,7 +64,7 @@ export function placeSupplies(
         candidates.push({ x, z, anchor, offset, fraction: f, branch });
       }
     }
-  let weapon = 2;
+  let weapon = 0;
   // Balance each reward type independently: the kind list is not parity-neutral.
   const nextBranch = { weapon: 0, health: 0, shield: 1 };
   for (let i = 0; i < kinds.length; i++) {
@@ -85,7 +87,7 @@ export function placeSupplies(
     drops.push({
       ...ranked[0].p,
       kind: kinds[i],
-      index: kinds[i] === "weapon" ? weapon++ : -1,
+      index: kinds[i] === "weapon" ? pacing.weapons[weapon++] : -1,
     });
   }
   return drops;
@@ -98,13 +100,21 @@ export const BOSS_ATTACKS = {
 };
 
 /** Stagger upgrades in shoulder bays, with a clear lane past every parked vehicle. */
-export function placeVehicles(route, boxes, patches, bounds, roads = [route]) {
+export function placeVehicles(
+  route,
+  boxes,
+  patches,
+  bounds,
+  roads = [route],
+  pacing = missionPacing(1, 0),
+) {
   const kinds = ["motorcycle", "jeep", "tank"],
     radii = [0.85, 1.65, 2.3];
   const plans = vehicleAnchors(roads),
     targets = plans.map((p) => p.fraction),
     result = [];
   for (let i = 0; i < kinds.length; i++) {
+    if (!pacing.vehicles.includes(kinds[i])) continue;
     const candidates = [];
     for (let f = targets[i] - 0.07; f <= targets[i] + 0.07; f += 0.004) {
       const anchor = sampleRoute(plans[i].route, f);

@@ -3,6 +3,13 @@ async function ready(page: any) {
   await page.goto("/");
   await expect(page.locator("#deploy")).toBeEnabled();
   await page.locator("#deploy").click();
+  await page.evaluate(() =>
+    (window as any).__nightfall.game.start(
+      3,
+      { armor: 0, power: 0, mobility: 0 },
+      "normal",
+    ),
+  );
 }
 test("articulated run/walk, blocked gait, reload and dodge direction", async ({
   page,
@@ -78,7 +85,7 @@ test("death falls, holds, fades independently and is cleaned on retry", async ({
     g.updatePresentation(1.1);
     const removed = !e.mesh.parent && corpse.disposed;
     g.hurt(other, 999);
-    g.start(0, { armor: 0, power: 0, mobility: 0 }, "normal");
+    g.start(3, { armor: 0, power: 0, mobility: 0 }, "normal");
     return {
       once,
       fall,
@@ -193,11 +200,11 @@ test("weapon switches preserve magazines without granting ammunition", async ({
     g.ammo = 9;
     g.update(1 / 60, { ...input, x: 0, z: 0, fire: false, swap: true });
     const secondary = g.ammo;
-    g.ammo = 2;
+    g.ammo = 0;
     g.update(1 / 60, { ...input, x: 0, z: 0, fire: false, swap: true });
     const primary = g.ammo;
     g.update(1 / 60, { ...input, x: 0, z: 0, fire: false, swap: true });
     return { secondary, primary, returned: g.ammo };
   });
-  expect(result).toEqual({ secondary: 6, primary: 9, returned: 2 });
+  expect(result).toEqual({ secondary: 1, primary: 9, returned: 0 });
 });

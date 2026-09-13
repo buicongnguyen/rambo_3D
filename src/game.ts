@@ -1,10 +1,19 @@
 import {
   ENEMY_TANK,
   armorMultiplier,
-  healthDropEvery,
   depotGuardPositions,
   explosiveTarget,
 } from "./tactics.mjs";
+import {
+  missionPacing,
+  enemyLoot,
+  seesPlayer,
+  turnToward,
+  angleDelta,
+  rearHit,
+  grenadeHeight,
+  coverHeight,
+} from "./progression.mjs";
 import { ENV_BLAST, blastDamage } from "./environment.mjs";
 import {
   BOSS_ATTACKS,
@@ -26,12 +35,7 @@ import { Ride } from "./rides";
 import { ImpactEffects } from "./impacts";
 import { DestructionEffects } from "./destruction";
 import { tracerGeometry } from "./tracers";
-import {
-  SpatialGrid,
-  PATROL_DENSITY,
-  knockbackDistance,
-  turboStats,
-} from "./combat.mjs";
+import { SpatialGrid, knockbackDistance, turboStats } from "./combat.mjs";
 import * as T from "three";
 import { CharacterMotion, FallenBody, VehicleMotion } from "./animation";
 import { World, model } from "./world";
@@ -64,6 +68,8 @@ export type Actor = {
   guard?: boolean;
   cacheGuard?: boolean;
   alerted?: boolean;
+  lastSeen?: { x: number; z: number };
+  memory?: number;
   state?: string;
   anchor?: { x: number; z: number };
   volleys?: number;
@@ -93,6 +99,8 @@ type Hazard = {
   duration?: number;
 };
 type Bullet = {
+  originX: number;
+  originZ: number;
   originY: number;
   mesh: T.Object3D;
   spec?: WeaponSpec;
@@ -170,13 +178,25 @@ export class Game {
   hazards: Hazard[] = [];
   private followTarget = { x: 0, z: 0 };
   private followClock = 0;
+  private throwDistance = 12.75;
+  private grenadeMarker = new T.Mesh(
+    new T.RingGeometry(2.9, 3, 40),
+    new T.MeshBasicMaterial({
+      color: 0xffc466,
+      transparent: true,
+      opacity: 0.7,
+      side: T.DoubleSide,
+      depthWrite: false,
+    }),
+  );
+  spotted = false;
   index = 0;
   hp = 150;
   maxHp = 150;
   ammo = 24;
   private magazines: number[] = WEAPONS.map((w) => w.mag);
   reserves: number[] = WEAPONS.map((w, i) => (i < 2 ? Infinity : w.mag * 3));
-  inventory = [0, 1];
+  inventory = [0, 9];
   rides: Ride[] = [];
   riding?: Ride;
   weaponDrops: { mesh: T.Group; index: number }[] = [];
@@ -396,6 +416,11 @@ export class Game {
       emissive: 0x0f5020,
       emissiveIntensity: 0.25,
     }),
+    ammo: new T.MeshStandardMaterial({
+      color: 0xe7ad44,
+      emissive: 0x604015,
+      emissiveIntensity: 0.25,
+    }),
     shield: new T.MeshStandardMaterial({
       color: 0x1581b9,
       emissive: 0x0b3860,
@@ -478,6 +503,9 @@ export class Game {
     this.blastMarker.visible = false;
     this.blastMarker.rotation.x = -Math.PI / 2;
     this.world.actors.add(this.blastMarker);
+    this.grenadeMarker.visible = false;
+    this.grenadeMarker.rotation.x = -Math.PI / 2;
+    this.world.actors.add(this.grenadeMarker);
     this.mobility = save.mobility;
     this.maxHp = difficultyConfig(difficulty).health + save.armor * 35;
     this.hp = this.maxHp;
@@ -485,7 +513,7 @@ export class Game {
     this.ammo = 24;
     this.magazines = WEAPONS.map((w) => w.mag);
     this.reserves = WEAPONS.map((w, i) => (i < 2 ? Infinity : w.mag * 3));
-    this.inventory = [0, 1];
+    this.inventory = [0, 9];
     this.shownWeapon = -1;
     this.weapon = 0;
     this.reloadTime = 0;
@@ -500,12 +528,14 @@ export class Game {
     this.bossSpawned = false;
     this.bossDead = false;
     this.phase = "playing";
+    const pacing = missionPacing(mission.stage, mission.level);
     const vehicleBays = placeVehicles(
       mission.route,
       COVER,
       PATCHES,
       WORLD_BOUNDS,
       mission.roads,
+      pacing,
     );
     this.rides = vehicleBays.map((p) => {
       const ride = new Ride(p.kind as "motorcycle" | "jeep" | "tank", p.x, p.z);
@@ -522,6 +552,7 @@ export class Game {
       WORLD_BOUNDS,
       this.supplySeed,
       mission.roads,
+      pacing,
     );
     for (const drop of drops) {
       const mesh = this.supplyCrate(
@@ -546,7 +577,7 @@ export class Game {
       obstacles,
       WORLD_BOUNDS,
     );
-    const multiplier = difficultyConfig(difficulty).soldiers * PATROL_DENSITY;
+    const multiplier = difficultyConfig(difficulty).soldiers * pacing.density;
     patrols.forEach(
       (p: { x: number; z: number; cacheGuard: boolean }, i: number) => {
         for (let n = 0; n < multiplier; n++) {
@@ -582,7 +613,7 @@ export class Game {
       e.mesh.position.set(p.x, this.world.groundHeight(p.x, p.z), p.z);
     }
     const tanks =
-      Math.max(3, Math.floor(patrols.length / 8)) *
+      (pacing.tanks ?? Math.max(3, Math.floor(patrols.length / 8))) *
       difficultyConfig(difficulty).soldiers;
     for (let i = 0; i < tanks; i++) {
       const p =
@@ -597,7 +628,7 @@ export class Game {
     this.showWeapon();
   }
   private supplyCrate(
-    kind: "health" | "shield" | "weapon",
+    kind: "health" | "shield" | "weapon" | "ammo",
     x: number,
     z: number,
     index = -1,
@@ -621,6 +652,13 @@ export class Game {
       glyph.position.y = 0.86;
       glyph.rotation.x = -Math.PI / 2;
       root.add(glyph);
+    } else if (kind === "ammo") {
+      for (const offset of [-0.16, 0, 0.16]) {
+        const stripe = new T.Mesh(this.supplyCrossGeo, this.insigniaMat);
+        stripe.scale.set(0.25, 1, 0.7);
+        stripe.position.set(offset, 0.86, 0);
+        root.add(stripe);
+      }
     } else {
       const weapon = model("weapon_" + WEAPONS[index].id, 0, 0, 1.25);
       weapon.position.y = 1.05;
@@ -742,6 +780,7 @@ export class Game {
       boss ? def.scale : armored ? 0.62 : 1,
     );
     if (boss && bossKind === "gunship") mesh.position.y = 4;
+    if (!boss) mesh.rotation.y = ((index % 4) * Math.PI) / 2;
     mesh.userData.lowRange = 48;
     mesh.userData.batchActor = !boss;
     const max = boss
@@ -894,6 +933,12 @@ export class Game {
     this.onSound("explosion");
     for (const enemy of this.enemies) {
       const d = Math.hypot(enemy.x - x, enemy.z - z);
+      if (!hostile && enemy.hp > 0 && !enemy.boss && d < 14) {
+        enemy.alerted = true;
+        enemy.memory = 6;
+        enemy.lastSeen = { x, z };
+        enemy.routeTime = 0;
+      }
       if (
         !hostile &&
         enemy.hp > 0 &&
@@ -940,6 +985,28 @@ export class Game {
     }
   }
   fireWeapon(spec: WeaponSpec, angle: number, mounted = false, side = 0) {
+    // Gunfire reveals its source locally; concealed enemies investigate that position.
+    for (const e of this.enemyGrid.near(
+      this.pos.x,
+      this.pos.z,
+      14,
+    ) as Actor[]) {
+      if (
+        spec.id === "throwBomb" ||
+        e.hp <= 0 ||
+        e.boss ||
+        Math.hypot(e.x - this.pos.x, e.z - this.pos.z) > 14
+      )
+        continue;
+      e.alerted = true;
+      e.memory = 6;
+      if (
+        !e.lastSeen ||
+        Math.hypot(e.lastSeen.x - this.pos.x, e.lastSeen.z - this.pos.z) > 2
+      )
+        e.routeTime = 0;
+      e.lastSeen = { x: this.pos.x, z: this.pos.z };
+    }
     const x = this.pos.x + Math.cos(angle) * side,
       z = this.pos.z - Math.sin(angle) * side,
       damage = spec.damage * (1 + this.power * 0.2);
@@ -950,10 +1017,17 @@ export class Game {
       for (const b of COVER) t = Math.min(t, segmentBox(x, z, tx, tz, b));
       for (const e of this.enemies)
         if (e.hp > 0 && segmentCircle(x, z, tx, tz, e.x, e.z, e.radius) < t)
-          this.hurt(e, damage, spec, undefined, {
-            x: Math.sin(angle),
-            z: Math.cos(angle),
-          });
+          this.hurt(
+            e,
+            damage,
+            spec,
+            undefined,
+            {
+              x: Math.sin(angle),
+              z: Math.cos(angle),
+            },
+            { x, z },
+          );
       const hitProp = this.world.destructibles.find(
         (p) => Math.abs(segmentBox(x, z, tx, tz, p.box) - t) < 0.001,
       );
@@ -971,10 +1045,20 @@ export class Game {
           spec.pellets > 1
             ? (i - (spec.pellets - 1) / 2) * spec.spread
             : (Math.random() - 0.5) * spec.spread;
-        this.shoot(x, z, angle + spread, false, damage, spec.speed, spec);
+        this.shoot(
+          x,
+          z,
+          angle + spread,
+          false,
+          damage,
+          spec.id === "throwBomb" ? this.throwDistance / spec.life : spec.speed,
+          spec,
+        );
       }
     if (!mounted) this.playerMotion.kick();
-    this.onSound(spec.splash ? "explosion" : "shot");
+    this.onSound(
+      spec.id === "throwBomb" ? "throw" : spec.splash ? "explosion" : "shot",
+    );
   }
   spark(x: number, z: number, big = false) {
     for (
@@ -1071,6 +1155,8 @@ export class Game {
     this.world.actors.add(mesh);
     this.bullets.push({
       mesh,
+      originX: x,
+      originZ: z,
       originY,
       spec,
       age: 0,
@@ -1091,14 +1177,34 @@ export class Game {
     spec?: WeaponSpec,
     contact?: { x: number; z: number },
     direction?: { x: number; z: number },
+    source?: { x: number; z: number },
   ) {
-    e.alerted = true;
     if (e.hp <= 0) return; // A dead actor can award score only once.
-    const armor = armorMultiplier(e, spec);
-    damage *= armor;
+    const rear = rearHit(e, spec, direction, e.mesh.rotation.y);
+    const armor =
+      rear && e.armored
+        ? Math.max(0.65, armorMultiplier(e, spec))
+        : armorMultiplier(e, spec);
+    damage *= armor * (rear && !e.armored ? 1.75 : 1);
+    e.alerted = true;
+    e.memory = 8;
+    // A delayed hit reveals where the shot originated, never the shooter's current hidden position.
+    if (source) e.lastSeen = { ...source };
+    else if (spec && spec.splash === 0 && direction) {
+      const distance = Math.hypot(direction.x, direction.z) || 1;
+      e.lastSeen = {
+        x: e.x - (direction.x / distance) * 12,
+        z: e.z - (direction.z / distance) * 12,
+      };
+    } else e.lastSeen ??= { x: e.x, z: e.z };
+    e.routeTime = 0;
+    if (rear)
+      this.combatMessage(
+        e.armored ? "REAR ARMOR BREACHED" : "REAR HIT · 1.75× DAMAGE",
+      );
     e.motion?.hit();
     e.hp -= damage;
-    if (armor < 1 && e.hp > 0)
+    if (armor < 1 && e.hp > 0 && !rear)
       this.combatMessage("ARMOR DEFLECTS · USE ROCKETS / LASER");
     if (e.boss && e.hp > 0 && e.hp < e.max * 0.5 && !e.reinforced) {
       e.reinforced = true;
@@ -1172,12 +1278,22 @@ export class Game {
         e.beam.material.dispose();
         e.beam = undefined;
       }
-      if (e.boss) {
+      if (e.boss || this.guardIds.has(e)) {
         this.checkExtraction();
-      } else if (e.index % healthDropEvery(this.difficulty) === 0) {
-        const p = this.supplyCrate("health", e.x, e.z);
+      }
+      const loot = enemyLoot();
+      if (loot) {
+        // Bounded, temporary enemy loot keeps Crazy mode affordable on mobile.
+        const existing = this.pickups.filter(
+          (p) => p.userData.expires !== undefined,
+        );
+        if (existing.length >= 48) {
+          this.world.actors.remove(existing[0]);
+          this.pickups.splice(this.pickups.indexOf(existing[0]), 1);
+        }
+        const p = this.supplyCrate(loot, e.x, e.z);
+        p.userData.expires = this.elapsed + 45;
         this.pickups.push(p);
-        this.world.actors.add(p);
       }
     }
   }
@@ -1807,6 +1923,7 @@ export class Game {
       this.beginDefeat();
       return;
     }
+    this.spotted = false;
     this.elapsed += dt;
     this.turboCooldown = Math.max(0, this.turboCooldown - dt);
     if (input.turbo) this.activateTurbo();
@@ -1998,12 +2115,18 @@ export class Game {
               (e) =>
                 e.hp > 0 &&
                 Math.hypot(e.x - this.pos.x, e.z - this.pos.z) <
-                  (this.activeWeaponSpec.visual === "flame" ? 8 : 38) &&
+                  (this.activeWeaponSpec.id === "throwBomb"
+                    ? 12.75
+                    : this.activeWeaponSpec.visual === "flame"
+                      ? 8
+                      : 38) &&
                 !this.coverGrid
                   .segment(this.pos.x, this.pos.z, e.x, e.z)
                   .some(
                     (b: (typeof COVER)[number]) =>
-                      segmentBox(this.pos.x, this.pos.z, e.x, e.z, b) < 1,
+                      segmentBox(this.pos.x, this.pos.z, e.x, e.z, b) < 1 &&
+                      (this.activeWeaponSpec.id !== "throwBomb" ||
+                        coverHeight(b) > 3),
                   ),
             )
             .sort(
@@ -2023,6 +2146,17 @@ export class Game {
         this.pos.z + (length ? dz * 4 : -4),
       );
     const angle = Math.atan2(aim.x - this.pos.x, aim.z - this.pos.z);
+    this.throwDistance = T.MathUtils.clamp(
+      Math.hypot(aim.x - this.pos.x, aim.z - this.pos.z),
+      3,
+      12.75,
+    );
+    this.grenadeMarker.visible = this.activeWeaponSpec.id === "throwBomb";
+    this.grenadeMarker.position.set(
+      this.pos.x + Math.sin(angle) * this.throwDistance,
+      0.12,
+      this.pos.z + Math.cos(angle) * this.throwDistance,
+    );
     const moving =
       Math.hypot(this.pos.x - previousX, this.pos.z - previousZ) > 0.001;
     if (firing || this.reloadTime > 0) this.player.rotation.y = angle;
@@ -2130,6 +2264,11 @@ export class Game {
         this.magazines[this.weapon] = this.ammo;
         if (!this.inventory.includes(drop.index))
           this.inventory.push(drop.index);
+        else if (Number.isFinite(this.reserves[drop.index]))
+          this.reserves[drop.index] = Math.min(
+            WEAPONS[drop.index].mag * 4,
+            this.reserves[drop.index] + WEAPONS[drop.index].mag * 2,
+          );
         this.selectStrongestWeapon();
         this.showWeapon();
         this.world.actors.remove(drop.mesh);
@@ -2172,13 +2311,20 @@ export class Game {
           `${count} command boss${count > 1 ? "es" : ""} inbound. Defeat them all to open extraction.`,
         );
       } else {
-        const count = 3 * difficultyConfig(this.difficulty).soldiers;
+        const count =
+          missionPacing(mission.stage, mission.level).guards *
+          difficultyConfig(this.difficulty).soldiers;
         for (let n = 0; n < count; n++) {
           const before = this.enemies.length;
           const p = relayFormation(mission, count)[n];
           this.spawn(p.x, p.z, false, 200 + n);
-          if (this.enemies.length > before)
-            this.guardIds.add(this.enemies[this.enemies.length - 1]);
+          if (this.enemies.length > before) {
+            const guard = this.enemies[this.enemies.length - 1];
+            this.guardIds.add(guard);
+            guard.alerted = true;
+            guard.memory = 8;
+            guard.lastSeen = { ...mission.objective };
+          }
         }
         this.onRadio(
           "Relay guards incoming. Clear the counterattack to open extraction.",
@@ -2253,6 +2399,13 @@ export class Game {
         continue;
       }
       if (e.boss) {
+        if (
+          Math.hypot(e.x - this.pos.x, e.z - this.pos.z) < 35 &&
+          !navigationCover.some(
+            (b) => segmentBox(e.x, e.z, this.pos.x, this.pos.z, b) !== Infinity,
+          )
+        )
+          this.spotted = true;
         this.updateBoss(e, dt);
         continue;
       }
@@ -2261,29 +2414,42 @@ export class Game {
       const distance = Math.hypot(e.x - this.pos.x, e.z - this.pos.z);
       const active = distance < (e.alerted ? 42 : e.armored ? 30 : 27);
       if (!active) {
+        e.memory = Math.max(0, (e.memory ?? 0) - dt);
+        if (!e.memory) {
+          e.alerted = false;
+          e.lastSeen = undefined;
+          e.routeTarget = undefined;
+        }
         e.warn.visible = false;
         continue;
       }
-      const a = Math.atan2(this.pos.x - e.x, this.pos.z - e.z);
-      e.mesh.rotation.y = a;
-      const hasSight = !navigationCover.some(
-        (b) =>
-          segmentBox(e.x, e.z, this.pos.x, this.pos.z, b, 0.06) !== Infinity,
-      );
-      if (
-        !hasSight &&
-        !e.alerted &&
-        COVER.some(
-          (b) =>
-            (b.kind === "hill" || b.kind === "basalt") &&
-            segmentBox(e.x, e.z, this.pos.x, this.pos.z, b) !== Infinity,
-        )
-      ) {
+      const seen = seesPlayer(e, this.pos, navigationCover, e.mesh.rotation.y);
+      if (seen) this.spotted = true;
+      if (seen) {
+        e.alerted = true;
+        e.memory = 6;
+        e.lastSeen = { x: this.pos.x, z: this.pos.z };
+      } else e.memory = Math.max(0, (e.memory ?? 0) - dt);
+      if (!seen && !e.memory) {
+        e.alerted = false;
+        e.lastSeen = undefined;
+        e.routeTarget = undefined;
+      }
+      if (!e.alerted || !e.lastSeen) {
+        e.mesh.rotation.y += dt * 0.18;
         e.warn.visible = false;
         e.motion?.update(dt, { vx: 0, vz: 0 });
         continue;
       }
-      if (hasSight) e.alerted = true;
+      const target = seen ? this.pos : e.lastSeen;
+      const a = Math.atan2(target.x - e.x, target.z - e.z);
+      e.mesh.rotation.y = turnToward(
+        e.mesh.rotation.y,
+        a,
+        dt * (e.armored ? 1.1 : 2.2),
+      );
+      const hasSight =
+        seen && Math.abs(angleDelta(e.mesh.rotation.y, a)) < 0.22;
       // Keep a readable windup after an enemy emerges from cover.
       e.cool = hasSight
         ? e.cool - dt
@@ -2295,15 +2461,15 @@ export class Game {
       if (!e.boss) {
         let vx = 0,
           vz = 0;
-        if (!hasSight) {
+        if (!seen) {
           e.routeTime = (e.routeTime ?? 0) - dt;
           if ((e.routeTime <= 0 || !e.routeTarget) && navigationBudget > 0) {
             navigationBudget--;
             e.routeTarget = routeStep(
               e.x,
               e.z,
-              this.pos.x,
-              this.pos.z,
+              target.x,
+              target.z,
               navigationCover,
               e.armored ? 1.7 : 0.55,
               WORLD_BOUNDS,
@@ -2370,9 +2536,12 @@ export class Game {
       e.warn.position.set(e.x, this.world.groundHeight(e.x, e.z) + 0.08, e.z);
       e.vehicleMotion?.update(
         dt,
-        Math.hypot(e.x - beforeX, e.z - beforeZ) / dt,
-        a,
+        (e.x - beforeX) / dt,
+        e.mesh.rotation.y,
         this.elapsed,
+        (e.z - beforeZ) / dt,
+        false,
+        false,
       );
       if (!e.boss) e.mesh.position.y = this.world.groundHeight(e.x, e.z);
       e.motion?.update(dt, {
@@ -2387,7 +2556,7 @@ export class Game {
           e.auxCool = ENEMY_TANK.gunInterval;
         }
       }
-      if (e.cool <= 0) {
+      if (hasSight && e.cool <= 0) {
         if (
           !COVER.some(
             (b) => segmentBox(e.x, e.z, this.pos.x, this.pos.z, b) < 1,
@@ -2423,6 +2592,13 @@ export class Game {
       ) as typeof COVER) {
         if (!this.liveCover.has(box)) continue;
         const hit = segmentBox(b.x, b.z, nx, nz, box, 0.06);
+        if (
+          b.spec?.id === "throwBomb" &&
+          Number.isFinite(hit) &&
+          grenadeHeight(b.age - dt + dt * hit, b.maxLife, b.originY) >
+            coverHeight(box)
+        )
+          continue;
         if (hit < t) {
           t = hit;
           coverHit = box;
@@ -2468,7 +2644,8 @@ export class Game {
           nz,
           1.2,
         ) as Actor[]) {
-          if (e.hp <= 0 || b.hits.has(e)) continue;
+          if (e.hp <= 0 || b.hits.has(e) || b.spec?.id === "throwBomb")
+            continue;
           const et = segmentCircle(b.x, b.z, nx, nz, e.x, e.z, e.radius);
           if (et < t) {
             t = et;
@@ -2501,6 +2678,7 @@ export class Game {
               z: b.z + (nz - b.z) * t,
             },
             { x: b.vx, z: b.vz },
+            { x: b.originX, z: b.originZ },
           );
           b.hits.add(victim);
         }
@@ -2529,10 +2707,12 @@ export class Game {
       }
       b.mesh.position.set(
         nx,
-        T.MathUtils.lerp(b.originY, 0.95, Math.min(1, b.age / 0.55)) +
-          (b.spec?.visual === "grenade" || b.spec?.visual === "gas"
-            ? Math.sin(Math.min(1, b.age / b.maxLife) * Math.PI) * 2
-            : 0),
+        b.spec?.id === "throwBomb"
+          ? grenadeHeight(b.age, b.maxLife, b.originY)
+          : T.MathUtils.lerp(b.originY, 0.95, Math.min(1, b.age / 0.55)) +
+              (b.spec?.visual === "grenade" || b.spec?.visual === "gas"
+                ? Math.sin(Math.min(1, b.age / b.maxLife) * Math.PI) * 2
+                : 0),
         nz,
       );
       if (b.spec?.visual === "flame") b.mesh.scale.setScalar(0.3 + b.age * 4);
@@ -2651,26 +2831,60 @@ export class Game {
     }
     for (let i = this.pickups.length - 1; i >= 0; i--) {
       const p = this.pickups[i];
+      if (
+        p.userData.expires !== undefined &&
+        this.elapsed >= p.userData.expires
+      ) {
+        this.world.actors.remove(p);
+        this.pickups.splice(i, 1);
+        continue;
+      }
+      const isAmmo = p.userData.kind === "ammo",
+        isLoot = p.userData.expires !== undefined;
       const isShield = p.userData.kind === "shield";
       if (
         this.canCollect(p.position, 1.1) &&
-        (isShield
-          ? this.shield < this.maxShield
-          : this.hp < this.maxHp ||
-            (this.riding && this.riding.hp < this.riding.spec.hp))
+        (isAmmo
+          ? this.inventory.some(
+              (i) =>
+                Number.isFinite(this.reserves[i]) &&
+                this.reserves[i] < WEAPONS[i].mag * 4,
+            )
+          : isShield
+            ? this.shield < this.maxShield
+            : this.hp < this.maxHp ||
+              (this.riding && this.riding.hp < this.riding.spec.hp))
       ) {
-        if (isShield) this.shield = Math.min(this.maxShield, this.shield + 40);
+        if (isAmmo) {
+          for (const i of this.inventory)
+            if (Number.isFinite(this.reserves[i]))
+              this.reserves[i] = Math.min(
+                WEAPONS[i].mag * 4,
+                this.reserves[i] + WEAPONS[i].mag,
+              );
+          this.selectStrongestWeapon();
+          this.showWeapon();
+        } else if (isShield)
+          this.shield = Math.min(
+            this.maxShield,
+            this.shield + (isLoot ? 20 : 40),
+          );
         else {
-          this.hp = Math.min(this.maxHp, this.hp + 30);
+          this.hp = Math.min(this.maxHp, this.hp + (isLoot ? 15 : 30));
           if (this.riding)
-            this.riding.hp = Math.min(this.riding.spec.hp, this.riding.hp + 30);
+            this.riding.hp = Math.min(
+              this.riding.spec.hp,
+              this.riding.hp + (isLoot ? 15 : 30),
+            );
         }
         this.onRadio(
-          isShield
-            ? "Shield charged: +40 protection."
-            : this.riding
-              ? "Supplies collected. Health and vehicle armor restored."
-              : "Medical supplies collected.",
+          isAmmo
+            ? "Ammunition recovered: +1 magazine for owned special weapons."
+            : isShield
+              ? `Shield charged: +${isLoot ? 20 : 40} protection.`
+              : this.riding
+                ? "Supplies collected. Health and vehicle armor restored."
+                : "Medical supplies collected.",
         );
         this.world.actors.remove(p);
         this.pickups.splice(i, 1);

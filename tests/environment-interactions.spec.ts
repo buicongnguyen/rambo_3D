@@ -3,6 +3,13 @@ async function ready(page: Page) {
   await page.goto("/");
   await expect(page.locator("#deploy")).toBeEnabled();
   await page.locator("#deploy").click();
+  await page.evaluate(() =>
+    (window as any).__nightfall.game.start(
+      3,
+      { armor: 0, power: 0, mobility: 0 },
+      "normal",
+    ),
+  );
   await page.evaluate(async () => {
     const { game: g } = (window as any).__nightfall;
     const { COVER, PATCHES } = await import("/src/missions.ts");
@@ -26,7 +33,7 @@ test("fuel and marked explosive crates burst outward, damage by distance and res
     for (const low of [true, false])
       for (const kind of ["fuel", "explosive"]) {
         w.quality(low);
-        g.start(0, { armor: 0, power: 0, mobility: 0 }, "normal");
+        g.start(3, { armor: 0, power: 0, mobility: 0 }, "normal");
         g.quakeTime = 10000;
         g.invincible = 0;
         PATCHES.length = 0;
@@ -173,7 +180,7 @@ test("tanks crush small trees at half speed, recover afterward, and leave big tr
     const { COVER, PATCHES } = await import("/src/missions.ts");
     const rows = [];
     for (const scenario of ["tank", "jeep", "motorcycle", "big", "wall"]) {
-      g.start(0, { armor: 0, power: 0, mobility: 0 }, "normal");
+      g.start(3, { armor: 0, power: 0, mobility: 0 }, "normal");
       g.enemies.forEach((e: any) => (e.hp = 0));
       g.quakeTime = 10000;
       g.invincible = 10000;
@@ -348,7 +355,7 @@ test("visible concrete perimeter matches blocked movement and gunfire, and canno
     const { COVER, PATCHES } = await import("/src/missions.ts");
     const { WORLD_BOUNDS } = await import("/src/campaign.mjs");
     const { WEAPONS } = await import("/src/arsenal.ts");
-    g.start(0, { armor: 0, power: 0, mobility: 0 }, "normal");
+    g.start(3, { armor: 0, power: 0, mobility: 0 }, "normal");
     g.quakeTime = 10000;
     g.enemies.forEach((e: any) => {
       e.hp = 0;

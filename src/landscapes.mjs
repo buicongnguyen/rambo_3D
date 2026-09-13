@@ -137,7 +137,10 @@ export function squareLandscape(m) {
       )
         patches.push(patch);
     }
-  const soldiers = 24 + m.level * 4 + (m.biome === "city" ? 8 : 0);
+  const soldiers =
+    m.stage === 0 && m.level === 1
+      ? 12
+      : 24 + m.level * 4 + (m.biome === "city" ? 8 : 0);
   for (let i = 0; i < soldiers; i++) {
     const p = sampleRoute(
       m.roads[i % m.roads.length],

@@ -24,6 +24,13 @@ for (const mobile of [false, true])
     await page.goto("/");
     await expect(page.locator("#deploy")).toBeEnabled();
     await page.locator("#deploy").click();
+    await page.evaluate(() =>
+      (window as any).__nightfall.game.start(
+        3,
+        { armor: 0, power: 0, mobility: 0 },
+        "normal",
+      ),
+    );
     await page.evaluate(async () => {
       const { game: g, world: w } = (window as any).__nightfall;
       const { COVER, PATCHES } = await import("/src/missions.ts");
@@ -155,6 +162,7 @@ for (const mobile of [false, true])
           (b) => b.getBoundingClientRect(),
         );
         const panels = [
+          "#radio",
           "#minimap",
           ".objective-panel",
           ".health-panel",
@@ -193,6 +201,13 @@ test("live damage paths apply tank armor, doubled enemy attacks, warning and lon
   await page.goto("/");
   await expect(page.locator("#deploy")).toBeEnabled();
   await page.locator("#deploy").click();
+  await page.evaluate(() =>
+    (window as any).__nightfall.game.start(
+      3,
+      { armor: 0, power: 0, mobility: 0 },
+      "normal",
+    ),
+  );
   const result = await page.evaluate(async () => {
     const { game: g, world: w, input } = (window as any).__nightfall;
     const { COVER, PATCHES } = await import("/src/missions.ts");
@@ -213,6 +228,7 @@ test("live damage paths apply tank armor, doubled enemy attacks, warning and lon
     e.x = 10;
     e.z = 6;
     e.mesh.position.set(e.x, 0, e.z);
+    e.mesh.rotation.y = 0;
     e.cool = 0.79;
     e.auxCool = 100;
     g.hurt(e, WEAPONS[2].damage, WEAPONS[2]);
@@ -248,6 +264,7 @@ test("live damage paths apply tank armor, doubled enemy attacks, warning and lon
     distant.hp = 65;
     distant.x = 10;
     distant.z = -17;
+    distant.mesh.rotation.y = 0;
     distant.cool = 0;
     distant.alerted = false;
     g.hurt(distant, 1, WEAPONS[0]);

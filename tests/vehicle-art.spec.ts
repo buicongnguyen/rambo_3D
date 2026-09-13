@@ -3,6 +3,13 @@ test("vehicle and weapon Blender gallery renders", async ({ page }) => {
   await page.goto("/");
   await expect(page.locator("#deploy")).toBeEnabled();
   await page.locator("#deploy").click();
+  await page.evaluate(() =>
+    (window as any).__nightfall.game.start(
+      3,
+      { armor: 0, power: 0, mobility: 0 },
+      "normal",
+    ),
+  );
   await page.evaluate(async () => {
     const h = (window as any).__nightfall;
     const { model } = await import("/src/world.ts"),

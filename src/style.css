@@ -1572,3 +1572,45 @@ input {
     padding: 8px;
   }
 }
+
+#awareness {
+  font: 700 9px/1.2 monospace;
+  color: #e9c887;
+  margin-top: 3px;
+  white-space: nowrap;
+}
+@media (pointer: coarse) and (max-height: 600px) and (orientation: landscape) {
+  #awareness {
+    font-size: 7px;
+  }
+}
+
+@media (pointer: coarse) and (orientation: portrait) {
+  #touch {
+    bottom: 128px;
+  }
+  #radio {
+    top: 170px;
+    bottom: auto;
+    left: 12px;
+    right: 12px;
+    width: auto;
+    transform: none;
+  }
+}
+@media (pointer: coarse) and (max-height: 600px) and (orientation: landscape) {
+  #radio {
+    top: 12px;
+    left: 265px;
+    width: calc(100vw - 365px);
+    max-width: 260px;
+    transform: none;
+  }
+}
+
+@media (pointer: coarse) {
+  #radio,
+  #radio.visible {
+    transform: none;
+  }
+}

@@ -3,6 +3,13 @@ async function ready(page: any) {
   await page.goto("/");
   await expect(page.locator("#deploy")).toBeEnabled();
   await page.locator("#deploy").click();
+  await page.evaluate(() =>
+    (window as any).__nightfall.game.start(
+      3,
+      { armor: 0, power: 0, mobility: 0 },
+      "normal",
+    ),
+  );
 }
 
 test("every rotated mission preserves exact Crazy patrols, clear vehicle starts and roadside quotas", async ({
@@ -16,7 +23,12 @@ test("every rotated mission preserves exact Crazy patrols, clear vehicle starts 
     return MISSIONS.map((m: any, index: number) => {
       g.start(index, { armor: 0, power: 0, mobility: 0 }, "crazy");
       const patrols = 24 + m.level * 4 + (m.biome === "city" ? 8 : 0);
-      const expected = patrols * 16 + Math.max(3, Math.floor(patrols / 8)) * 4;
+      const expected =
+        index === 0
+          ? 48
+          : index === 1
+            ? 196
+            : patrols * 16 + Math.max(3, Math.floor(patrols / 8)) * 4;
       return {
         index,
         count: g.enemies.length,
@@ -51,9 +63,9 @@ test("every rotated mission preserves exact Crazy patrols, clear vehicle starts 
   for (const row of rows) {
     expect(row.count, JSON.stringify(row)).toBe(row.expected);
     expect(row).toMatchObject({
-      weapons: 9,
-      health: 6,
-      shield: 5,
+      weapons: row.index === 0 ? 1 : row.index === 1 ? 4 : 9,
+      health: row.index < 2 ? 2 : 6,
+      shield: row.index === 0 ? 1 : row.index === 1 ? 2 : 5,
       carsClear: true,
       soldiersClear: true,
     });
@@ -86,7 +98,7 @@ test("shield crates absorb personal damage, remain at capacity and preserve vehi
     const armor = v.hp;
     g.takeDamage(10);
     const vehicle = { shield: g.shield, armorLost: armor - v.hp };
-    g.start(0, { armor: 0, power: 0, mobility: 0 }, "normal");
+    g.start(3, { armor: 0, power: 0, mobility: 0 }, "normal");
     return { gained, absorbed, overflow, kept, vehicle, reset: g.shield };
   });
   expect(result).toEqual({

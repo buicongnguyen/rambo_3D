@@ -54,13 +54,13 @@ test("stage layouts, difficulty spawn ratios and multi-boss extraction gates", a
   expect(result.layouts).toHaveLength(21);
   expect(
     result.layouts.every(
-      (m: any) => m.length > 120 && m.finale === (m.level === 2),
+      (m: any) => m.length > 60 && m.finale === (m.level === 2),
     ),
   ).toBe(true);
   expect(result.layouts[9].trees).toBeGreaterThan(20);
   expect(result.layouts[12].buildings).toBeGreaterThan(10);
-  expect(result.layouts[0].patches).toBeGreaterThan(10);
-  expect(result.counts.map((c: any) => c.count)).toEqual([99, 99, 198, 396]);
+  expect(result.layouts[0].patches).toBeGreaterThanOrEqual(2);
+  expect(result.counts.map((c: any) => c.count)).toEqual([12, 12, 24, 48]);
   expect(result.counts[0].hp).toBeGreaterThan(result.counts[1].hp);
   expect(result).toMatchObject({
     count: 4,
@@ -82,7 +82,8 @@ test("ice inertia, sand slowdown, mud recovery and earthquake freeze", async ({
       g.enemies.forEach((e: any) => (e.hp = 0));
     };
     start(0);
-    g.pos.set(0, 0, 10);
+    const ice = PATCHES.find((p: any) => p.kind === "ice");
+    g.pos.set(ice.x, 0, ice.z);
     for (let i = 0; i < 30; i++) g.update(1 / 60, { ...cmd, z: -1 });
     const iceZ = g.pos.z;
     for (let i = 0; i < 15; i++) g.update(1 / 60, { ...cmd });
@@ -159,7 +160,7 @@ test("fuel chains, destructible trees, warned rockfalls and tank run-over damage
     g.hazards[0].time = 0.01;
     g.update(1 / 60, { ...cmd });
     const bothHit = g.hp < 150 && e.hp <= 0;
-    g.start(0, { armor: 0, power: 0, mobility: 0 }, "normal");
+    g.start(3, { armor: 0, power: 0, mobility: 0 }, "normal");
     g.enemies.forEach((e: any) => (e.hp = 0));
     const v = g.rides[2];
     v.mesh.position.set(15, 0, 20);

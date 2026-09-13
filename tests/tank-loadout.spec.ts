@@ -4,9 +4,23 @@ async function ready(page: Page) {
   await page.goto("/");
   await expect(page.locator("#deploy")).toBeEnabled();
   await page.locator("#deploy").click();
+  await page.evaluate(() =>
+    (window as any).__nightfall.game.start(
+      3,
+      { armor: 0, power: 0, mobility: 0 },
+      "normal",
+    ),
+  );
 }
 
 async function boardTank(page: Page) {
+  await page.evaluate(() =>
+    (window as any).__nightfall.game.start(
+      3,
+      { armor: 0, power: 0, mobility: 0 },
+      "normal",
+    ),
+  );
   await page.evaluate(async () => {
     const { game: g } = (window as any).__nightfall;
     const { COVER, PATCHES } = await import("/src/missions.ts");
@@ -41,7 +55,7 @@ test("tank and jeep crush moving infantry contacts once, respect cover and bosse
     };
     const results = [];
     for (const kind of ["tank", "jeep", "motorcycle"]) {
-      g.start(0, { armor: 0, power: 0, mobility: 0 }, "normal");
+      g.start(3, { armor: 0, power: 0, mobility: 0 }, "normal");
       COVER.length = 0;
       PATCHES.length = 0;
       g.weaponDrops.forEach((d: any) => d.mesh.position.set(-80, 0, -80));
@@ -178,14 +192,14 @@ test("tank six-shell bank survives swaps, reload cancellation and dismount; empt
       step(65);
     }
     const empty = v.ammo === 0 && !v.personalWeapon;
-    const rifleAmmo = g.magazines[0];
+    const fallbackAmmo = g.magazines[9];
     step(1, { fire: true });
     step(20);
     step(1, { fire: true });
     const fallback =
       v.personalWeapon &&
-      g.weapon === 0 &&
-      g.ammo === rifleAmmo - 1 &&
+      g.weapon === 9 &&
+      g.ammo === fallbackAmmo - 1 &&
       v.ammo === 0;
     return {
       initial,
@@ -310,7 +324,9 @@ test("PC tank Q and visible swap button expose cannon and personal ammo", async 
   await expect(page.locator("#weapon-name")).toContainText("RIFLE");
   await expect(page.locator("#ammo")).toHaveText("24");
   await page.locator("#weapon-swap").click();
-  await expect(page.locator("#weapon-name")).toContainText("SCATTERGUN");
+  await expect(page.locator("#weapon-name")).toContainText(
+    "FRAGMENTATION GRENADE",
+  );
   await page.locator("#weapon-swap").click();
   await expect(page.locator("#weapon-name")).toHaveText("TANK / CANNON");
   await expect(page.locator("#ammo")).toHaveText("06");
@@ -360,7 +376,9 @@ test("mobile tank SWAP and FIRE use the selected weapon in portrait and landscap
       .locator('[data-hold="fire"]')
       .dispatchEvent("pointercancel", { pointerId: 51 });
     await swap.tap();
-    await expect(page.locator("#weapon-name")).toContainText("SCATTERGUN");
+    await expect(page.locator("#weapon-name")).toContainText(
+      "FRAGMENTATION GRENADE",
+    );
     await swap.tap();
     await expect(page.locator("#weapon-name")).toHaveText("TANK / CANNON");
     await expect(page.locator("#ammo")).toHaveText("06");

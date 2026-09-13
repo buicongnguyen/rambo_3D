@@ -327,6 +327,7 @@ export class VehicleMotion {
     time: number,
     vz = 0,
     charging = false,
+    steerHull = true,
   ) {
     this.wheelSpin +=
       ((vx * Math.sin(this.root.rotation.y) +
@@ -366,7 +367,7 @@ export class VehicleMotion {
         );
     }
     if (this.kind === "tank" && this.turret) {
-      if (Math.abs(vx) > 0.05)
+      if (steerHull && Math.abs(vx) > 0.05)
         this.root.rotation.y = T.MathUtils.damp(
           this.root.rotation.y,
           vx > 0 ? Math.PI / 2 : -Math.PI / 2,

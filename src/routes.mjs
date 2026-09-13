@@ -147,6 +147,31 @@ export function expeditionRoute(shape) {
   });
 }
 export function routePlan(stage, level) {
+  if (stage === 0 && level === 0) {
+    const route = [
+      [0, 18],
+      [0, 8],
+      [7, 0],
+      [-7, -13],
+      [0, -23],
+      [0, -30],
+      [0, -37],
+    ].map(([x, z]) => ({ x, z }));
+    return {
+      shape: "ZIGZAG",
+      diagonal: false,
+      square: false,
+      layout: 0,
+      route,
+      roads: [route],
+      bounds: { x: 22, minZ: -44, maxZ: 25 },
+      direction: "NORTHBOUND",
+      start: route[0],
+      extract: route.at(-1),
+      objective: { x: 0, z: -25 },
+      bossPos: { x: 0, z: -32 },
+    };
+  }
   const diagonal = level === 2 && stage % 4 >= 2;
   const baseShape =
     level === 0

@@ -1,3 +1,4 @@
+import { openingLayout, tacticalCover } from "./progression.mjs";
 import { finishEnvironment } from "./environment.mjs";
 import { routePlan, routePoint, routeBox } from "./routes.mjs";
 import { squareLandscape } from "./landscapes.mjs";
@@ -13,6 +14,7 @@ export type Box = {
   hp?: number;
   asset?: string;
   scale?: number;
+  height?: number;
   originalW?: number;
   originalD?: number;
 };
@@ -69,8 +71,14 @@ export const MISSIONS: Mission[] = STAGES.flatMap((s, stage) =>
       region: s.name.toUpperCase(),
       tag: ["BREACH / APPROACH", "RECOVER / HOLD", "COMMAND / FINALE"][level],
       description: s.tip,
-      brief: `${s.tip} Level ${level + 1}/3: follow the ${plan.shape.toLowerCase()} road${plan.shape === "O" ? " � choose either arm around the central woodland" : ""}, fight for vehicles and weapon caches, secure the relay, ${level === 2 ? "destroy the command bosses" : "defeat the relay guards"} and reach extraction. Vale is coordinating the evacuation from the air.`,
-      radio: `${s.name}. ${s.tip} Follow the ${plan.direction.toLowerCase()}. ${plan.shape === "O" ? "Both sides of the loop lead to the relay. Choose your approach. " : ""}Patrols hold vehicles and weapon caches ahead. Shoot small trees to open firing lanes. Your relay is marked yellow.`,
+      brief:
+        stage === 0 && level === 0
+          ? "A short first operation: reach the yellow relay, defeat two response guards and extract. Use the crate screens to flank patrols. Q / SWAP selects one of four starting frag grenades; aim and throw over low cover. You do not need to clear the entire map."
+          : `${s.tip} Level ${level + 1}/3: follow the ${plan.shape.toLowerCase()} road${plan.shape === "O" ? " � choose either arm around the central woodland" : ""}, fight for vehicles and weapon caches, secure the relay, ${level === 2 ? "destroy the command bosses" : "defeat the relay guards"} and reach extraction. Vale is coordinating the evacuation from the air.`,
+      radio:
+        stage === 0 && level === 0
+          ? "Small operation. Reach the relay, clear its response and extract. Use cover to stay unseen; flank for rear hits. Q / SWAP: rifle or frag. Four grenades ready."
+          : `${s.name}. ${s.tip} Follow the ${plan.direction.toLowerCase()}. ${plan.shape === "O" ? "Both sides of the loop lead to the relay. Choose your approach. " : ""}Patrols hold vehicles and weapon caches ahead. Shoot small trees to open firing lanes. Your relay is marked yellow.`,
       success:
         level === 2
           ? `${s.name} secured. The evacuation route is open. Choose your next advantage.`
@@ -105,11 +113,20 @@ const base: Box[] = [
 export function buildLayout(m: Mission) {
   COVER.length = PATCHES.length = SPAWNS.length = 0;
   Object.assign(WORLD_BOUNDS, m.bounds);
+  if (m.stage === 0 && m.level === 0) {
+    const opening = openingLayout();
+    COVER.push(...opening.boxes);
+    PATCHES.push(...opening.patches);
+    SPAWNS.push(...opening.spawns);
+    finishEnvironment(COVER, m.bounds);
+    return;
+  }
   if (m.square) {
     const landscape = squareLandscape(m);
     COVER.push(...landscape.boxes);
     PATCHES.push(...landscape.patches);
     SPAWNS.push(...landscape.spawns);
+    tacticalCover(m, COVER);
     finishEnvironment(COVER, m.bounds);
     return;
   }
@@ -227,5 +244,6 @@ export function buildLayout(m: Mission) {
   COVER.push(...gates);
   const trees = softenObstacles(COVER, m.biome);
   COVER.splice(0, COVER.length, ...trees);
+  tacticalCover(m, COVER);
   finishEnvironment(COVER, m.bounds);
 }

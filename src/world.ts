@@ -116,8 +116,17 @@ export function coverModel(box: Box, layout: number) {
     center = bounds.getCenter(new T.Vector3());
   const width = box.originalW ?? box.w,
     depth = box.originalD ?? box.d;
-  parts.scale.set(width / size.x, 1, depth / size.z);
-  parts.position.set(-center.x * parts.scale.x, 0, -center.z * parts.scale.z);
+  box.height ??= size.y; // Match grenade clearance to the actual Blender asset.
+  parts.scale.set(
+    width / size.x,
+    box.height ? box.height / size.y : 1,
+    depth / size.z,
+  );
+  parts.position.set(
+    -center.x * parts.scale.x,
+    -bounds.min.y * parts.scale.y,
+    -center.z * parts.scale.z,
+  );
   root.add(parts);
   root.position.set(box.x, 0, box.z);
   root.rotation.y = -([0, Math.PI / 2, Math.PI / 4, Math.PI][layout] ?? 0);

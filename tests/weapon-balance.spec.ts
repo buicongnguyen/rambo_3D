@@ -5,12 +5,19 @@ test("M249 delivers 30-round-per-second reduced-damage fire on foot, in vehicles
   await page.goto("/");
   await expect(page.locator("#deploy")).toBeEnabled();
   await page.locator("#deploy").click();
+  await page.evaluate(() =>
+    (window as any).__nightfall.game.start(
+      3,
+      { armor: 0, power: 0, mobility: 0 },
+      "normal",
+    ),
+  );
   const result = await page.evaluate(async () => {
     const { game: g, world: w, input } = (window as any).__nightfall;
     const { COVER, PATCHES } = await import("/src/missions.ts");
     const rows = [];
     for (const mode of ["foot", "motorcycle", "tank", "turbo"]) {
-      g.start(0, { armor: 0, power: 1, mobility: 0 }, "normal");
+      g.start(3, { armor: 0, power: 1, mobility: 0 }, "normal");
       COVER.length = 0;
       PATCHES.length = 0;
       g.enemies.forEach((e: any) => (e.hp = 0));

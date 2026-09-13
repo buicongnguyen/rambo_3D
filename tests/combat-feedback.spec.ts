@@ -3,6 +3,13 @@ async function ready(page: Page) {
   await page.goto("/");
   await expect(page.locator("#deploy")).toBeEnabled();
   await page.locator("#deploy").click();
+  await page.evaluate(() =>
+    (window as any).__nightfall.game.start(
+      3,
+      { armor: 0, power: 0, mobility: 0 },
+      "normal",
+    ),
+  );
   await page.evaluate(async () => {
     const { game: g } = (window as any).__nightfall;
     const { COVER, PATCHES } = await import("/src/missions.ts");
@@ -46,6 +53,7 @@ test("all eleven weapon hits create visible impact bursts, including elevated ex
         target.z = 20;
         target.cool = 100;
         target.mesh.position.set(20, spec.id === "missile" ? 5 : 0, 20);
+        g.throwDistance = 5;
         g.fireWeapon(spec, Math.PI / 2);
         for (let i = 0; i < 130 && target.hp === 10000; i++)
           g.update(1 / 60, { ...cmd });
@@ -172,7 +180,7 @@ test("impact pool stays bounded, fades cleanly and works after a mission restart
     const cleared = g.impacts.activeCount === 0;
     const capacity = g.impacts.capacity;
     const cosmetic = g.hp === hp;
-    g.start(0, { armor: 0, power: 0, mobility: 0 }, "normal");
+    g.start(3, { armor: 0, power: 0, mobility: 0 }, "normal");
     g.impacts.emit(15, 1, 20, "tracer", true);
     const restarted =
       g.impacts.activeCount === 1 &&

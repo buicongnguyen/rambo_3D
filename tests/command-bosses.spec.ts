@@ -3,6 +3,13 @@ async function ready(page: any) {
   await page.goto("/");
   await expect(page.locator("#deploy")).toBeEnabled();
   await page.locator("#deploy").click();
+  await page.evaluate(() =>
+    (window as any).__nightfall.game.start(
+      3,
+      { armor: 0, power: 0, mobility: 0 },
+      "normal",
+    ),
+  );
 }
 test("either O arm allows movement, rewards, a shared relay fight and extraction", async ({
   page,
@@ -13,46 +20,48 @@ test("either O arm allows movement, rewards, a shared relay fight and extraction
     const { MISSIONS, COVER } = await import("/src/missions.ts");
     const { segmentBox } = await import("/src/rules.mjs");
     const result = [];
-    for (const side of [-1, 1]) {
-      g.start(1, { armor: 0, power: 0, mobility: 0 }, "normal");
-      g.invincible = 1000;
-      const m = MISSIONS[1],
-        cmd = { ...input, x: 0, z: 0, fire: false, interact: false };
-      const rewards = [
-        ...g.weaponDrops.map((d: any) => d.mesh),
-        ...g.pickups,
-      ].filter((p: any) => p.position.x * side > 12).length;
-      const defendedVehicle = g.rides.some(
-        (v: any) => v.mesh.position.x * side > 12,
-      );
-      g.enemies.forEach((e: any) => (e.hp = 0));
-      for (let i = 0; i < 120; i++) g.update(1 / 60, { ...cmd, x: side });
-      const moved = g.pos.x * side > 8;
-      g.pos.set(m.objective.x, 0, m.objective.z);
-      g.update(1 / 60, { ...cmd, interact: true });
-      const guards = g.enemies.filter(
-        (e: any) => g.guardIds.has(e) && e.hp > 0,
-      );
-      const accessible = guards.every((e: any) =>
-        COVER.every(
-          (b: any) =>
-            segmentBox(m.objective.x, m.objective.z, e.x, e.z, b, 0.55) ===
-            Infinity,
-        ),
-      );
-      for (const e of guards) g.hurt(e, 9999);
-      g.pos.set(m.extract.x, 0, m.extract.z);
-      g.update(1 / 60, { ...cmd });
-      result.push({
-        side,
-        rewards,
-        defendedVehicle,
-        moved,
-        accessible,
-        guards: guards.length,
-        won: g.phase === "won",
-      });
-    }
+    for (const index of [1, 7])
+      for (const side of [-1, 1]) {
+        g.start(index, { armor: 0, power: 0, mobility: 0 }, "normal");
+        g.invincible = 1000;
+        const m = MISSIONS[index],
+          cmd = { ...input, x: 0, z: 0, fire: false, interact: false };
+        const rewards = [
+          ...g.weaponDrops.map((d: any) => d.mesh),
+          ...g.pickups,
+        ].filter((p: any) => p.position.x * side > 12).length;
+        const defendedVehicle = g.rides.some(
+          (v: any) => v.mesh.position.x * side > 12,
+        );
+        g.enemies.forEach((e: any) => (e.hp = 0));
+        for (let i = 0; i < 120; i++) g.update(1 / 60, { ...cmd, x: side });
+        const moved = g.pos.x * side > 8;
+        g.pos.set(m.objective.x, 0, m.objective.z);
+        g.update(1 / 60, { ...cmd, interact: true });
+        const guards = g.enemies.filter(
+          (e: any) => g.guardIds.has(e) && e.hp > 0,
+        );
+        const accessible = guards.every((e: any) =>
+          COVER.every(
+            (b: any) =>
+              segmentBox(m.objective.x, m.objective.z, e.x, e.z, b, 0.55) ===
+              Infinity,
+          ),
+        );
+        for (const e of guards) g.hurt(e, 9999);
+        g.pos.set(m.extract.x, 0, m.extract.z);
+        g.update(1 / 60, { ...cmd });
+        result.push({
+          index,
+          side,
+          rewards,
+          defendedVehicle,
+          moved,
+          accessible,
+          guards: guards.length,
+          won: g.phase === "won",
+        });
+      }
     return result;
   });
   for (const row of rows) {
@@ -63,7 +72,7 @@ test("either O arm allows movement, rewards, a shared relay fight and extraction
       guards: 3,
       won: true,
     });
-    expect(row.rewards).toBeGreaterThan(3);
+    expect(row.rewards).toBeGreaterThanOrEqual(row.index === 1 ? 2 : 4);
   }
 });
 
@@ -76,7 +85,7 @@ test("new Blender bosses articulate, fire from real mounts, warn before missiles
     const { COVER, PATCHES } = await import("/src/missions.ts");
     const result = [];
     for (const kind of ["quadMech", "rocketMech", "missileTruck"]) {
-      g.start(0, { armor: 0, power: 0, mobility: 0 }, "normal");
+      g.start(3, { armor: 0, power: 0, mobility: 0 }, "normal");
       COVER.length = PATCHES.length = 0;
       g.rides.forEach((v: any) => (v.hp = 0));
       g.enemies.forEach((e: any) => (e.hp = 0));
@@ -174,7 +183,7 @@ test("legacy bosses use independent light guns and cover blocks their secondary 
     const { game: g } = (window as any).__nightfall;
     const { COVER, PATCHES } = await import("/src/missions.ts");
     return ["gunship", "spider", "laserTank"].map((kind) => {
-      g.start(0, { armor: 0, power: 0, mobility: 0 }, "normal");
+      g.start(3, { armor: 0, power: 0, mobility: 0 }, "normal");
       COVER.length = PATCHES.length = 0;
       g.rides.forEach((v: any) => (v.hp = 0));
       g.enemies.forEach((e: any) => (e.hp = 0));
@@ -260,7 +269,7 @@ test("missile bosses seek a firing position around cover instead of waiting fore
     const { COVER, PATCHES } = await import("/src/missions.ts");
     const { segmentBox } = await import("/src/rules.mjs");
     return ["rocketMech", "missileTruck"].map((kind) => {
-      g.start(0, { armor: 0, power: 0, mobility: 0 }, "normal");
+      g.start(3, { armor: 0, power: 0, mobility: 0 }, "normal");
       COVER.length = PATCHES.length = 0;
       g.rides.forEach((v: any) => (v.hp = 0));
       g.enemies.forEach((e: any) => (e.hp = 0));

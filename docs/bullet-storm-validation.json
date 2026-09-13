@@ -2,15 +2,15 @@
   "stages": [
     {
       "index": 0,
-      "infantry": 96,
-      "tanks": 3,
-      "trees": 82,
+      "infantry": 12,
+      "tanks": 0,
+      "trees": 4,
       "clear": true
     },
     {
       "index": 1,
-      "infantry": 112,
-      "tanks": 3,
+      "infantry": 48,
+      "tanks": 1,
       "trees": 480,
       "clear": true
     },
@@ -152,26 +152,26 @@
     {
       "low": true,
       "population": 660,
-      "active": 151,
-      "meanUpdateMs": 3.965833332637946,
-      "p95UpdateMs": 5.099999964237213,
-      "maxBullets": 167,
-      "drawCalls": 760,
-      "triangles": 3199262,
+      "active": 141,
+      "meanUpdateMs": 2.2350000003973642,
+      "p95UpdateMs": 3.399999976158142,
+      "maxBullets": 36,
+      "drawCalls": 624,
+      "triangles": 3336892,
       "fragments": 64,
-      "corpses": 13
+      "corpses": 19
     },
     {
       "low": false,
       "population": 660,
-      "active": 153,
-      "meanUpdateMs": 6.30166666607062,
-      "p95UpdateMs": 8.100000023841858,
-      "maxBullets": 174,
-      "drawCalls": 907,
-      "triangles": 4868242,
-      "fragments": 91,
-      "corpses": 13
+      "active": 151,
+      "meanUpdateMs": 3.6666666666666665,
+      "p95UpdateMs": 4.700000047683716,
+      "maxBullets": 43,
+      "drawCalls": 767,
+      "triangles": 4893207,
+      "fragments": 98,
+      "corpses": 14
     }
   ],
   "renderer": "WebKit WebGL"

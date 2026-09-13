@@ -3,7 +3,6 @@ import assert from "node:assert/strict";
 import { WEAPONS } from "../src/arsenal.ts";
 import {
   armorMultiplier,
-  healthDropEvery,
   depotGuardPositions,
   explosiveTarget,
 } from "../src/tactics.mjs";
@@ -42,14 +41,6 @@ test("weapon roles reward anti-armor equipment without making infantry bullet sp
   );
   assert.equal(armorMultiplier({ bossKind: "laserTank" }, mg), 0.2);
   assert.equal(armorMultiplier({ bossKind: "gunship" }, mg), 1);
-});
-test("higher enemy density does not also multiply the recovery budget", () => {
-  const counts = [1, 2, 4].map(
-    (density, i) =>
-      (96 * density) / healthDropEvery(["normal", "hard", "crazy"][i]),
-  );
-  assert.deepEqual(counts, [16, 16, 16]);
-  assert.equal(96 / healthDropEvery("easy"), 48);
 });
 test("BLAST aims at crowd stores but refuses obstructed, short-range and unsafe chain shots", () => {
   const player = { x: 0, z: 0 },
@@ -96,8 +87,8 @@ test("BLAST aims at crowd stores but refuses obstructed, short-range and unsafe 
     "occupied tank has a wider unsafe radius",
   );
 });
-test("all 21 maps support reachable explosive ambushes without adding or moving protected enemies", () => {
-  for (const m of MISSIONS) {
+test("full-equipment maps support reachable explosive ambushes without adding or moving protected enemies", () => {
+  for (const m of MISSIONS.slice(2)) {
     buildLayout(m);
     const actors = SPAWNS.flatMap(([x, z], i) =>
       Array.from({ length: 4 }, (_, n) => ({

@@ -64,14 +64,17 @@ test("mobile buttons work with simultaneous touches and survive cancellation", a
   await page.locator('[data-action="swap"]').tap();
   await expect
     .poll(() => page.evaluate(() => (window as any).__nightfall.game.weapon))
-    .toBe(1);
+    .toBe(9);
   await page.evaluate(() => {
-    (window as any).__nightfall.game.ammo = 1;
+    (window as any).__nightfall.game.ammo = 0;
   });
   await page.locator('[data-action="reload"]').tap();
   await expect
     .poll(() => page.evaluate(() => (window as any).__nightfall.game.ammo))
-    .toBe(6);
+    .toBe(1);
+  expect(
+    await page.evaluate(() => (window as any).__nightfall.game.reserves[9]),
+  ).toBe(2);
   await page
     .locator('[data-hold="up"]')
     .dispatchEvent("pointerdown", { pointerId: 40 });
@@ -108,6 +111,10 @@ test("mobile buttons work with simultaneous touches and survive cancellation", a
     { width: 844, height: 390 },
   ]) {
     await page.setViewportSize(viewport);
+    await expect(page.locator("#radio")).toHaveCSS("transform", "none");
+    const radioBox = await page.locator("#radio").boundingBox();
+    expect(radioBox!.x).toBeGreaterThanOrEqual(0);
+    expect(radioBox!.x + radioBox!.width).toBeLessThanOrEqual(viewport.width);
     const usable = await page.locator("#touch button").evaluateAll((buttons) =>
       buttons.every((b) => {
         const r = b.getBoundingClientRect();
@@ -139,13 +146,14 @@ test("PC Q shortcut and visible swap button both cycle the loadout", async ({
   await page.keyboard.press("KeyQ");
   await expect
     .poll(() => page.evaluate(() => (window as any).__nightfall.game.weapon))
-    .toBe(1);
+    .toBe(9);
   await swap.click();
   await expect
     .poll(() => page.evaluate(() => (window as any).__nightfall.game.weapon))
     .toBe(0);
   await page.evaluate(() => {
     const g = (window as any).__nightfall.game;
+    g.start(3, { armor: 0, power: 0, mobility: 0 }, "normal");
     g.pos.copy(g.rides[1].mesh.position);
     g.useRide();
   });
