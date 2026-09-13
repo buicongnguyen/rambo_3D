@@ -255,28 +255,70 @@ for (const mobile of [false, true])
       deviceScaleFactor: 0.5,
     });
     const page = await context.newPage();
+    // These custom contexts do not inherit the runner's Low graphics storage state.
+    await page.addInitScript(() =>
+      localStorage.setItem(
+        "nightfall-prefs",
+        JSON.stringify({ low: true, sound: false }),
+      ),
+    );
     await ready(page);
     await page.evaluate(() => {
       const { game: g } = (window as any).__nightfall;
+      const prompt = document.querySelector<HTMLElement>("#interact-prompt")!;
+      const events: { text: string; visible: boolean }[] = [];
+      (window as any).__hintEvents = events;
+      // Capture one-second transitions in the browser, even when remote assertions arrive later.
+      const record = () => {
+        const event = {
+          text: prompt.textContent ?? "",
+          visible: !prompt.hidden,
+        };
+        const previous = events.at(-1);
+        if (
+          event.text !== previous?.text ||
+          event.visible !== previous?.visible
+        )
+          events.push(event);
+      };
+      new MutationObserver(record).observe(prompt, {
+        attributes: true,
+        attributeFilter: ["hidden"],
+        childList: true,
+        subtree: true,
+      });
+      record();
       g.rides.forEach((v: any, i: number) =>
         v.mesh.position.set(i ? -20 : 8, 0, i ? -60 - i * 10 : 5),
       );
       g.pos.copy(g.rides[0].mesh.position);
     });
     const hint = page.locator("#interact-prompt");
-    await expect(hint).toContainText("BOARD");
-    await expect(hint).toBeVisible();
-    await expect(hint).toBeHidden({ timeout: 4000 });
+    const appearances = (label: string) =>
+      page.evaluate(
+        (text) =>
+          (window as any).__hintEvents.filter(
+            (e: any) => e.visible && e.text.includes(text),
+          ).length,
+        label,
+      );
+    const checkHint = async (label: string, count: number) => {
+      await expect.poll(() => appearances(label)).toBe(count);
+      await expect(hint).toContainText(label);
+      await expect(hint).toBeHidden({ timeout: 10000 });
+    };
+    // Deliberately inspect after the one-second window; the observer must retain the appearance.
+    await page.waitForTimeout(1200);
+    await checkHint("BOARD", 1);
     const act = async () =>
       mobile
         ? await page.locator('[data-action="interact"]').tap()
         : await page.keyboard.press("KeyE");
     await act();
-    await expect(hint).toContainText("EXIT");
-    await expect(hint).toBeVisible();
-    await expect(hint).toBeHidden({ timeout: 4000 });
+    await checkHint("EXIT", 1);
     await page.waitForTimeout(1200);
     await expect(hint).toBeHidden();
+    expect(await appearances("EXIT")).toBe(1);
     await expect(page.locator('[data-action="interact"]')).toHaveText("EXIT");
     await act();
     await expect
@@ -284,17 +326,17 @@ for (const mobile of [false, true])
         page.evaluate(() => !!(window as any).__nightfall.game.riding),
       )
       .toBe(false);
+    // Exiting can produce another BOARD hint; count only the subsequent leave/return transition.
     await page.evaluate(() => {
-      const { game: g } = (window as any).__nightfall;
-      g.pos.set(-15, 0, 0);
+      (window as any).__nightfall.game.pos.set(-15, 0, 0);
     });
     await expect(page.locator('[data-action="interact"]')).toHaveText("USE");
+    const beforeReturn = await appearances("BOARD");
     await page.evaluate(() => {
       const { game: g } = (window as any).__nightfall;
       g.pos.copy(g.rides[0].mesh.position);
     });
-    await expect(hint).toContainText("BOARD");
-    await expect(hint).toBeVisible();
+    await checkHint("BOARD", beforeReturn + 1);
     await context.close();
   });
 test("visible concrete perimeter matches blocked movement and gunfire, and cannot be destroyed", async ({

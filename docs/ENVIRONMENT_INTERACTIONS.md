@@ -29,6 +29,8 @@ The hint timer uses elapsed wall-clock milliseconds and an interaction identity,
 - PC and mobile checks wait past prompt expiry, then board and exit with keyboard/touch controls and verify that returning triggers a new prompt.
 - Perimeter checks verify projectile blocking, movement limits and indestructibility, with a captured corner view in `perimeter-explosives.png`.
 
+The PC/mobile hint checks record visibility transitions with a browser-side observer, so a slower test runner can verify an appearance even after its one-second window has expired. The separate deterministic timer test still checks expiry at exactly 1,000 milliseconds. These UI checks use Low graphics, matching the standard CI contexts; the blast checks separately exercise both graphics modes.
+
 The older laser-boss fixture put the player exactly on the map edge. It now places both actors inside the perimeter so that it continues testing warning/fire timing; the new perimeter test independently checks wall shielding.
 
 Browser automation uses software rendering. Its regression and draw-call checks do not establish frame rates on physical phones or PCs.
