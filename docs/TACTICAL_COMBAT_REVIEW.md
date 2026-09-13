@@ -81,3 +81,9 @@ Frozen local targeting previews, with the orange ring marking the selected explo
 ![Portrait controls and target](tactical-portrait.png)
 
 ![Landscape controls without HUD overlap](tactical-landscape.png)
+
+## Deployment regression follow-up
+
+The first hosted run passed 64 of 65 browser tests. The remaining test hardcoded five rifle hits to destroy a 180-HP tree; 28-damage rifle rounds correctly require seven. The regression now derives the expected hit count from the starting tree health and weapon damage, while still checking that the tree blocks fire, survives early hits, emits green debris and clears collision when destroyed.
+
+The full browser suite now runs as three Playwright shards on separate GitHub runners, each with one browser worker. No tests are skipped. Pages deployment depends on the unit/build job **and all three browser shards**, so a failing shard still prevents publication. This shortens the feedback cycle while retaining the complete test gate.

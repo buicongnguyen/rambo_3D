@@ -22,17 +22,31 @@ jobs:
       - run: npm ci
       - run: npm test
       - run: npm run build
-      - run: npx playwright install --with-deps chromium
-      - run: npm run test:e2e
       - if: github.event.repository.private == false
         uses: actions/configure-pages@v5
       - if: github.event.repository.private == false
         uses: actions/upload-pages-artifact@v3
         with:
           path: dist
+  browser-tests:
+    name: Browser tests (${{ matrix.shard }}/3)
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        shard: [1, 2, 3]
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+      - run: npm ci
+      - run: npx playwright install --with-deps chromium
+      - run: npm run test:e2e -- --shard=${{ matrix.shard }}/3
   deploy:
     if: github.event.repository.private == false
-    needs: build
+    needs: [build, browser-tests]
     runs-on: ubuntu-latest
     environment:
       name: github-pages

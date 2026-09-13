@@ -87,6 +87,8 @@ test("replacement trees absorb several hits, block fire and clear collision in b
       g.enemies.forEach((e: any) => (e.hp = 0));
       g.quakeTime = 1000;
       const tree = w.destructibles.find((p: any) => p.box.scale === 0.65);
+      const initialHp = tree.hp;
+      const expectedHits = Math.ceil(initialHp / WEAPONS[0].damage);
       COVER.splice(0, COVER.length, tree.box);
       g.pos.set(tree.box.x, 0, tree.box.z + 3);
       const enemy = g.enemies[0];
@@ -99,9 +101,9 @@ test("replacement trees absorb several hits, block fire and clear collision in b
       for (let i = 0; i < 30; i++)
         g.update(1 / 60, { ...input, x: 0, z: 0, fire: false });
       const blocks =
-        enemy.hp === 1000 && COVER.includes(tree.box) && tree.hp < 180;
+        enemy.hp === 1000 && COVER.includes(tree.box) && tree.hp < initialHp;
       let hits = 1;
-      while (COVER.includes(tree.box) && hits < 10) {
+      while (COVER.includes(tree.box) && hits < expectedHits + 1) {
         g.damageProp(tree.box, WEAPONS[0].damage);
         hits++;
       }
@@ -116,6 +118,7 @@ test("replacement trees absorb several hits, block fire and clear collision in b
         low,
         blocks,
         hits,
+        expectedHits,
         green,
         chips,
         removed,
@@ -131,7 +134,8 @@ test("replacement trees absorb several hits, block fire and clear collision in b
       removed: true,
       clearShot: true,
     });
-    expect(row.hits).toBe(5);
+    expect(row.expectedHits).toBeGreaterThan(1);
+    expect(row.hits).toBe(row.expectedHits);
     expect(row.chips).toBeGreaterThan(5);
   }
 });
