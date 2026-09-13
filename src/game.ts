@@ -16,6 +16,14 @@ import { difficultyConfig, terrainFactor, WORLD_BOUNDS } from "./campaign.mjs";
 import { WEAPONS, type WeaponSpec } from "./arsenal";
 import { Ride } from "./rides";
 import { ImpactEffects } from "./impacts";
+import { DestructionEffects } from "./destruction";
+import { tracerGeometry } from "./tracers";
+import {
+  SpatialGrid,
+  PATROL_DENSITY,
+  knockbackDistance,
+  turboStats,
+} from "./combat.mjs";
 import * as T from "three";
 import { CharacterMotion, FallenBody, VehicleMotion } from "./animation";
 import { World, model } from "./world";
@@ -31,6 +39,7 @@ export type Input = {
   reload: boolean;
   interact: boolean;
   swap: boolean;
+  turbo?: boolean;
 };
 export type Actor = {
   mesh: T.Group;
@@ -41,6 +50,7 @@ export type Actor = {
   cool: number;
   radius: number;
   boss: boolean;
+  armored?: boolean;
   bossKind?: string;
   guard?: boolean;
   cacheGuard?: boolean;
@@ -98,6 +108,17 @@ type Effect = {
 export class Game {
   world: World;
   impacts: ImpactEffects;
+  destruction: DestructionEffects;
+  private enemyGrid = new SpatialGrid(5);
+  private coverGrid = new SpatialGrid(8);
+  private coverCount = -1;
+  private liveCover = new Set<(typeof COVER)[number]>();
+  private friendlyTracer = tracerGeometry(0xff620a);
+  private hostileTracer = tracerGeometry(0xff319a, true);
+  private tracerMaterial = new T.MeshBasicMaterial({
+    vertexColors: true,
+    toneMapped: false,
+  });
   player: T.Group;
   companion?: T.Group;
   playerMotion!: CharacterMotion;
@@ -127,6 +148,117 @@ export class Game {
   weaponDrops: { mesh: T.Group; index: number }[] = [];
   gas: { x: number; z: number; time: number; tick: number; mesh: T.Mesh }[] =
     [];
+  turboTime = 0;
+  turboCooldown = 0;
+  private turboBanks: {
+    index: number;
+    cool: number;
+    reload: number;
+    mesh: T.Group;
+    side: number;
+  }[] = [];
+  private deferredSelection = false;
+  get turboConfig() {
+    return turboStats(this.power, this.mobility, !!this.riding);
+  }
+  private get auxiliaryWeapons() {
+    return this.inventory
+      .filter(
+        (i) =>
+          WEAPONS[i] !== this.activeWeaponSpec &&
+          ((i === this.weapon ? this.ammo : this.magazines[i]) > 0 ||
+            this.reserves[i] > 0),
+      )
+      .sort((a, b) => WEAPONS[b].priority - WEAPONS[a].priority);
+  }
+  private get primaryHasAmmo() {
+    return this.usesPersonalWeapon
+      ? this.ammo > 0 || this.reserves[this.weapon] > 0
+      : this.riding!.ammo > 0;
+  }
+  get canTurbo() {
+    return (
+      this.phase === "playing" &&
+      this.turboTime === 0 &&
+      this.turboCooldown === 0 &&
+      this.turboConfig.unlocked &&
+      this.primaryHasAmmo &&
+      this.auxiliaryWeapons.length > 0
+    );
+  }
+  get turboLabel() {
+    if (this.turboTime > 0) return `TURBO ${this.turboTime.toFixed(1)}s`;
+    if (!this.turboConfig.unlocked) return "TURBO / UPGRADE";
+    if (this.turboCooldown > 0)
+      return `TURBO / ${Math.ceil(this.turboCooldown)}s`;
+    if (!this.primaryHasAmmo) return "TURBO / PRIMARY EMPTY";
+    if (!this.auxiliaryWeapons.length) return "TURBO / NEED 2 GUNS";
+    return "TURBO READY";
+  }
+  activateTurbo() {
+    if (!this.canTurbo) return false;
+    this.magazines[this.weapon] = this.ammo;
+    this.turboTime = this.turboConfig.duration;
+    this.turboBanks = this.auxiliaryWeapons
+      .slice(0, this.turboConfig.guns - 1)
+      .map((index, n) => {
+        const mesh = model("weapon_" + WEAPONS[index].id);
+        const side = (n === 0 ? -1 : 1) * (this.riding ? 0.9 : 0.48);
+        this.world.actors.add(mesh);
+        return { index, cool: 0, reload: 0, mesh, side };
+      });
+    this.onRadio(
+      `Turbo engaged: ${1 + this.turboBanks.length} guns for ${this.turboTime.toFixed(1)}s. Hold FIRE.`,
+    );
+    return true;
+  }
+  private endTurbo() {
+    if (this.turboTime > 0) this.turboCooldown = this.turboConfig.cooldown;
+    this.turboTime = 0;
+    for (const bank of this.turboBanks) bank.mesh.removeFromParent();
+    this.turboBanks = [];
+    if (this.deferredSelection) {
+      this.deferredSelection = false;
+      this.selectStrongestWeapon();
+    }
+  }
+  private updateTurbo(dt: number, fire: boolean, angle: number) {
+    if (this.turboTime <= 0) return;
+    for (const bank of this.turboBanks) {
+      const spec = WEAPONS[bank.index];
+      bank.mesh.position.set(
+        this.pos.x + Math.cos(angle) * bank.side,
+        this.pos.y + (this.riding ? 1.5 : 1.25),
+        this.pos.z - Math.sin(angle) * bank.side,
+      );
+      bank.mesh.rotation.y = angle;
+      bank.cool = Math.max(0, bank.cool - dt);
+      if (bank.reload > 0) {
+        bank.reload = Math.max(0, bank.reload - dt);
+        if (bank.reload === 0) {
+          const add = Math.min(
+            spec.mag - this.magazines[bank.index],
+            this.reserves[bank.index],
+          );
+          this.magazines[bank.index] += add;
+          this.reserves[bank.index] -= add;
+        }
+      }
+      if (fire && bank.cool === 0 && bank.reload === 0) {
+        if (this.magazines[bank.index] > 0) {
+          this.magazines[bank.index]--;
+          // The personal gun may be auxiliary to a mounted cannon. Keep its live bank in sync.
+          if (bank.index === this.weapon)
+            this.ammo = this.magazines[bank.index];
+          this.fireWeapon(spec, angle, !!this.riding, bank.side);
+          bank.cool = spec.cool;
+        } else if (this.reserves[bank.index] > 0) bank.reload = spec.reload;
+      }
+      if (bank.index === this.weapon) this.ammo = this.magazines[bank.index];
+    }
+    if (this.turboTime <= dt) this.endTurbo();
+    else this.turboTime -= dt;
+  }
   private shownWeapon = -1;
   get weaponSpec() {
     return WEAPONS[this.weapon];
@@ -144,9 +276,13 @@ export class Game {
       : WEAPONS[this.riding!.spec.weapon];
   }
   get canSwapWeapon() {
-    return this.riding?.kind !== "jeep";
+    return this.riding?.kind !== "jeep" && this.turboTime === 0;
   }
   private selectStrongestWeapon() {
+    if (this.turboTime > 0) {
+      this.deferredSelection = true;
+      return;
+    }
     this.magazines[this.weapon] = this.ammo;
     const best = this.inventory
       .filter((i) => this.magazines[i] > 0 || this.reserves[i] > 0)
@@ -213,8 +349,6 @@ export class Game {
   onSound: (type: string) => void = () => {};
   onEnd: (win: boolean) => void = () => {};
   private bulletGeo = new T.BoxGeometry(0.1, 0.1, 0.65);
-  private bulletFriendly = new T.MeshBasicMaterial({ color: 0xf2f7b0 });
-  private bulletEnemy = new T.MeshBasicMaterial({ color: 0xff8557 });
   private effectGeo = new T.IcosahedronGeometry(0.25, 0);
   private effectMat = new T.MeshBasicMaterial({
     color: 0xffbc70,
@@ -261,6 +395,9 @@ export class Game {
   constructor(world: World) {
     this.world = world;
     this.impacts = new ImpactEffects(world.actors);
+    this.destruction = new DestructionEffects(world.actors, (x, z) =>
+      world.groundHeight(x, z),
+    );
     this.player = model("commando");
   }
   get mag() {
@@ -287,6 +424,11 @@ export class Game {
     this.guardIds.clear();
     this.world.build(index);
     const mission = MISSIONS[index];
+    this.friendlyTracer.dispose();
+    this.friendlyTracer = tracerGeometry(
+      ["ice", "sand", "city"].includes(mission.biome) ? 0xff620a : 0xffce19,
+    );
+    this.refreshCoverGrid();
     this.player = model("commando", mission.start.x, mission.start.z);
     this.world.camera.position.set(mission.start.x, 27, mission.start.z + 25);
     this.world.camera.lookAt(this.player.position);
@@ -363,14 +505,17 @@ export class Game {
       obstacles,
       WORLD_BOUNDS,
     );
-    const multiplier = difficultyConfig(difficulty).soldiers;
+    const multiplier = difficultyConfig(difficulty).soldiers * PATROL_DENSITY;
     patrols.forEach(
       (p: { x: number; z: number; cacheGuard: boolean }, i: number) => {
         for (let n = 0; n < multiplier; n++) {
           const before = this.enemies.length;
           this.spawn(
-            p.x + (n % 2) * 1.5,
-            p.z - Math.floor(n / 2) * 1.5,
+            p.x +
+              ((n % Math.ceil(Math.sqrt(multiplier))) -
+                (Math.ceil(Math.sqrt(multiplier)) - 1) / 2) *
+                1.6,
+            p.z - Math.floor(n / Math.ceil(Math.sqrt(multiplier))) * 1.6,
             false,
             i * multiplier + n,
           );
@@ -379,6 +524,19 @@ export class Game {
         }
       },
     );
+    const tanks =
+      Math.max(3, Math.floor(patrols.length / 8)) *
+      difficultyConfig(difficulty).soldiers;
+    for (let i = 0; i < tanks; i++) {
+      const p =
+        patrols[
+          Math.min(
+            patrols.length - 1,
+            Math.floor(((i + 1) * patrols.length) / (tanks + 1)),
+          )
+        ];
+      this.spawn(p.x, p.z - 3, false, 10000 + i, mission.bossModel, true);
+    }
     this.showWeapon();
   }
   private supplyCrate(
@@ -415,7 +573,27 @@ export class Game {
     this.world.actors.add(root);
     return root;
   }
+  private refreshCoverGrid() {
+    if (this.coverCount === COVER.length) return;
+    this.coverCount = COVER.length;
+    this.coverGrid.clear();
+    this.liveCover = new Set(COVER);
+    for (const box of COVER)
+      this.coverGrid.insert(box, box.x, box.z, box.w, box.d);
+  }
+  private rebuildEnemyGrid() {
+    this.enemyGrid.clear();
+    for (const e of this.enemies)
+      if (e.hp > 0) this.enemyGrid.insert(e, e.x, e.z, e.radius * 2);
+  }
   cleanup() {
+    this.deferredSelection = false;
+    this.endTurbo();
+    this.turboCooldown = 0;
+    this.destruction.clear();
+    this.enemyGrid.clear();
+    this.coverGrid.clear();
+    this.coverCount = -1;
     this.impacts.clear();
     for (const corpse of this.corpses) corpse.dispose();
     this.corpses = [];
@@ -459,24 +637,33 @@ export class Game {
     boss: boolean,
     index: number,
     bossKind = MISSIONS[this.index].bossModel,
+    armored = false,
   ) {
     const def = BOSS_DEFS[bossKind as keyof typeof BOSS_DEFS];
     if (!boss || def.ground) {
-      const clearance = boss ? def.radius : 0.6;
+      const clearance = boss ? def.radius : armored ? 1.7 : 0.65;
+      this.refreshCoverGrid();
       const obstacles = [
-        ...COVER,
         ...this.rides.filter((v) => v.hp > 0).map((v) => v.box),
       ];
       const clear = (px: number, pz: number) =>
         Math.abs(px) < WORLD_BOUNDS.x - clearance &&
         pz > WORLD_BOUNDS.minZ + 2 &&
         pz < WORLD_BOUNDS.maxZ - 2 &&
-        !obstacles.some(
-          (b) => segmentBox(px, pz, px, pz, b, clearance) !== Infinity,
-        );
+        ![...obstacles, ...this.coverGrid.near(px, pz, clearance)].some(
+          (b: any) => segmentBox(px, pz, px, pz, b, clearance) !== Infinity,
+        ) &&
+        !this.enemyGrid
+          .near(px, pz, clearance + 3)
+          .some(
+            (other: any) =>
+              other.hp > 0 &&
+              Math.hypot(px - other.x, pz - other.z) <
+                clearance + other.radius + 0.12,
+          );
       if (!clear(x, z)) {
         let found = false;
-        for (let r = 1; r <= 6 && !found; r++)
+        for (let r = 1; r <= 18 && !found; r++)
           for (let i = 0; i < 16; i++) {
             const a = (i * Math.PI) / 8,
               px = x + Math.sin(a) * r,
@@ -492,16 +679,19 @@ export class Game {
       }
     }
     const mesh = model(
-      boss ? bossKind : "rifleman",
+      boss ? bossKind : armored ? "tank" : "rifleman",
       x,
       z,
-      boss ? def.scale : 1,
+      boss ? def.scale : armored ? 0.62 : 1,
     );
     if (boss && bossKind === "gunship") mesh.position.y = 4;
     mesh.userData.lowRange = 48;
+    mesh.userData.batchActor = !boss;
     const max = boss
       ? def.hp + MISSIONS[this.index].stage * 100
-      : 65 + MISSIONS[this.index].level * 8;
+      : armored
+        ? 230 + MISSIONS[this.index].stage * 25
+        : 65 + MISSIONS[this.index].level * 8;
     const warn = new T.Mesh(this.warnGeo, this.warnMat);
     warn.rotation.x = -Math.PI / 2;
     warn.position.set(x, 0.07, z);
@@ -514,10 +704,17 @@ export class Game {
       mesh,
       muzzles,
       auxCool: 1.4 + (index % 4) * 0.2,
-      motion: !boss || def.humanoid ? new CharacterMotion(mesh) : undefined,
-      vehicleMotion: boss
-        ? new VehicleMotion(mesh, bossKind === "laserTank" ? "tank" : bossKind)
-        : undefined,
+      motion:
+        (!boss && !armored) || (boss && def.humanoid)
+          ? new CharacterMotion(mesh)
+          : undefined,
+      vehicleMotion:
+        boss || armored
+          ? new VehicleMotion(
+              mesh,
+              armored || bossKind === "laserTank" ? "tank" : bossKind,
+            )
+          : undefined,
       x,
       z,
       hp: max,
@@ -525,11 +722,14 @@ export class Game {
       cool: 1.1 + (index % 8) * 0.22,
       bossKind: boss ? bossKind : undefined,
       anchor: boss ? { x, z } : undefined,
-      radius: boss ? def.radius : 0.65,
+      radius: boss ? def.radius : armored ? 1.7 : 0.65,
+      armored,
       boss,
       index,
       warn,
     });
+    const actor = this.enemies.at(-1)!;
+    this.enemyGrid.insert(actor, x, z, actor.radius * 2);
   }
   showWeapon() {
     if (this.riding && this.usesPersonalWeapon)
@@ -565,6 +765,7 @@ export class Game {
         this.onRadio("Exit blocked. Move into open ground first.");
         return;
       }
+      this.endTurbo();
       this.riding = undefined;
       v.rider.visible = false;
       v.speed = 0;
@@ -576,6 +777,7 @@ export class Game {
     }
     const v = this.nearestRide;
     if (!v) return;
+    this.endTurbo();
     this.riding = v;
     v.rider.visible = true;
     this.player.visible = false;
@@ -601,6 +803,7 @@ export class Game {
       v.hp = Math.max(0, v.hp - damage);
       if (v.hp === 0) {
         const exit = v.exitPoint(this.rides, false);
+        this.endTurbo();
         this.riding = undefined;
         v.rider.visible = false;
         this.player.visible = true;
@@ -608,7 +811,7 @@ export class Game {
         if (exit) this.pos.set(exit.x, 0, exit.z);
         this.damageHealth(25);
         this.spark(v.mesh.position.x, v.mesh.position.z, true);
-        this.corpses.push(new FallenBody(v.mesh, undefined, v.kind));
+        this.addCorpse(new FallenBody(v.mesh, undefined, v.kind));
         this.invincible = 1;
         this.onRadio("Vehicle destroyed! Emergency evacuation.");
       }
@@ -620,6 +823,7 @@ export class Game {
     spec: WeaponSpec,
     damage: number,
     height?: number,
+    hostile = false,
   ) {
     this.impacts.emit(
       x,
@@ -634,6 +838,7 @@ export class Game {
     for (const enemy of this.enemies) {
       const d = Math.hypot(enemy.x - x, enemy.z - z);
       if (
+        !hostile &&
         enemy.hp > 0 &&
         d < spec.splash + enemy.radius &&
         !COVER.some((b) => segmentBox(x, z, enemy.x, enemy.z, b) !== Infinity)
@@ -642,7 +847,21 @@ export class Game {
           enemy,
           damage * Math.max(0.25, 1 - d / (spec.splash + enemy.radius)),
           spec,
+          undefined,
+          { x: enemy.x - x, z: enemy.z - z },
         );
+    }
+    if (
+      hostile &&
+      this.invincible === 0 &&
+      Math.hypot(this.pos.x - x, this.pos.z - z) <
+        spec.splash + (this.riding?.spec.radius ?? 0.5) &&
+      !COVER.some(
+        (box) => segmentBox(x, z, this.pos.x, this.pos.z, box) !== Infinity,
+      )
+    ) {
+      this.takeDamage(damage);
+      this.invincible = Math.max(this.invincible, 0.18);
     }
     for (const prop of [...this.world.destructibles])
       if (Math.hypot(prop.box.x - x, prop.box.z - z) < spec.splash + 0.5)
@@ -663,9 +882,9 @@ export class Game {
       this.gas.push({ x, z, time: 4, tick: 0, mesh });
     }
   }
-  fireWeapon(spec: WeaponSpec, angle: number, mounted = false) {
-    const x = this.pos.x,
-      z = this.pos.z,
+  fireWeapon(spec: WeaponSpec, angle: number, mounted = false, side = 0) {
+    const x = this.pos.x + Math.cos(angle) * side,
+      z = this.pos.z - Math.sin(angle) * side,
       damage = spec.damage * (1 + this.power * 0.2);
     if (spec.visual === "laser") {
       const tx = x + Math.sin(angle) * 40,
@@ -674,7 +893,10 @@ export class Game {
       for (const b of COVER) t = Math.min(t, segmentBox(x, z, tx, tz, b));
       for (const e of this.enemies)
         if (e.hp > 0 && segmentCircle(x, z, tx, tz, e.x, e.z, e.radius) < t)
-          this.hurt(e, damage, spec);
+          this.hurt(e, damage, spec, undefined, {
+            x: Math.sin(angle),
+            z: Math.cos(angle),
+          });
       const hitProp = this.world.destructibles.find(
         (p) => Math.abs(segmentBox(x, z, tx, tz, p.box) - t) < 0.001,
       );
@@ -777,12 +999,12 @@ export class Game {
       mesh = model("projectile_" + (visual === "gas" ? "grenade" : visual));
     else {
       mesh = new T.Mesh(
-        visual === "flame" ? this.effectGeo : this.bulletGeo,
         visual === "flame"
-          ? this.effectMat
+          ? this.effectGeo
           : enemy
-            ? this.bulletEnemy
-            : this.bulletFriendly,
+            ? this.hostileTracer
+            : this.friendlyTracer,
+        visual === "flame" ? this.effectMat : this.tracerMaterial,
       );
       if (visual === "sniper") mesh.scale.z = 3;
     }
@@ -811,6 +1033,7 @@ export class Game {
     damage: number,
     spec?: WeaponSpec,
     contact?: { x: number; z: number },
+    direction?: { x: number; z: number },
   ) {
     e.alerted = true;
     if (e.hp <= 0) return; // A dead actor can award score only once.
@@ -847,11 +1070,41 @@ export class Game {
     } else this.spark(e.x, e.z);
     if (e.hp <= 0) {
       this.kills++;
-      this.score += e.boss ? 1500 : 100;
+      this.score += e.boss ? 1500 : e.armored ? 350 : 100;
       this.world.actors.remove(e.warn);
-      this.corpses.push(
-        new FallenBody(e.mesh, e.motion, e.boss ? e.bossKind : "human"),
-      );
+      const tank = e.armored || e.bossKind === "laserTank";
+      const dx = direction?.x ?? e.x - this.pos.x,
+        dz = direction?.z ?? e.z - this.pos.z;
+      const length = Math.hypot(dx, dz) || 1;
+      if (tank && spec && spec.splash > 0)
+        this.destruction.vehicle(e.mesh, this.world.lowDetail);
+      else
+        this.addCorpse(
+          new FallenBody(
+            e.mesh,
+            e.motion,
+            e.boss ? e.bossKind : e.armored ? "tank" : "human",
+            !e.boss && !e.armored
+              ? {
+                  x: dx,
+                  z: dz,
+                  distance: knockbackDistance(
+                    damage,
+                    spec?.priority ?? 0,
+                    spec?.splash ?? 0,
+                  ),
+                }
+              : undefined,
+          ),
+        );
+      if (!e.boss && !e.armored)
+        this.destruction.blood(
+          e.x,
+          e.z,
+          dx / length,
+          dz / length,
+          this.world.lowDetail,
+        );
       if (e.boss) this.spark(e.x, e.z, true);
       if (e.beam) {
         this.world.actors.remove(e.beam);
@@ -884,14 +1137,21 @@ export class Game {
     const prop = this.world.destructibles.find((p) => p.box === box);
     if (!prop || prop.hp <= 0) return;
     prop.hp -= damage;
-    if (prop.hp > 0) return;
-    this.world.destructibles.splice(this.world.destructibles.indexOf(prop), 1);
-    COVER.splice(COVER.indexOf(box), 1);
-    this.corpses.push(new FallenBody(prop.mesh, undefined, prop.kind));
-    if (prop.kind !== "fuel") {
-      this.spark(box.x, box.z);
+    if (prop.hp > 0) {
+      if (prop.kind === "tree" || prop.kind === "snowTree")
+        this.impacts.emit(box.x, 1, box.z, "leaf", this.world.lowDetail, 0.4);
       return;
     }
+    this.world.destructibles.splice(this.world.destructibles.indexOf(prop), 1);
+    COVER.splice(COVER.indexOf(box), 1);
+    this.liveCover.delete(box);
+    if (prop.kind !== "fuel") {
+      prop.mesh.removeFromParent();
+      this.impacts.emit(box.x, 1.2, box.z, "leaf", this.world.lowDetail, 1.8);
+      this.destruction.tree(box.x, box.z, this.world.lowDetail);
+      return;
+    }
+    this.addCorpse(new FallenBody(prop.mesh, undefined, prop.kind));
     this.spark(box.x, box.z, true);
     for (const e of this.enemies)
       if (e.hp > 0 && Math.hypot(e.x - box.x, e.z - box.z) < 4.8 + e.radius)
@@ -911,7 +1171,7 @@ export class Game {
           4.8 + v.spec.radius
       ) {
         v.hp = Math.max(0, v.hp - 70);
-        if (!v.hp) this.corpses.push(new FallenBody(v.mesh, undefined, v.kind));
+        if (!v.hp) this.addCorpse(new FallenBody(v.mesh, undefined, v.kind));
       }
     for (const next of [...this.world.destructibles])
       if (Math.hypot(next.box.x - box.x, next.box.z - box.z) < 4.8)
@@ -1257,7 +1517,11 @@ export class Game {
       vx = Math.sin(aim) * advance + Math.cos(aim) * strafe;
       vz = Math.cos(aim) * advance - Math.sin(aim) * strafe;
     }
-    for (const other of this.enemies) {
+    for (const other of this.enemyGrid.near(
+      e.x,
+      e.z,
+      e.radius + 2.5,
+    ) as Actor[]) {
       if (other === e || !other.boss || other.hp <= 0) continue;
       const dx = e.x - other.x,
         dz = e.z - other.z,
@@ -1409,15 +1673,22 @@ export class Game {
     }
   }
 
+  private addCorpse(body: FallenBody) {
+    while (this.corpses.length >= (this.world.lowDetail ? 32 : 64))
+      this.corpses.shift()!.dispose();
+    this.corpses.push(body);
+  }
   private beginDefeat() {
     if (this.phase !== "playing") return;
+    this.endTurbo();
     this.phase = "dying";
     this.deathClock = 0;
-    this.corpses.push(new FallenBody(this.player, this.playerMotion));
+    this.addCorpse(new FallenBody(this.player, this.playerMotion));
     this.onRadio("Ghost is down. Signal fading...");
   }
   updatePresentation(dt: number) {
     this.impacts.update(dt);
+    this.destruction.update(dt);
     for (let i = this.corpses.length - 1; i >= 0; i--)
       if (this.corpses[i].update(dt)) this.corpses.splice(i, 1);
   }
@@ -1438,6 +1709,12 @@ export class Game {
       return;
     }
     this.elapsed += dt;
+    this.turboCooldown = Math.max(0, this.turboCooldown - dt);
+    if (input.turbo) this.activateTurbo();
+    input.turbo = false;
+    this.refreshCoverGrid();
+    this.rebuildEnemyGrid();
+    let navigationBudget = 3;
     this.updateTerrainEvents(dt);
     this.shotTime = Math.max(0, this.shotTime - dt);
     this.dashCooldown = Math.max(0, this.dashCooldown - dt);
@@ -1473,7 +1750,8 @@ export class Game {
     if (
       this.usesPersonalWeapon &&
       this.ammo === 0 &&
-      this.reserves[this.weapon] === 0
+      this.reserves[this.weapon] === 0 &&
+      this.turboTime === 0
     ) {
       this.selectStrongestWeapon();
       this.onRadio(
@@ -1576,9 +1854,12 @@ export class Game {
           e.hp > 0 &&
           Math.hypot(e.x - this.pos.x, e.z - this.pos.z) <
             (this.activeWeaponSpec.visual === "flame" ? 8 : 38) &&
-          !COVER.some(
-            (b) => segmentBox(this.pos.x, this.pos.z, e.x, e.z, b) < 1,
-          ),
+          !this.coverGrid
+            .segment(this.pos.x, this.pos.z, e.x, e.z)
+            .some(
+              (b: (typeof COVER)[number]) =>
+                segmentBox(this.pos.x, this.pos.z, e.x, e.z, b) < 1,
+            ),
       )
       .sort(
         (a, b) =>
@@ -1639,7 +1920,7 @@ export class Game {
         Math.hypot(this.pos.x - previousX, this.pos.z - previousZ) > 0.002
       ) {
         for (const enemy of this.enemies) {
-          if (enemy.boss || enemy.hp <= 0) continue;
+          if (enemy.boss || enemy.armored || enemy.hp <= 0) continue;
           const contact = segmentCircle(
             previousX,
             previousZ,
@@ -1678,7 +1959,11 @@ export class Game {
         } else if (this.usesPersonalWeapon && this.reserves[this.weapon] > 0) {
           this.reloadTime = this.weaponSpec.reload;
           this.onSound("reload");
-        } else if (v.kind === "tank" && !v.personalWeapon) {
+        } else if (
+          v.kind === "tank" &&
+          !v.personalWeapon &&
+          this.turboTime === 0
+        ) {
           this.selectStrongestWeapon();
           this.shotTime = Math.max(this.shotTime, 0.25);
           this.onRadio(
@@ -1687,6 +1972,7 @@ export class Game {
         }
       }
     }
+    this.updateTurbo(dt, input.fire, angle);
     for (let i = this.weaponDrops.length - 1; i >= 0; i--) {
       const drop = this.weaponDrops[i];
 
@@ -1811,7 +2097,8 @@ export class Game {
         this.quakeTime > 0 &&
         !(e.bossKind === "gunship" && e.mesh.position.y > 2)
       ) {
-        e.motion?.update(dt, { vx: 0, vz: 0 });
+        if (Math.hypot(e.x - this.pos.x, e.z - this.pos.z) < 30)
+          e.motion?.update(dt, { vx: 0, vz: 0 });
         e.warn.visible = false;
         continue;
       }
@@ -1822,10 +2109,9 @@ export class Game {
       const beforeX = e.x,
         beforeZ = e.z;
       const distance = Math.hypot(e.x - this.pos.x, e.z - this.pos.z);
-      const active = e.boss || distance < 19;
+      const active = distance < (e.armored ? 30 : 27);
       if (!active) {
         e.warn.visible = false;
-        e.motion?.update(dt, { vx: 0, vz: 0 });
         continue;
       }
       const a = Math.atan2(this.pos.x - e.x, this.pos.z - e.z);
@@ -1858,20 +2144,21 @@ export class Game {
           vz = 0;
         if (!hasSight) {
           e.routeTime = (e.routeTime ?? 0) - dt;
-          if (e.routeTime <= 0 || !e.routeTarget) {
+          if ((e.routeTime <= 0 || !e.routeTarget) && navigationBudget > 0) {
+            navigationBudget--;
             e.routeTarget = routeStep(
               e.x,
               e.z,
               this.pos.x,
               this.pos.z,
               navigationCover,
-              0.55,
+              e.armored ? 1.7 : 0.55,
               WORLD_BOUNDS,
             );
             e.routeTime = 0.6 + (e.index % 4) * 0.1;
           }
-          const rx = e.routeTarget!.x - e.x,
-            rz = e.routeTarget!.z - e.z;
+          const rx = (e.routeTarget?.x ?? e.x) - e.x,
+            rz = (e.routeTarget?.z ?? e.z) - e.z;
           const d = Math.hypot(rx, rz);
           const step = Math.min(d, dt * 1.9);
           if (d > 0.001) {
@@ -1880,7 +2167,7 @@ export class Game {
           }
         } else {
           // Adapt the original 2D range keeping and strafing to world meters.
-          const desired = e.index % 3 === 0 ? 11 : 7;
+          const desired = e.armored ? 16 : e.index % 3 === 0 ? 11 : 7;
           const advance =
             distance > desired + 1 ? 1 : distance < desired * 0.55 ? -0.7 : 0;
           const strafe = Math.sin(this.elapsed * 1.2 + e.index * 2.4) * 0.45;
@@ -1889,20 +2176,25 @@ export class Game {
           e.routeTime = 0;
         }
         // Local spacing keeps riflemen from collapsing into one visible body.
-        for (const other of this.enemies) {
+        for (const other of this.enemyGrid.near(
+          e.x,
+          e.z,
+          e.radius + 2.5,
+        ) as Actor[]) {
           if (other === e || other.hp <= 0 || other.boss) continue;
           const ox = e.x - other.x,
             oz = e.z - other.z,
             d = Math.hypot(ox, oz);
-          if (d < 1.3) {
+          const separation = e.radius + other.radius + 0.1;
+          if (d < separation) {
             const angle =
               d > 0.001
                 ? Math.atan2(ox, oz)
                 : e.index < other.index
                   ? -Math.PI / 2
                   : Math.PI / 2;
-            vx += Math.sin(angle) * (1.3 - d) * dt * 2;
-            vz += Math.cos(angle) * (1.3 - d) * dt * 2;
+            vx += Math.sin(angle) * (separation - d) * dt * 2;
+            vz += Math.cos(angle) * (separation - d) * dt * 2;
           }
         }
         const move = moveCircle(
@@ -1910,8 +2202,11 @@ export class Game {
           e.z,
           vx,
           vz,
-          0.55,
-          [...COVER, ...this.rides.filter((v) => v.hp > 0).map((v) => v.box)],
+          e.armored ? 1.7 : 0.55,
+          [
+            ...this.coverGrid.near(e.x, e.z, e.radius + 1),
+            ...this.rides.filter((v) => v.hp > 0).map((v) => v.box),
+          ],
           WORLD_BOUNDS,
         );
         e.x = move.x;
@@ -1920,13 +2215,25 @@ export class Game {
       e.mesh.position.x = e.x;
       e.mesh.position.z = e.z;
       e.warn.position.set(e.x, this.world.groundHeight(e.x, e.z) + 0.08, e.z);
-      e.vehicleMotion?.update(dt, (e.x - beforeX) / dt, a, this.elapsed);
+      e.vehicleMotion?.update(
+        dt,
+        Math.hypot(e.x - beforeX, e.z - beforeZ) / dt,
+        a,
+        this.elapsed,
+      );
       if (!e.boss) e.mesh.position.y = this.world.groundHeight(e.x, e.z);
       e.motion?.update(dt, {
         vx: (e.x - beforeX) / dt,
         vz: (e.z - beforeZ) / dt,
         aiming: e.cool < 0.6,
       });
+      if (e.armored && hasSight) {
+        e.auxCool = (e.auxCool ?? 1) - dt;
+        if (e.auxCool <= 0) {
+          this.shoot(e.x, e.z, a, true, 4, 12);
+          e.auxCool = 0.95;
+        }
+      }
       if (e.cool <= 0) {
         if (
           !COVER.some(
@@ -1934,9 +2241,12 @@ export class Game {
           )
         ) {
           e.motion?.kick();
-          this.shoot(e.x, e.z, a, true, 9, 10);
+          if (e.armored) this.shoot(e.x, e.z, a, true, 18, 12, WEAPONS[7]);
+          else
+            for (const spread of [-0.07, 0.07])
+              this.shoot(e.x, e.z, a + spread, true, 6, 9);
         }
-        e.cool = 2.2 + (e.index % 8) * 0.09;
+        e.cool = e.armored ? 2.7 : 1.6 + (e.index % 8) * 0.06;
       }
     }
     for (let i = this.bullets.length - 1; i >= 0; i--) {
@@ -1950,7 +2260,14 @@ export class Game {
       let parkedVictim: Ride | undefined;
       let hitPlayer = false;
       let coverHit: (typeof COVER)[number] | undefined;
-      for (const box of COVER) {
+      for (const box of this.coverGrid.segment(
+        b.x,
+        b.z,
+        nx,
+        nz,
+        0.1,
+      ) as typeof COVER) {
+        if (!this.liveCover.has(box)) continue;
         const hit = segmentBox(b.x, b.z, nx, nz, box, 0.06);
         if (hit < t) {
           t = hit;
@@ -1990,7 +2307,13 @@ export class Game {
           parkedVictim = undefined;
         }
       } else
-        for (const e of this.enemies) {
+        for (const e of this.enemyGrid.segment(
+          b.x,
+          b.z,
+          nx,
+          nz,
+          1.2,
+        ) as Actor[]) {
           if (e.hp <= 0 || b.hits.has(e)) continue;
           const et = segmentCircle(b.x, b.z, nx, nz, e.x, e.z, e.radius);
           if (et < t) {
@@ -2009,16 +2332,22 @@ export class Game {
               parkedVictim.mesh.position.z,
               true,
             );
-            this.corpses.push(
+            this.addCorpse(
               new FallenBody(parkedVictim.mesh, undefined, parkedVictim.kind),
             );
           }
         }
         if (victim) {
-          this.hurt(victim, b.damage, b.spec, {
-            x: b.x + (nx - b.x) * t,
-            z: b.z + (nz - b.z) * t,
-          });
+          this.hurt(
+            victim,
+            b.damage,
+            b.spec,
+            {
+              x: b.x + (nx - b.x) * t,
+              z: b.z + (nz - b.z) * t,
+            },
+            { x: b.vx, z: b.vz },
+          );
           b.hits.add(victim);
         }
         if (hitPlayer && this.invincible === 0) {
@@ -2041,6 +2370,7 @@ export class Game {
           b.spec,
           b.damage * 0.8,
           victim ? victim.mesh.position.y + 1 : undefined,
+          b.enemy,
         );
       }
       b.mesh.position.set(
@@ -2210,6 +2540,7 @@ export class Game {
           this.companion.position.z - mission.extract.z,
         ) < 5)
     ) {
+      this.endTurbo();
       this.phase = "won";
       this.score +=
         Math.max(0, 1200 - Math.floor(this.elapsed * 3)) +

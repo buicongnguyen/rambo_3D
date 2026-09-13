@@ -1396,3 +1396,47 @@ input {
   letter-spacing: 0.06em;
   margin-top: 4px;
 }
+
+/* Turbo stays next to combat controls; six touch actions fit three rows. */
+#turbo {
+  min-height: 44px;
+  padding: 10px 15px;
+  margin-right: 12px;
+  background: #733417;
+  color: #ffd581;
+  border: 1px solid #ff9a38;
+  font: inherit;
+  pointer-events: auto;
+}
+#turbo.active,
+#touch .turbo.active {
+  background: #be5322;
+  color: #fff3c3;
+}
+#touch .turbo {
+  border: 2px solid #ff9a38;
+  color: #ffd581;
+  font-weight: 800;
+  padding: 3px;
+  line-height: 1.2;
+}
+#touch .touch-actions .fire {
+  grid-column: auto;
+}
+@media (pointer: coarse) {
+  #turbo {
+    display: none;
+  }
+}
+@media (pointer: fine) and (max-width: 1100px) {
+  .controls-strip {
+    display: block;
+    font-size: 0;
+  }
+  .controls-strip kbd {
+    display: none;
+  }
+  #turbo {
+    font-size: 10px;
+  }
+}

@@ -7,8 +7,9 @@ import {
   vehicleAnchors,
 } from "./routes.mjs";
 import { segmentBox } from "./rules.mjs";
+import { softenObstacles } from "./combat.mjs";
 
-/** Permanent ridge belts divide the arms; props are carved back from the road. */
+/** Barrier footprints divide the arms, then become destructible tree belts. */
 export function squareLandscape(m) {
   const boxes = [],
     patches = [],
@@ -81,7 +82,7 @@ export function squareLandscape(m) {
     for (let x = -reach; x <= 24; x += 8) ridge(x * mirror, -9, 8.1, 9);
     for (let x = -24; x <= reach; x += 8) ridge(x * mirror, -56, 8.1, 9);
   } else {
-    // Broad rocky interior prevents a diagonal shortcut through an O or U.
+    // Interior tree belts create optional destructible shortcuts through an O or U.
     for (let x = -30; x <= 30; x += 12)
       for (let z = m.shape === "O" ? -75 : -105; z <= -21; z += 12)
         ridge(x, z, 12.1, 12.1);
@@ -151,5 +152,5 @@ export function squareLandscape(m) {
     }
     spawns.push([x, z]);
   }
-  return { boxes, patches, spawns };
+  return { boxes: softenObstacles(boxes, m.biome), patches, spawns };
 }

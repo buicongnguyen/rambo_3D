@@ -146,7 +146,7 @@ export class ImpactEffects {
     const b = this.bursts.find((b) => !b.group.visible) ?? this.makeBurst();
     if (b.group.parent !== this.scene) this.scene.add(b.group);
     b.age = 0;
-    b.life = blast ? 1.15 : 0.65;
+    b.life = blast || kind === "leaf" ? 1.15 : 0.65;
     b.radius = radius;
     b.kind = kind;
     b.blast = blast;
@@ -155,7 +155,7 @@ export class ImpactEffects {
     const color =
       kind === "laser"
         ? 0x65eaff
-        : kind === "gas"
+        : kind === "gas" || kind === "leaf"
           ? 0x9be747
           : kind === "flame"
             ? 0xff681c
@@ -172,7 +172,9 @@ export class ImpactEffects {
     });
     b.smoke.forEach((s, i) => {
       s.visible = i < (low ? 1 : 3);
-      s.material.color.setHex(kind === "gas" ? 0x779541 : 0x655f56);
+      s.material.color.setHex(
+        kind === "leaf" ? 0x40862c : kind === "gas" ? 0x779541 : 0x655f56,
+      );
     });
     this.pose(b);
   }
@@ -181,11 +183,12 @@ export class ImpactEffects {
       r = b.radius;
     const flash = Math.max(0, 1 - t / (b.blast ? 0.38 : 0.22));
     b.core.scale.setScalar(r * (0.7 + t * 3.8));
-    b.core.material.opacity = flash;
+    b.core.material.opacity = flash * (b.kind === "leaf" ? 0.15 : 1);
     b.glow.scale.setScalar(r * (1.25 + t * 4));
-    b.glow.material.opacity = flash * 0.45;
+    b.glow.material.opacity = flash * (b.kind === "leaf" ? 0.04 : 0.45);
     b.ring.scale.setScalar(r * (0.35 + t * 1.5));
-    b.ring.material.opacity = Math.max(0, 1 - t / 0.42) * 0.65;
+    b.ring.material.opacity =
+      Math.max(0, 1 - t / 0.42) * (b.kind === "leaf" ? 0 : 0.65);
     for (let i = 0; i < b.sparks.length; i++) {
       const a = (i * Math.PI * 2) / b.sparks.length + 0.3;
       const speed = r * (2.3 + (i % 2) * 1.2);

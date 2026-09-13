@@ -56,7 +56,7 @@ app.innerHTML = `
 <aside class="intel"><div class="intel-top"><span class="live-dot"></span> LIVE RECON <span>SECTOR 07</span></div><div class="intel-map"><div class="scan"></div><div class="coordinate c1">17°04′ N</div><div class="coordinate c2">106°42′ E</div><div class="map-line l1"></div><div class="map-line l2"></div><span class="map-dot d1"></span><span class="map-dot d2"></span><span class="map-dot d3"></span><span class="map-label">KHE SAN VALLEY</span></div><div class="intel-bottom"><span>MISSION BRIEF / <b id="brief-number">01</b></span><h2 id="brief-title">Emerald Killbox</h2><p id="brief-copy"></p><div class="intel-meta"><span>◆ SOLO CAMPAIGN</span><span>● 3D TACTICAL ACTION</span></div></div></aside>
 <section class="campaign" aria-label="Campaign missions"><div class="campaign-heading"><span>CHOOSE YOUR NEXT FRONT</span><span>CAMPAIGN / NIGHTFALL</span></div><div id="mission-cards" class="mission-cards"></div></section>
 <footer class="menu-footer"><span>AN ORIGINAL LOW-POLY COMBAT EXPERIENCE <b id="best-score"></b></span><button id="controls-open">FIELD MANUAL <span>↗</span></button><span>BUILT WITH BLENDER + THREE.JS</span></footer></main>
-<section id="hud" hidden aria-label="Mission status"><div class="hud-top"><div class="objective-panel"><span class="eyebrow" id="mission-label"></span><h2 id="mission-title"></h2><div id="objectives"></div></div><div class="hud-right"><button class="icon-button" id="pause">Ⅱ <span>PAUSE</span></button><canvas id="minimap" width="144" height="144" aria-label="Tactical map: road pale green, player white, enemies orange, weapons purple, medical green, shields blue, relay yellow"></canvas><span class="map-caption" id="route-direction">NORTHBOUND ROUTE</span></div></div><div id="boss-panel" hidden><div><b id="boss-name"></b><span id="boss-phase">ARMORED TARGET</span></div><div class="boss-track"><i id="boss-bar"></i></div></div><div id="radio" role="status"><span>VALE / RADIO</span><p></p></div><div id="interact-prompt" hidden></div><div class="hud-bottom"><div class="health-panel"><div class="hud-kicker">GHOST <span id="health-text"></span></div><div class="health-track"><i id="health-bar"></i></div><div id="shield-text" aria-label="Personal shield">SHIELD 0 / 80</div><div class="health-meta"><span id="dash-text">DODGE READY</span><span id="score">000000</span></div></div><div class="controls-strip"><kbd>WASD</kbd> MOVE <kbd>SPACE</kbd> AUTO FIRE <kbd>E</kbd> INTERACT <kbd>SHIFT</kbd> DODGE</div><div class="ammo-panel"><div id="weapon-name">M4 / ASSAULT RIFLE</div><strong id="ammo">24</strong><span id="ammo-reserve">/ ∞</span><small id="reload-label">R RELOAD · Q SWITCH</small><button id="weapon-swap" aria-label="Switch weapon" aria-keyshortcuts="Q" title="Press Q to cycle collected weapons">Q - SWAP WEAPON</button></div></div><div id="touch"><div class="dpad"><button data-hold="up" aria-label="Move forward">▲</button><button data-hold="left" aria-label="Move left">◀</button><button data-hold="down" aria-label="Move backward">▼</button><button data-hold="right" aria-label="Move right">▶</button></div><div class="touch-actions"><button data-action="swap" aria-label="Switch weapon" class="swap-weapon">SWAP WEAPON</button><button data-action="reload">RELOAD</button><button data-action="interact" aria-label="Use nearby objective">USE</button><button data-action="dodge">DODGE</button><button data-hold="fire" class="fire">FIRE</button></div></div></section>
+<section id="hud" hidden aria-label="Mission status"><div class="hud-top"><div class="objective-panel"><span class="eyebrow" id="mission-label"></span><h2 id="mission-title"></h2><div id="objectives"></div></div><div class="hud-right"><button class="icon-button" id="pause">Ⅱ <span>PAUSE</span></button><canvas id="minimap" width="144" height="144" aria-label="Tactical map: road pale green, player white, enemies orange, weapons purple, medical green, shields blue, relay yellow"></canvas><span class="map-caption" id="route-direction">NORTHBOUND ROUTE</span></div></div><div id="boss-panel" hidden><div><b id="boss-name"></b><span id="boss-phase">ARMORED TARGET</span></div><div class="boss-track"><i id="boss-bar"></i></div></div><div id="radio" role="status"><span>VALE / RADIO</span><p></p></div><div id="interact-prompt" hidden></div><div class="hud-bottom"><div class="health-panel"><div class="hud-kicker">GHOST <span id="health-text"></span></div><div class="health-track"><i id="health-bar"></i></div><div id="shield-text" aria-label="Personal shield">SHIELD 0 / 80</div><div class="health-meta"><span id="dash-text">DODGE READY</span><span id="score">000000</span></div></div><div class="controls-strip"><button id="turbo" aria-label="Activate Turbo" aria-keyshortcuts="F">F · TURBO READY</button> <kbd>WASD</kbd> MOVE <kbd>SPACE</kbd> AUTO FIRE <kbd>E</kbd> INTERACT <kbd>SHIFT</kbd> DODGE</div><div class="ammo-panel"><div id="weapon-name">M4 / ASSAULT RIFLE</div><strong id="ammo">24</strong><span id="ammo-reserve">/ ∞</span><small id="reload-label">R RELOAD · Q SWITCH</small><button id="weapon-swap" aria-label="Switch weapon" aria-keyshortcuts="Q" title="Press Q to cycle collected weapons">Q - SWAP WEAPON</button></div></div><div id="touch"><div class="dpad"><button data-hold="up" aria-label="Move forward">▲</button><button data-hold="left" aria-label="Move left">◀</button><button data-hold="down" aria-label="Move backward">▼</button><button data-hold="right" aria-label="Move right">▶</button></div><div class="touch-actions"><button data-action="swap" aria-label="Switch weapon" class="swap-weapon">SWAP WEAPON</button><button data-action="reload">RELOAD</button><button data-action="interact" aria-label="Use nearby objective">USE</button><button data-action="dodge">DODGE</button><button data-action="turbo" aria-label="Activate Turbo" class="turbo">TURBO</button><button data-hold="fire" class="fire">FIRE</button></div></div></section>
 <div id="overlay" class="overlay" hidden></div><div id="toast" role="status" hidden></div>`;
 const canvas = $<HTMLCanvasElement>("#scene");
 let world: World, game: Game;
@@ -70,6 +70,7 @@ const input: Input = {
   reload: false,
   interact: false,
   swap: false,
+  turbo: false,
 };
 const keys = new Set<string>(),
   held = new Set<string>();
@@ -93,6 +94,7 @@ function clearInput() {
   input.reload = false;
   input.interact = false;
   input.swap = false;
+  input.turbo = false;
 }
 function sound(type: string) {
   if (!prefs.sound) return;
@@ -276,7 +278,7 @@ $("#home").onclick = (e) => {
 };
 $("#controls-open").onclick = () => {
   showOverlay(
-    `<span class="eyebrow">FIELD MANUAL / 01</span><h2>Get in. Get them out.</h2><p>Each stage has three long levels: a short zigzag approach, a longer O or U expedition, then the longest S or mirrored S sweep, including rotated 45-degree routes. On O loops, choose either arm around the central hills; both lead to the relay. Gray ridges on the map are permanent terrain. Secure the yellow relay and clear its guards; level three has command bosses. Defeat every boss to open green extraction.</p><div class="manual-grid"><span>WASD / ARROWS</span><b>Move</b><span>MOUSE + CLICK</span><b>Aim and fire</b><span>HOLD SPACE</span><b>Assisted aim and fire</b><span>SHIFT + MOVE</span><b>Dodge incoming fire</b><span>E / R / Q</span><b>Interact / reload / switch</b><span>ESCAPE</span><b>Pause and settings</b></div><p>The Fourfold Titan fires four hand cannons and pauses to reload. Siege Colossus combines twin guns with shoulder rockets. Twin Tempest launches wide salvos from two truck-mounted missile magazines. Leave the orange blast zones before impact. Helicopter, spider and laser-tank bosses also carry a rapid light gun. Orange rings warn of attacks and volcanic rockfalls. Ice slides, sand slows to one quarter, and mud holes gradually sink you. Quake dust signals a brief ground-enemy freeze. Shoot fuel drums for chain explosions and blast jungle trees to clear a path. Drive a moving tank or jeep over infantry to crush them. Orange rings warn of an attack. Crates stop bullets. Green pickups restore health. The scattergun excels at close range. Blue map dots mark vehicles: the bike, jeep and tank are stationed along the road with defenders. E / USE boards or exits. Sniper, rocket and laser caches also have guards. Hills and volcanic basalt block movement and fire and cannot be destroyed. Purple dots mark weapons: walk over them to collect, then Q / WEAPON cycles your loadout. Picking up a weapon or exhausting its ammunition automatically chooses the strongest usable weapon; manual switching remains available. Automatic priority favors laser, missile, machine gun, sniper, grenade launcher, explosive bow, flamethrower, frag grenade, rifle, shotgun, then gas grenade. Motorcycles use your selected weapon; jeeps have 20 shotgun rounds. Tanks start with six ready explosive cannon shells. Q / SWAP WEAPON cycles the cannon and your collected weapons, which keep their own magazines and reload reserves. Picking up a weapon automatically selects the strongest usable loadout, including the tank cannon; cannon shells remain stored and cannot be reloaded. Exit to use objectives or extract. Touch controls appear on touch devices.</p><button id="close-manual" class="primary">READY FOR THE FIELD <span>↗</span></button>`,
+    `<span class="eyebrow">FIELD MANUAL / 01</span><h2>Get in. Get them out.</h2><p>Each stage has three long levels: a short zigzag approach, a longer O or U expedition, then the longest S or mirrored S sweep, including rotated 45-degree routes. On O loops, choose either arm around the central woodland; both lead to the relay. Small trees take several hits to destroy and burst into green leaf dust. Buildings still provide solid cover. Secure the yellow relay and clear its guards; level three has command bosses. Defeat every boss to open green extraction.</p><div class="manual-grid"><span>WASD / ARROWS</span><b>Move</b><span>MOUSE + CLICK</span><b>Aim and fire</b><span>HOLD SPACE</span><b>Assisted aim and fire</b><span>SHIFT + MOVE</span><b>Dodge incoming fire</b><span>E / R / Q</span><b>Interact / reload / switch</b><span>F / TURBO</span><b>Two weapons for 3 seconds</b><span>ESCAPE</span><b>Pause and settings</b></div><p>The Fourfold Titan fires four hand cannons and pauses to reload. Siege Colossus combines twin guns with shoulder rockets. Twin Tempest launches wide salvos from two truck-mounted missile magazines. Leave the orange blast zones before impact. Helicopter, spider and laser-tank bosses also carry a rapid light gun. Orange rings warn of attacks and volcanic rockfalls. Ice slides, sand slows to one quarter, and mud holes gradually sink you. Quake dust signals a brief ground-enemy freeze. Shoot fuel drums for chain explosions and blast jungle trees to clear a path. Drive a moving tank or jeep over infantry to crush them. Orange rings warn of an attack. Crates stop bullets. Green pickups restore health. The scattergun excels at close range. Blue map dots mark vehicles: the bike, jeep and tank are stationed along the road with defenders. E / USE boards or exits. Sniper, rocket and laser caches also have guards. Rock and concrete barriers have been replaced by small destructible trees. Destroy cover to open new firing lanes. Purple dots mark weapons: walk over them to collect, then Q / WEAPON cycles your loadout. Picking up a weapon or exhausting its ammunition automatically chooses the strongest usable weapon; manual switching remains available. Automatic priority favors laser, missile, machine gun, sniper, grenade launcher, explosive bow, flamethrower, frag grenade, rifle, shotgun, then gas grenade. Motorcycles use your selected weapon; jeeps have 20 shotgun rounds. Tanks start with six ready explosive cannon shells. Q / SWAP WEAPON cycles the cannon and your collected weapons, which keep their own magazines and reload reserves. Picking up a weapon automatically selects the strongest usable loadout, including the tank cannon; cannon shells remain stored and cannot be reloaded. Exit to use objectives or extract. F / TURBO activates two different available weapons for 3 seconds; hold FIRE to shoot both. Each consumes its own ammo. Switching is locked until the burst ends, then Turbo cools down for 14 seconds. Tuned Weapons unlocks extra guns on bikes, jeeps and tanks and adds 0.4 seconds per rank, up to 5; vehicle rank 3 permits three guns. Light Kit reduces Turbo cooldown to a minimum of 8 seconds. Touch controls appear on touch devices.</p><button id="close-manual" class="primary">READY FOR THE FIELD <span>↗</span></button>`,
   );
   $("#close-manual").onclick = () => {
     $("#overlay").hidden = true;
@@ -311,7 +313,7 @@ function end(win: boolean) {
     write("nightfall-campaign", save);
   }
   showOverlay(
-    `<span class="eyebrow">${win ? "TRANSMISSION RECEIVED" : "SIGNAL LOST"} / 0${game.index + 1}</span><h2>${final ? "Everyone comes home." : win ? "Mission accomplished." : "Not your last stand."}</h2><p>${win ? m.success : "Use cover to break enemy sightlines. Dodge when orange rings appear, and collect green health drops. Your completed campaign progress is safe."}</p><div class="result-stats"><div><b>${game.score.toLocaleString()}</b><span>MISSION SCORE</span></div><div><b>${game.kills}</b><span>TARGETS DOWN</span></div><div><b>${formatTime(game.elapsed)}</b><span>FIELD TIME</span></div></div>${win && !final ? '<span class="eyebrow">CHOOSE YOUR NEXT ADVANTAGE</span><div class="upgrades"><button data-upgrade="armor"><b>01 / FIELD ARMOR</b><span>+35 maximum health</span></button><button data-upgrade="power"><b>02 / TUNED WEAPONS</b><span>+20% base damage</span></button><button data-upgrade="mobility"><b>03 / LIGHT KIT</b><span>−0.55s dodge cooldown</span></button></div>' : `<button id="result-primary" class="primary">${win ? "RETURN TO BRIEFING" : "RETRY MISSION"} <span>↗</span></button>`}${!win ? '<button id="result-menu" class="text-button">MISSION BRIEFING</button>' : ""}`,
+    `<span class="eyebrow">${win ? "TRANSMISSION RECEIVED" : "SIGNAL LOST"} / 0${game.index + 1}</span><h2>${final ? "Everyone comes home." : win ? "Mission accomplished." : "Not your last stand."}</h2><p>${win ? m.success : "Use cover to break enemy sightlines. Dodge when orange rings appear, and collect green health drops. Your completed campaign progress is safe."}</p><div class="result-stats"><div><b>${game.score.toLocaleString()}</b><span>MISSION SCORE</span></div><div><b>${game.kills}</b><span>TARGETS DOWN</span></div><div><b>${formatTime(game.elapsed)}</b><span>FIELD TIME</span></div></div>${win && !final ? '<span class="eyebrow">CHOOSE YOUR NEXT ADVANTAGE</span><div class="upgrades"><button data-upgrade="armor"><b>01 / FIELD ARMOR</b><span>+35 maximum health</span></button><button data-upgrade="power"><b>02 / TUNED WEAPONS</b><span>+20% base damage · +0.4s Turbo (max 5s) · vehicle auxiliary gun; rank 3 adds a third gun</span></button><button data-upgrade="mobility"><b>03 / LIGHT KIT</b><span>−0.55s dodge cooldown · −0.75s Turbo cooldown (min 8s)</span></button></div>' : `<button id="result-primary" class="primary">${win ? "RETURN TO BRIEFING" : "RETRY MISSION"} <span>↗</span></button>`}${!win ? '<button id="result-menu" class="text-button">MISSION BRIEFING</button>' : ""}`,
   );
   for (const b of document.querySelectorAll<HTMLButtonElement>(
     "[data-upgrade]",
@@ -390,20 +392,34 @@ function updateHud() {
         : !personalWeapon
           ? "LIMITED AMMO · USE TO EXIT"
           : "R RELOAD · Q SWITCH";
+  for (const button of [$("#turbo"), $('[data-action="turbo"]')]) {
+    (button as HTMLButtonElement).disabled = !game.canTurbo;
+    button.textContent =
+      (button.id === "turbo" ? "F · " : "") + game.turboLabel;
+    button.classList.toggle("active", game.turboTime > 0);
+    button.title =
+      "Hold FIRE during Turbo. Two guns for 3s; Tuned Weapons unlocks vehicle guns and extends duration. Light Kit reduces cooldown.";
+  }
   const mountedGun = !game.canSwapWeapon;
   for (const button of [$("#weapon-swap"), $('[data-action="swap"]')]) {
     (button as HTMLButtonElement).disabled = mountedGun;
     button.title = mountedGun
-      ? "Exit the vehicle to switch personal weapons"
+      ? game.turboTime > 0
+        ? "Weapon switching resumes after Turbo"
+        : "Exit the vehicle to switch personal weapons"
       : ride?.kind === "tank"
         ? "Cycle cannon and collected weapons (Q on keyboard)"
         : "Cycle collected weapons (Q on keyboard)";
   }
   $("#weapon-swap").textContent = mountedGun
-    ? "MOUNTED GUN - EXIT TO SWAP"
+    ? game.turboTime > 0
+      ? "TURBO / LOADOUT LOCKED"
+      : "MOUNTED GUN - EXIT TO SWAP"
     : "Q - SWAP WEAPON";
   $('[data-action="swap"]').textContent = mountedGun
-    ? "MOUNTED GUN"
+    ? game.turboTime > 0
+      ? "TURBO ACTIVE"
+      : "MOUNTED GUN"
     : "SWAP WEAPON";
   const boss = game.boss;
   $("#boss-panel").hidden = !boss;
@@ -500,6 +516,9 @@ function updateHud() {
   if (!game.objective) point(m.objective.x, m.objective.z, "#e1ee93", 4);
   if (game.bossDead) point(m.extract.x, m.extract.z, "#88e9cd", 4);
 }
+$("#turbo").onclick = () => {
+  if (mode === "playing") input.turbo = true;
+};
 $("#weapon-swap").onclick = () => {
   if (mode === "playing") input.swap = true;
 };
@@ -538,6 +557,7 @@ window.addEventListener("keydown", (e) => {
     if (e.code === "KeyE") input.interact = true;
     if (e.code === "KeyR") input.reload = true;
     if (e.code === "KeyQ") input.swap = true;
+    if (e.code === "KeyF") input.turbo = true;
     if (e.code === "ShiftLeft" || e.code === "ShiftRight") input.dodge = true;
   }
 });

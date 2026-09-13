@@ -1,3 +1,4 @@
+import { ActorBatches } from "./batching";
 import { WORLD_BOUNDS } from "./campaign.mjs";
 import { sampleRoute, routeLength } from "./routes.mjs";
 import { segmentBox } from "./rules.mjs";
@@ -171,6 +172,7 @@ export class World {
   renderer: T.WebGLRenderer;
   terrain = new T.Group();
   actors = new T.Group();
+  private actorBatches = new ActorBatches(this.actors);
   decor: T.Object3D[] = [];
   destructibles: { box: Box; mesh: T.Group; hp: number; kind: string }[] = [];
   sun: T.DirectionalLight;
@@ -247,6 +249,7 @@ export class World {
   }
   build(index: number) {
     this.missionIndex = index;
+    this.actorBatches.clear();
     this.terrain.clear();
     this.actors.clear();
     this.destructibles = [];
@@ -399,8 +402,11 @@ export class World {
               : "fuelDrum",
           box.x,
           box.z,
-          box.kind === "tree" ? 1.2 : 1,
+          box.scale ?? (box.kind === "tree" ? 1.2 : 1),
         );
+        mesh.userData.lowRange = 52;
+        mesh.userData.batchActor = true;
+        mesh.userData.batchRadius = box.kind === "fuel" ? 2 : 6;
         this.actors.add(mesh);
         this.destructibles.push({ box, mesh, hp: box.hp!, kind: box.kind });
       } else if (box.kind === "concrete") {
@@ -666,9 +672,8 @@ export class World {
     for (const actor of this.actors.children)
       if (actor.userData.lowRange)
         actor.visible =
-          !this.lowDetail ||
           Math.hypot(actor.position.x - focus.x, actor.position.z - focus.z) <
-            actor.userData.lowRange;
+          Math.min(actor.userData.lowRange, this.lowDetail ? 34 : 48);
     this.wind.value = reduced || this.lowDetail ? 0 : time;
     this.waterMap.offset.set(
       reduced || this.lowDetail ? 0 : time * 0.012,
@@ -691,6 +696,8 @@ export class World {
     this.marker.rotation.z = time * 0.6;
     this.marker.scale.setScalar(1 + Math.sin(time * 2) * 0.05);
     this.exit.rotation.z = -time * 0.12;
+    this.camera.updateMatrixWorld();
+    this.actorBatches.update(this.camera);
     this.renderer.render(this.scene, this.camera);
   }
 }

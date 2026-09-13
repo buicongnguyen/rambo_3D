@@ -1,4 +1,8 @@
 import * as T from "three";
+import { moveCircle, segmentBox } from "./rules.mjs";
+import { COVER } from "./missions";
+import { WORLD_BOUNDS } from "./campaign.mjs";
+export type Knockback = { x: number; z: number; distance: number };
 
 type Joint = { node: T.Object3D; position: T.Vector3; rotation: T.Quaternion };
 export type MotionState = {
@@ -124,10 +128,15 @@ export class CharacterMotion {
       this.offset("Motion", -0.25);
     }
   }
-  fall(t: number) {
+  fall(t: number, backward = false, maxLean = 1.48) {
     this.state = "fallen";
     const p = ease(t);
-    this.pose("Motion", p * 1.48, 0, p * 0.16);
+    this.pose(
+      "Motion",
+      (backward ? -1 : 1) * Math.min(p * 1.48, maxLean),
+      0,
+      p * 0.16,
+    );
     this.offset("Motion", p * 0.24);
     this.pose("Spine", p * 0.15, 0, -p * 0.1);
     this.pose("ThighL", -0.2 * p);
@@ -147,21 +156,56 @@ export class FallenBody {
   private materials: T.Material[] = [];
   private startY: number;
   private initial: T.Quaternion;
+  private slide = 0;
+  private maxLean = 1.48;
+  private stopped = false;
   constructor(
     public mesh: T.Group,
     private motion?: CharacterMotion,
     private kind = "human",
+    private knock?: Knockback,
   ) {
+    if (knock) {
+      const len = Math.hypot(knock.x, knock.z);
+      if (len > 0.001) {
+        this.knock = { ...knock, x: knock.x / len, z: knock.z / len };
+        mesh.rotation.y = Math.atan2(knock.x, knock.z) + Math.PI;
+        // Reserve space for the entire fallen silhouette, including a death already near a wall.
+        const reach = knock.distance + 1.85;
+        let hit = 1;
+        for (const box of COVER)
+          hit = Math.min(
+            hit,
+            segmentBox(
+              mesh.position.x,
+              mesh.position.z,
+              mesh.position.x + this.knock.x * reach,
+              mesh.position.z + this.knock.z * reach,
+              box,
+              0.45,
+            ),
+          );
+        const space = Math.max(0, reach * hit - 0.05);
+        this.knock.distance = Math.min(
+          knock.distance,
+          Math.max(0, space - 1.85),
+        );
+        this.maxLean = Math.min(1.48, Math.asin(Math.min(1, space / 1.85)));
+      } else this.knock = undefined;
+    }
+    mesh.userData.batchActor = true;
     this.startY = mesh.position.y;
     this.initial = mesh.quaternion.clone();
     mesh.visible = true;
     const clones = new Map<T.Material, T.Material>();
     mesh.traverse((o) => {
       if (!(o instanceof T.Mesh)) return;
+      o.visible = true;
       const copy = (m: T.Material) => {
         let c = clones.get(m);
         if (!c) {
           c = m.clone();
+          c.userData.batchBase = m.userData.batchBase ?? m.uuid;
           c.transparent = true;
           c.depthWrite = false;
           clones.set(m, c);
@@ -177,7 +221,27 @@ export class FallenBody {
   update(dt: number) {
     this.age += dt;
     const fall = ease(this.age / (this.kind === "gunship" ? 1.2 : 0.7));
-    if (this.motion) this.motion.fall(fall);
+    if (this.knock && !this.stopped) {
+      const next =
+        this.knock.distance * (1 - (1 - Math.min(1, this.age / 0.7)) ** 3);
+      const step = next - this.slide;
+      const p = this.mesh.position;
+      const moved = moveCircle(
+        p.x,
+        p.z,
+        this.knock.x * step,
+        this.knock.z * step,
+        0.55,
+        COVER,
+        WORLD_BOUNDS,
+      );
+      if (Math.hypot(moved.x - p.x, moved.z - p.z) < step * 0.9)
+        this.stopped = true;
+      p.x = moved.x;
+      p.z = moved.z;
+      this.slide = next;
+    }
+    if (this.motion) this.motion.fall(fall, !!this.knock, this.maxLean);
     else {
       this.mesh.quaternion
         .copy(this.initial)

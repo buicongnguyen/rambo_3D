@@ -72,64 +72,66 @@ test("square expeditions offer guarded vehicle bays, collectable weapons and cle
       remaining: 0,
     });
 });
-test("permanent volcanic rock blocks bullets, laser and blasts in both detail modes", async ({
+test("replacement trees absorb several hits, block fire and clear collision in both detail modes", async ({
   page,
 }) => {
   await ready(page);
-  const result = await page.evaluate(async () => {
+  const rows = await page.evaluate(async () => {
     const { game: g, world: w, input } = (window as any).__nightfall;
     const { COVER } = await import("/src/missions.ts");
     const { WEAPONS } = await import("/src/arsenal.ts");
-    const { landformModel } = await import("/src/world.ts");
-    const T = await import("/tests/scene-fixtures.ts");
-    g.start(5, { armor: 0, power: 0, mobility: 0 }, "normal");
-    const rock = COVER.find(
-      (b: any) => b.kind === "basalt" && b.z === -9 && Math.abs(b.x) < 10,
-    );
-    const cmd = { ...input, x: 0, z: 0, fire: false, interact: false };
-    const initial = COVER.length;
-    g.enemies.forEach((e: any) => (e.hp = 0));
-    g.pos.set(rock.x, 0, rock.z + rock.d / 2 + 2);
-    const enemy = g.enemies[0];
-    enemy.hp = 1000;
-    enemy.x = rock.x;
-    enemy.z = rock.z - rock.d / 2 - 2;
-    enemy.cool = 999;
-    // Keep a stationary target behind the real ridge while simulation handles projectiles.
-    g.quakeTime = 1000;
-    for (const spec of [WEAPONS[0], WEAPONS[7], WEAPONS[8]]) {
-      g.fireWeapon(spec, Math.PI);
-      for (let i = 0; i < 90; i++) g.update(1 / 60, { ...cmd });
+    const result = [];
+    for (const low of [true, false]) {
+      w.quality(low);
+      g.start(5, { armor: 0, power: 0, mobility: 0 }, "normal");
+      g.enemies.forEach((e: any) => (e.hp = 0));
+      g.quakeTime = 1000;
+      const tree = w.destructibles.find((p: any) => p.box.scale === 0.65);
+      COVER.splice(0, COVER.length, tree.box);
+      g.pos.set(tree.box.x, 0, tree.box.z + 3);
+      const enemy = g.enemies[0];
+      enemy.hp = 1000;
+      enemy.x = tree.box.x;
+      enemy.z = tree.box.z - 3;
+      enemy.mesh.position.set(enemy.x, 0, enemy.z);
+      enemy.cool = 999;
+      g.fireWeapon(WEAPONS[0], Math.PI);
+      for (let i = 0; i < 30; i++)
+        g.update(1 / 60, { ...input, x: 0, z: 0, fire: false });
+      const blocks =
+        enemy.hp === 1000 && COVER.includes(tree.box) && tree.hp < 180;
+      let hits = 1;
+      while (COVER.includes(tree.box) && hits < 10) {
+        g.damageProp(tree.box, WEAPONS[0].damage);
+        hits++;
+      }
+      const green = g.impacts.bursts.some(
+        (b: any) => b.kind === "leaf" && b.group.visible,
+      );
+      const chips = g.destruction.fragments.length;
+      const removed =
+        !COVER.includes(tree.box) && !w.destructibles.includes(tree);
+      g.fireWeapon(WEAPONS[8], Math.PI);
+      result.push({
+        low,
+        blocks,
+        hits,
+        green,
+        chips,
+        removed,
+        clearShot: enemy.hp < 1000,
+      });
     }
-    g.blast(rock.x, rock.z + rock.d / 2, WEAPONS[7], 9999);
-    g.damageProp(rock, 999999);
-    const persists =
-      COVER.includes(rock) && !w.destructibles.some((p: any) => p.box === rock);
-    const material = new T.MeshStandardMaterial();
-    const root = landformModel(rock, material),
-      bounds = new T.Box3().setFromObject(root);
-    const fitted =
-      Math.abs(bounds.min.x - (rock.x - rock.w / 2)) < 0.05 &&
-      Math.abs(bounds.max.z - (rock.z + rock.d / 2)) < 0.05;
-    root.children[1].geometry.dispose();
-    material.dispose();
-    w.quality(true);
-    const low = COVER.includes(rock);
-    w.quality(false);
-    return {
-      persists,
-      low,
-      fitted,
-      hp: enemy.hp,
-      initial,
-      cover: COVER.length,
-    };
+    return result;
   });
-  expect(result).toMatchObject({
-    persists: true,
-    low: true,
-    fitted: true,
-    hp: 1000,
-  });
-  expect(result.cover).toBe(result.initial);
+  for (const row of rows) {
+    expect(row, JSON.stringify(row)).toMatchObject({
+      blocks: true,
+      green: true,
+      removed: true,
+      clearShot: true,
+    });
+    expect(row.hits).toBe(5);
+    expect(row.chips).toBeGreaterThan(5);
+  }
 });

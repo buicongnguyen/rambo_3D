@@ -2,7 +2,7 @@
 
 **Play:** https://buicongnguyen.github.io/rambo_3D/
 
-A three.js / Blender solo action game with seven stages, three levels per stage, eleven weapons, and playable motorcycles, jeeps and tanks. Each stage begins with a 164 m zigzag approach, followed by a 202 m O loop with a choice of two arms or a 301 m U expedition, then a 372 m S or mirrored S finale (including 45-degree variants). Square maps measure 136 × 136 metres, or 196 × 196 metres for diagonal S routes. Permanent hills and volcanic basalt divide the road arms; all routes remain tank-accessible. Secure the relay, clear its counterattack, and follow the tactical map to extraction. Level three of each stage ends with command bosses: helicopters, climbing spiders, laser tanks, four-gun humanoids, rocket-and-gun humanoids or twin-launcher missile trucks. Existing bosses also have an independent light gun.
+A three.js / Blender solo action game with seven stages, three levels per stage, eleven weapons, and playable motorcycles, jeeps and tanks. Each stage begins with a 164 m zigzag approach, followed by a 202 m O loop with a choice of two arms or a 301 m U expedition, then a 372 m S or mirrored S finale (including 45-degree variants). Square maps measure 136 × 136 metres, or 196 × 196 metres for diagonal S routes. Small destructible trees divide the road arms; all routes remain tank-accessible. Secure the relay, clear its counterattack, and follow the tactical map to extraction. Level three of each stage ends with command bosses: helicopters, climbing spiders, laser tanks, four-gun humanoids, rocket-and-gun humanoids or twin-launcher missile trucks. Existing bosses also have an independent light gun.
 
 ## Campaign
 
@@ -25,7 +25,7 @@ Choose a stage from the briefing selector, or continue your saved level. Changin
 | Hard       |         150 |       2× |                           2 |
 | Crazy      |         150 |       4× |                           4 |
 
-Normal retains the standard health and soldier damage. Base patrol counts increase from 24 to 32 through a stage's three levels; city levels add eight. Difficulty multiplies patrol and reinforcement counts. Every finale boss must be destroyed before extraction opens.
+Patrols now contain four times the previous infantry population: 96–128 soldiers per normal stage level, with 32 additional soldiers in city levels. Regular enemy tanks add 3–5 more targets. Hard doubles these populations and Crazy quadruples them (640 soldiers plus 20 tanks in the city finale). Infantry fire two-round spreads; regular tanks combine heavy rockets and a light gun. Player weapon damage rises by about 65% and cooldowns are 18% shorter. Difficulty also scales relay reinforcements. Every finale boss must be destroyed before extraction opens.
 
 ## Controls
 
@@ -38,11 +38,20 @@ Normal retains the standard health and soldier damage. Base patrol counts increa
 | E                  | Interact, board or exit               |
 | R                  | Reload                                |
 | Q / SWAP WEAPON    | Cycle collected weapons / tank cannon |
+| F / TURBO          | Fire two weapons together for 3s      |
 | Escape             | Pause / resume                        |
 
-Mobile has movement, FIRE, SWAP WEAPON, RELOAD, DODGE, BOARD/EXIT/USE and PAUSE buttons. Motorcycles use personal weapons; jeeps carry a mounted shotgun. Tanks start with six explosive cannon shells and can also fire collected weapons: Q / SWAP WEAPON cycles cannon → collected weapons → cannon. Picking up a weapon automatically selects the strongest usable loadout, including the tank cannon. Personal magazines/reserves and cannon shells remain separate across swaps and exits; shells cannot be reloaded. Empty cannon fire falls back to a personal weapon. Exit vehicles to activate objectives or extract; exit the jeep to switch personal weapons. Moving tanks and jeeps crush infantry, with the normal fall/fade and score; stationary contact and soldiers behind solid cover do not award kills. Bosses cannot be run over.
+Mobile has movement, FIRE, SWAP WEAPON, RELOAD, DODGE, TURBO, BOARD/EXIT/USE and PAUSE buttons. Motorcycles use personal weapons; jeeps carry a mounted shotgun. Tanks start with six explosive cannon shells and can also fire collected weapons: Q / SWAP WEAPON cycles cannon → collected weapons → cannon. Picking up a weapon automatically selects the strongest usable loadout, including the tank cannon. Personal magazines/reserves and cannon shells remain separate across swaps and exits; shells cannot be reloaded. Empty cannon fire falls back to a personal weapon. Exit vehicles to activate objectives or extract; exit the jeep to switch personal weapons. Moving tanks and jeeps crush infantry, with the normal fall/fade and score; stationary contact and soldiers behind solid cover do not award kills. Armored enemies and bosses cannot be run over.
 
-The motorcycle, jeep and tank appear in guarded roadside bays around 13%, 40% and 67% of the route. Sniper, rocket and laser caches also have nearby defenders drawn from the existing patrol quota. Permanent hills and basalt stop movement and fire in both graphics modes. Each deployment scatters nine purple weapon crates, six green medical crates and five blue shield crates along accessible roadsides. Walk or drive nearby to collect them. Green supplies heal the player and repair the occupied vehicle; full health/armor leaves supplies available. Blue crates add 40 personal shield points up to 80. Shields absorb personal damage before health and remain stored while vehicle armor takes hits. Shoot red fuel drums for chain explosions; the blast can hurt you too. Trees can be shot or blasted apart. Enemy helicopters fly and land to rearm behind cover; spiders climb across obstacles and pause to rest; laser tanks telegraph a locked 3.2-metre-wide beam. Gunships and spiders fire frequent light volleys, then a slower heavy salvo with three warned 3.4-metre blast zones. Leave the warning rings or use solid cover.
+The motorcycle, jeep and tank appear in guarded roadside bays around 13%, 40% and 67% of the route. Sniper, rocket and laser caches also have nearby defenders drawn from the existing patrol quota. Small multi-hit trees replace rock and concrete barriers in both graphics modes; destroy them to open shortcuts. Buildings still block movement and gunfire. Each deployment scatters nine purple weapon crates, six green medical crates and five blue shield crates along accessible roadsides. Walk or drive nearby to collect them. Green supplies heal the player and repair the occupied vehicle; full health/armor leaves supplies available. Blue crates add 40 personal shield points up to 80. Shields absorb personal damage before health and remain stored while vehicle armor takes hits. Shoot red fuel drums for chain explosions; the blast can hurt you too. Trees can be shot or blasted apart. Enemy helicopters fly and land to rearm behind cover; spiders climb across obstacles and pause to rest; laser tanks telegraph a locked 3.2-metre-wide beam. Gunships and spiders fire frequent light volleys, then a slower heavy salvo with three warned 3.4-metre blast zones. Leave the warning rings or use solid cover.
+
+## Bullet Storm combat
+
+Press **F** or tap **TURBO**, then hold FIRE: two different weapons shoot together for three seconds. Each consumes its own magazine and reload reserve. Weapon swapping pauses during the burst; collected pickups trigger automatic strongest-weapon selection afterward. Turbo has a 14-second cooldown. **Tuned Weapons** unlocks auxiliary guns on all vehicles and adds 0.4 seconds per rank (maximum five seconds); at rank three, vehicles can fire three guns. **Light Kit** shortens Turbo cooldown by 0.75 seconds per rank to a minimum of eight seconds. Exiting, boarding, defeat and restarting cleanly end a burst.
+
+Player rounds use vivid orange-red with a dark outline on bright snow, sand and city terrain, and gold on darker terrain. Enemy rounds use magenta so incoming fire remains distinct. Killing shots throw infantry along the bullet's direction, with stronger hits throwing farther; obstacles stop the fallen body. Small blood marks fade with the corpse. Rocket-killed enemy tanks separate into pieces of their Blender models that arc, fall and fade. Trees burst into green dust, leaves and wood fragments. All transient effects have fixed lifetimes and population caps.
+
+See [the implementation and improvement plan](docs/BULLET_STORM.md) for scope, upgrade rules and suggested next additions.
 
 ## Run and build
 
@@ -61,7 +70,7 @@ Production output is `dist`; `npm run preview` serves it. Low graphics limits re
 
 ## Blender
 
-32 original GLB models and editable `art/nightfall.blend` are committed. Regenerate with:
+35 original GLB models and editable `art/nightfall.blend` are committed. Regenerate with:
 
 ```powershell
 .tools/blender-4.5.3-windows-x64/blender.exe --background --python-exit-code 1 --python art/build_assets.py

@@ -30,9 +30,7 @@ test("all 21 winding roads and relay spurs are traversable by a tank", () => {
     buildLayout(m);
     assert.ok(routeLength(m.route) > 155);
     assert.ok(
-      COVER.some((b) =>
-        m.square ? ["hill", "basalt"].includes(b.kind) : b.kind === "concrete",
-      ),
+      COVER.some((b) => ["tree", "snowTree"].includes(b.kind) && b.hp >= 180),
     );
     const segments = m.roads.flatMap((route) =>
       route.slice(1).map((p, i) => [route[i], p]),
@@ -204,7 +202,7 @@ test("light boss bullets have faster cadence than heavy attacks and heavy footpr
   assert.ok(BOSS_ATTACKS.laserTank.width >= 3);
 });
 
-test("square S routes span every quadrant and ridges block cross-map shortcuts", () => {
+test("square S routes span every quadrant with destructible shortcut cover", () => {
   assert.deepEqual(
     new Set(MISSIONS.map((m) => m.shape)),
     new Set(["ZIGZAG", "S", "O", "MIRRORED S", "U", "S 45°", "MIRRORED S 45°"]),
@@ -212,13 +210,13 @@ test("square S routes span every quadrant and ridges block cross-map shortcuts",
   for (const m of MISSIONS.filter((m) => m.square)) {
     buildLayout(m);
     assert.ok(
-      COVER.some(
-        (b) =>
-          ["hill", "basalt"].includes(b.kind) &&
-          segmentBox(m.start.x, m.start.z, m.extract.x, m.extract.z, b, 0.5) !==
-            Infinity,
+      COVER.some((b) => ["tree", "snowTree"].includes(b.kind) && b.hp === 180),
+      `${m.name} destructible shortcut cover`,
+    );
+    assert.ok(
+      !COVER.some((b) =>
+        ["hill", "basalt", "concrete", "cover"].includes(b.kind),
       ),
-      `${m.name}/${m.shape} shortcut`,
     );
     if (m.shape.includes("S")) {
       const quadrants = new Set(m.route.map((p) => `${p.x < 0}:${p.z < -43}`));

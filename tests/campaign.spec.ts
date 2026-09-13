@@ -60,7 +60,7 @@ test("stage layouts, difficulty spawn ratios and multi-boss extraction gates", a
   expect(result.layouts[9].trees).toBeGreaterThan(20);
   expect(result.layouts[12].buildings).toBeGreaterThan(10);
   expect(result.layouts[0].patches).toBeGreaterThan(10);
-  expect(result.counts.map((c: any) => c.count)).toEqual([24, 24, 48, 96]);
+  expect(result.counts.map((c: any) => c.count)).toEqual([99, 99, 198, 396]);
   expect(result.counts[0].hp).toBeGreaterThan(result.counts[1].hp);
   expect(result).toMatchObject({
     count: 4,
@@ -134,7 +134,7 @@ test("fuel chains, destructible trees, warned rockfalls and tank run-over damage
     const cmd = { ...input, x: 0, z: 0, fire: false, interact: false };
     g.start(9, { armor: 0, power: 0, mobility: 0 }, "normal");
     const tree = w.destructibles.find((p: any) => p.kind === "tree");
-    g.damageProp(tree.box, 100);
+    g.damageProp(tree.box, tree.hp + 1);
     const felled = !COVER.includes(tree.box) && !w.destructibles.includes(tree);
     const fuels = w.destructibles
       .filter((p: any) => p.kind === "fuel")
@@ -270,5 +270,5 @@ test("Crazy city patrol count is exact and laser bosses spawn clear of buildings
       ),
     };
   });
-  expect(result).toEqual({ soldiers: 160, bosses: 4, clear: true });
+  expect(result).toEqual({ soldiers: 660, bosses: 4, clear: true });
 });

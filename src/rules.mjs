@@ -1,3 +1,4 @@
+import { SpatialGrid } from "./combat.mjs";
 import { LEVEL_COUNT } from "./campaign.mjs";
 /** Earliest segment intersection t in [0,1], or Infinity. Expanded boxes support projectile radii. */
 export function segmentBox(ax, az, bx, bz, box, pad = 0) {
@@ -119,8 +120,10 @@ export function advanceCampaign(save, upgrade, score) {
 export function routeStep(x, z, tx, tz, boxes, r = 0.45, bound = 29) {
   const limits =
     typeof bound === "number" ? { x: bound, minZ: -bound, maxZ: bound } : bound;
+  const grid = new SpatialGrid(6);
+  for (const box of boxes) grid.insert(box, box.x, box.z, box.w, box.d);
   const clear = (ax, az, bx, bz) =>
-    !boxes.some((b) => {
+    !grid.segment(ax, az, bx, bz, r).some((b) => {
       // Broad-phase rejection avoids repeated intersection math for distant cover.
       if (
         b.x + b.w / 2 + r < Math.min(ax, bx) ||

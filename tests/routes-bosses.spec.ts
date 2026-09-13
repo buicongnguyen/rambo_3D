@@ -15,7 +15,8 @@ test("every rotated mission preserves exact Crazy patrols, clear vehicle starts 
     const { segmentBox } = await import("/src/rules.mjs");
     return MISSIONS.map((m: any, index: number) => {
       g.start(index, { armor: 0, power: 0, mobility: 0 }, "crazy");
-      const expected = (24 + m.level * 4 + (m.biome === "city" ? 8 : 0)) * 4;
+      const patrols = 24 + m.level * 4 + (m.biome === "city" ? 8 : 0);
+      const expected = patrols * 16 + Math.max(3, Math.floor(patrols / 8)) * 4;
       return {
         index,
         count: g.enemies.length,
@@ -40,7 +41,8 @@ test("every rotated mission preserves exact Crazy patrols, clear vehicle starts 
         ),
         soldiersClear: g.enemies.every((e: any) =>
           COVER.every(
-            (b: any) => segmentBox(e.x, e.z, e.x, e.z, b, 0.55) === Infinity,
+            (b: any) =>
+              segmentBox(e.x, e.z, e.x, e.z, b, e.radius) === Infinity,
           ),
         ),
       };
