@@ -1252,26 +1252,37 @@ input {
     color: var(--lime);
     min-height: 45px;
   }
-  .dpad {
+  #move-pad {
+    position: relative;
     display: grid;
-    grid-template-columns: repeat(3, 44px);
-    grid-template-rows: 44px 44px;
-    gap: 4px;
+    place-items: center;
+    width: 116px;
+    height: 116px;
+    flex: 0 0 116px;
+    border: 1px solid #c5e0c570;
+    border-radius: 50%;
+    background: #162d3288;
+    touch-action: none;
+    user-select: none;
+    pointer-events: auto;
   }
-  .dpad button:nth-child(1) {
-    grid-column: 2;
+  .stick-nub {
+    width: 46px;
+    height: 46px;
+    border-radius: 50%;
+    background: #c3e4ca88;
+    border: 1px solid #c5e0c5aa;
+    pointer-events: none;
   }
-  .dpad button:nth-child(2) {
-    grid-column: 1;
-    grid-row: 2;
+  #move-pad.engaged .stick-nub {
+    background: #d8e791cc;
   }
-  .dpad button:nth-child(3) {
-    grid-column: 2;
-    grid-row: 2;
-  }
-  .dpad button:nth-child(4) {
-    grid-column: 3;
-    grid-row: 2;
+  #move-pad small {
+    position: absolute;
+    bottom: 10px;
+    font-size: 8px;
+    color: #d6efd4;
+    pointer-events: none;
   }
   .touch-actions {
     display: grid;

@@ -1,3 +1,4 @@
+import { stickPoint } from "./stick-helper";
 import { test, expect } from "@playwright/test";
 test("renders Blender assets, accepts movement/fire, pauses and retries", async ({
   page,
@@ -139,11 +140,15 @@ test("mobile layout and touch input release", async ({ browser }) => {
   await expect(page.locator("#touch")).toBeVisible();
   const z = await page.evaluate(() => (window as any).__nightfall.game.pos.z);
   await page
-    .locator('[data-hold="up"]')
-    .dispatchEvent("pointerdown", { pointerId: 1 });
+    .locator("#move-pad")
+    .dispatchEvent("pointerdown", {
+      pointerId: 1,
+      button: 0,
+      ...(await stickPoint(page, "up")),
+    });
   await page.waitForTimeout(400);
   await page
-    .locator('[data-hold="up"]')
+    .locator("#move-pad")
     .dispatchEvent("pointercancel", { pointerId: 1 });
   expect(
     await page.evaluate(() => (window as any).__nightfall.game.pos.z),

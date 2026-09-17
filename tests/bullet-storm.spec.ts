@@ -1,3 +1,4 @@
+import { stickPoint } from "./stick-helper";
 import { test, expect, type Page } from "@playwright/test";
 async function ready(page: Page) {
   await page.goto("/");
@@ -279,8 +280,12 @@ test("touch Turbo remains reachable beside simultaneous move and fire controls",
     .locator('[data-hold="fire"]')
     .dispatchEvent("pointerdown", { pointerId: 71 });
   await page
-    .locator('[data-hold="left"]')
-    .dispatchEvent("pointerdown", { pointerId: 72 });
+    .locator("#move-pad")
+    .dispatchEvent("pointerdown", {
+      pointerId: 72,
+      button: 0,
+      ...(await stickPoint(page, "left")),
+    });
   await expect
     .poll(() =>
       page.evaluate(() => {
@@ -293,7 +298,7 @@ test("touch Turbo remains reachable beside simultaneous move and fire controls",
     .locator('[data-hold="fire"]')
     .dispatchEvent("pointercancel", { pointerId: 71 });
   await page
-    .locator('[data-hold="left"]')
+    .locator("#move-pad")
     .dispatchEvent("pointercancel", { pointerId: 72 });
   await context.close();
 });

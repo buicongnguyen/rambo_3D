@@ -58,7 +58,7 @@ app.innerHTML = `
 <aside class="intel"><div class="intel-top"><span class="live-dot"></span> LIVE RECON <span>SECTOR 07</span></div><div class="intel-map"><div class="scan"></div><div class="coordinate c1">17°04′ N</div><div class="coordinate c2">106°42′ E</div><div class="map-line l1"></div><div class="map-line l2"></div><span class="map-dot d1"></span><span class="map-dot d2"></span><span class="map-dot d3"></span><span class="map-label">KHE SAN VALLEY</span></div><div class="intel-bottom"><span>MISSION BRIEF / <b id="brief-number">01</b></span><h2 id="brief-title">Emerald Killbox</h2><p id="brief-copy"></p><div class="intel-meta"><span>◆ SOLO CAMPAIGN</span><span>● 3D TACTICAL ACTION</span></div></div></aside>
 <section class="campaign" aria-label="Campaign missions"><div class="campaign-heading"><span>CHOOSE YOUR NEXT FRONT</span><span>CAMPAIGN / NIGHTFALL</span></div><div id="mission-cards" class="mission-cards"></div></section>
 <footer class="menu-footer"><span>AN ORIGINAL LOW-POLY COMBAT EXPERIENCE <b id="best-score"></b></span><button id="controls-open">FIELD MANUAL <span>↗</span></button><span>BUILT WITH BLENDER + THREE.JS</span></footer></main>
-<section id="hud" hidden aria-label="Mission status"><div class="hud-top"><div class="objective-panel"><span class="eyebrow" id="mission-label"></span><h2 id="mission-title"></h2><div id="objectives"></div></div><div class="hud-right"><button class="icon-button" id="pause">Ⅱ <span>PAUSE</span></button><canvas id="minimap" width="144" height="144" aria-label="Tactical map: road pale green, player white, enemies orange, weapons purple, medical green, shields blue, relay yellow"></canvas><span class="map-caption" id="route-direction">NORTHBOUND ROUTE</span></div></div><div id="boss-panel" hidden><div><b id="boss-name"></b><span id="boss-phase">ARMORED TARGET</span></div><div class="boss-track"><i id="boss-bar"></i></div></div><div id="radio" role="status"><span>VALE / RADIO</span><p></p></div><div id="interact-prompt" hidden></div><div id="combat-notice" role="status" hidden></div><div class="hud-bottom"><div class="health-panel"><div class="hud-kicker">GHOST <span id="health-text"></span></div><div class="health-track"><i id="health-bar"></i></div><div id="shield-text" aria-label="Personal shield">SHIELD 0 / 80</div><div id="awareness">UNSEEN · FLANK FOR REAR HITS</div><div class="health-meta"><span id="dash-text">DODGE READY</span><span id="score">000000</span></div></div><div class="controls-strip"><button id="turbo" aria-label="Activate Turbo" aria-keyshortcuts="F">F · TURBO READY</button> <kbd>WASD</kbd> MOVE <kbd>B</kbd> BLAST <kbd>SPACE</kbd> AUTO FIRE <kbd>E</kbd> INTERACT <kbd>SHIFT</kbd> DODGE</div><div class="ammo-panel"><div id="weapon-name">M4 / ASSAULT RIFLE</div><strong id="ammo">24</strong><span id="ammo-reserve">/ ∞</span><small id="reload-label">R RELOAD · Q SWITCH</small><button id="weapon-swap" aria-label="Switch weapon" aria-keyshortcuts="Q" title="Press Q to cycle collected weapons">Q - SWAP WEAPON</button></div></div><div id="touch"><div class="dpad"><button data-hold="up" aria-label="Move forward">▲</button><button data-hold="left" aria-label="Move left">◀</button><button data-hold="down" aria-label="Move backward">▼</button><button data-hold="right" aria-label="Move right">▶</button></div><div class="touch-actions"><button data-action="swap" aria-label="Switch weapon" class="swap-weapon">SWAP WEAPON</button><button data-action="reload">RELOAD</button><button data-action="interact" aria-label="Use nearby objective">USE</button><button data-action="dodge">DODGE</button><button data-action="turbo" aria-label="Activate Turbo" class="turbo">TURBO</button><button data-hold="blast" class="blast" aria-label="Target explosive stores" title="Hold to fire at a safe explosive store">BLAST</button><button data-hold="fire" class="fire">FIRE</button></div></div></section>
+<section id="hud" hidden aria-label="Mission status"><div class="hud-top"><div class="objective-panel"><span class="eyebrow" id="mission-label"></span><h2 id="mission-title"></h2><div id="objectives"></div></div><div class="hud-right"><button class="icon-button" id="pause">Ⅱ <span>PAUSE</span></button><canvas id="minimap" width="144" height="144" aria-label="Tactical map: road pale green, player white, enemies orange, weapons purple, medical green, shields blue, relay yellow"></canvas><span class="map-caption" id="route-direction">NORTHBOUND ROUTE</span></div></div><div id="boss-panel" hidden><div><b id="boss-name"></b><span id="boss-phase">ARMORED TARGET</span></div><div class="boss-track"><i id="boss-bar"></i></div></div><div id="radio" role="status"><span>VALE / RADIO</span><p></p></div><div id="interact-prompt" hidden></div><div id="combat-notice" role="status" hidden></div><div class="hud-bottom"><div class="health-panel"><div class="hud-kicker">GHOST <span id="health-text"></span></div><div class="health-track"><i id="health-bar"></i></div><div id="shield-text" aria-label="Personal shield">SHIELD 0 / 80</div><div id="awareness">UNSEEN · FLANK FOR REAR HITS</div><div class="health-meta"><span id="dash-text">DODGE READY</span><span id="score">000000</span></div></div><div class="controls-strip"><button id="turbo" aria-label="Activate Turbo" aria-keyshortcuts="F">F · TURBO READY</button> <kbd>WASD</kbd> MOVE <kbd>B</kbd> BLAST <kbd>SPACE</kbd> AUTO FIRE <kbd>E</kbd> INTERACT <kbd>SHIFT</kbd> DODGE</div><div class="ammo-panel"><div id="weapon-name">M4 / ASSAULT RIFLE</div><strong id="ammo">24</strong><span id="ammo-reserve">/ ∞</span><small id="reload-label">R RELOAD · Q SWITCH</small><button id="weapon-swap" aria-label="Switch weapon" aria-keyshortcuts="Q" title="Press Q to cycle collected weapons">Q - SWAP WEAPON</button></div></div><div id="touch"><div id="move-pad" aria-label="Movement joystick: drag to walk or run" role="group"><span class="stick-nub"></span><small>MOVE</small></div><div class="touch-actions"><button data-action="swap" aria-label="Switch weapon" class="swap-weapon">SWAP WEAPON</button><button data-action="reload">RELOAD</button><button data-action="interact" aria-label="Use nearby objective">USE</button><button data-action="dodge">DODGE</button><button data-action="turbo" aria-label="Activate Turbo" class="turbo">TURBO</button><button data-hold="blast" class="blast" aria-label="Target explosive stores" title="Hold to fire at a safe explosive store">BLAST</button><button data-hold="fire" class="fire">FIRE</button></div></div></section>
 <div id="overlay" class="overlay" hidden></div><div id="toast" role="status" hidden></div>`;
 const canvas = $<HTMLCanvasElement>("#scene");
 let world: World, game: Game;
@@ -79,6 +79,50 @@ const input: Input = {
 const keys = new Set<string>(),
   held = new Set<string>();
 const touchOwners = new Map<number, string>();
+const movePad = $("#move-pad"),
+  nub = movePad.querySelector<HTMLElement>(".stick-nub")!;
+let moveOwner: number | null = null;
+const stick = { x: 0, z: 0 };
+function resetStick() {
+  const owner = moveOwner;
+  moveOwner = null;
+  stick.x = stick.z = 0;
+  nub.style.transform = "translate(0px, 0px)";
+  movePad.classList.remove("engaged");
+  if (owner !== null && movePad.hasPointerCapture(owner))
+    movePad.releasePointerCapture(owner);
+}
+function updateStick(e: PointerEvent) {
+  const r = movePad.getBoundingClientRect();
+  const radius = Math.max(1, (r.width - nub.offsetWidth) / 2 - 3);
+  const x = (e.clientX - r.left - r.width / 2) / radius;
+  const z = (e.clientY - r.top - r.height / 2) / radius;
+  const length = Math.hypot(x, z),
+    divisor = Math.max(1, length);
+  nub.style.transform = `translate(${(x / divisor) * radius}px, ${(z / divisor) * radius}px)`;
+  const strength = Math.max(0, (Math.min(1, length) - 0.15) / 0.85);
+  stick.x = length ? (x / length) * strength : 0;
+  stick.z = length ? (z / length) * strength : 0;
+}
+movePad.addEventListener("pointerdown", (e) => {
+  e.preventDefault();
+  if (mode !== "playing" || moveOwner !== null || e.button !== 0) return;
+  moveOwner = e.pointerId;
+  if (e.isTrusted) movePad.setPointerCapture(e.pointerId);
+  movePad.classList.add("engaged");
+  updateStick(e);
+});
+movePad.addEventListener("pointermove", (e) => {
+  if (e.pointerId === moveOwner && mode === "playing") updateStick(e);
+});
+for (const event of [
+  "pointerup",
+  "pointercancel",
+  "lostpointercapture",
+] as const)
+  movePad.addEventListener(event, (e) => {
+    if (e.pointerId === moveOwner) resetStick();
+  });
 let firePointer: number | null = null;
 let mouseDown = false,
   pointer = new T.Vector2(),
@@ -86,6 +130,7 @@ let mouseDown = false,
 const ray = new T.Raycaster(),
   ground = new T.Plane(new T.Vector3(0, 1, 0), -0.9);
 function clearInput() {
+  resetStick();
   keys.clear();
   held.clear();
   touchOwners.clear();
@@ -688,7 +733,10 @@ for (const b of document.querySelectorAll<HTMLButtonElement>(
   b.onpointercancel = release;
   b.onlostpointercapture = release;
 }
-window.addEventListener("resize", () => world?.resize());
+window.addEventListener("resize", () => {
+  clearInput();
+  world?.resize();
+});
 let previous = performance.now(),
   acc = 0,
   lastHud = 0;
@@ -701,10 +749,12 @@ function frame(now: number) {
   if (mode === "playing") {
     input.x =
       Number(keys.has("KeyD") || keys.has("ArrowRight") || held.has("right")) -
-      Number(keys.has("KeyA") || keys.has("ArrowLeft") || held.has("left"));
+      Number(keys.has("KeyA") || keys.has("ArrowLeft") || held.has("left")) +
+      stick.x;
     input.z =
       Number(keys.has("KeyS") || keys.has("ArrowDown") || held.has("down")) -
-      Number(keys.has("KeyW") || keys.has("ArrowUp") || held.has("up"));
+      Number(keys.has("KeyW") || keys.has("ArrowUp") || held.has("up")) +
+      stick.z;
     input.blast = keys.has("KeyB") || held.has("blast");
     input.assist = input.blast || keys.has("Space") || held.has("fire");
     input.fire = mouseDown || input.assist;

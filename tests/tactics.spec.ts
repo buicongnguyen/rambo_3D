@@ -1,3 +1,4 @@
+import { stickPoint } from "./stick-helper";
 import { test, expect } from "@playwright/test";
 
 for (const mobile of [false, true])
@@ -97,8 +98,12 @@ for (const mobile of [false, true])
         pointerType: "touch",
       });
       await page
-        .locator('[data-hold="left"]')
-        .dispatchEvent("pointerdown", { pointerId: 82, pointerType: "touch" });
+        .locator("#move-pad")
+        .dispatchEvent("pointerdown", {
+          pointerId: 82,
+          button: 0,
+          ...(await stickPoint(page, "left")),
+        });
     } else await page.keyboard.down("KeyB");
     await expect
       .poll(() => page.evaluate(() => (window as any).__nightfall.game.kills))
@@ -106,7 +111,7 @@ for (const mobile of [false, true])
     if (mobile) {
       await hold.dispatchEvent("pointercancel", { pointerId: 81 });
       await page
-        .locator('[data-hold="left"]')
+        .locator("#move-pad")
         .dispatchEvent("pointercancel", { pointerId: 82 });
     } else await page.keyboard.up("KeyB");
     await expect

@@ -1,3 +1,4 @@
+import { stickPoint } from "./stick-helper";
 import { test, expect } from "@playwright/test";
 test("mobile buttons work with simultaneous touches and survive cancellation", async ({
   browser,
@@ -26,7 +27,10 @@ test("mobile buttons work with simultaneous touches and survive cancellation", a
     return { x: b!.x + b!.width / 2, y: b!.y + b!.height / 2 };
   };
   const cdp = await context.newCDPSession(page),
-    up = await center('[data-hold="up"]'),
+    up = await stickPoint(page, "up").then((p) => ({
+      x: p.clientX,
+      y: p.clientY,
+    })),
     fire = await center('[data-hold="fire"]');
   const before = await page.evaluate(
     () => (window as any).__nightfall.game.pos.z,
@@ -76,8 +80,12 @@ test("mobile buttons work with simultaneous touches and survive cancellation", a
     await page.evaluate(() => (window as any).__nightfall.game.reserves[9]),
   ).toBe(2);
   await page
-    .locator('[data-hold="up"]')
-    .dispatchEvent("pointerdown", { pointerId: 40 });
+    .locator("#move-pad")
+    .dispatchEvent("pointerdown", {
+      pointerId: 40,
+      button: 0,
+      ...(await stickPoint(page, "up")),
+    });
   await page.locator('[data-action="dodge"]').tap();
   await expect
     .poll(() =>
@@ -85,7 +93,7 @@ test("mobile buttons work with simultaneous touches and survive cancellation", a
     )
     .toBeGreaterThan(0);
   await page
-    .locator('[data-hold="up"]')
+    .locator("#move-pad")
     .dispatchEvent("pointercancel", { pointerId: 40 });
   await page.evaluate(async () => {
     const { MISSIONS } = await import("/src/missions.ts");
