@@ -1,3 +1,4 @@
+import { followAxis } from "./camera-follow.mjs";
 import { ActorBatches } from "./batching";
 import { WORLD_BOUNDS } from "./campaign.mjs";
 import { sampleRoute, routeLength } from "./routes.mjs";
@@ -194,6 +195,16 @@ export class World {
   private roadMap = surface("road");
   private waterMap = surface("water");
   private wind = { value: 0 };
+  private followTarget = new T.Vector3();
+  private renderTime: number | undefined;
+  private wasMenu = true;
+  playerIndicator = new T.Group();
+  resetCamera(focus: T.Vector3) {
+    this.followTarget.set(focus.x, 0, focus.z);
+    this.camera.position.set(focus.x, 27, focus.z + 25);
+    this.camera.lookAt(this.followTarget);
+    this.wasMenu = false;
+  }
   camera = new T.PerspectiveCamera(43, 1, 0.1, 230);
   renderer: T.WebGLRenderer;
   terrain = new T.Group();
@@ -253,6 +264,28 @@ export class World {
     );
     this.exit.rotation.x = -Math.PI / 2;
     this.scene.add(this.marker, this.exit);
+    for (const [inner, outer, color] of [
+      [0.83, 1.13, 0x10232c],
+      [0.91, 1.05, 0x38ecff],
+    ]) {
+      const ring = new T.Mesh(
+        new T.RingGeometry(inner, outer, 40),
+        new T.MeshBasicMaterial({
+          color,
+          side: T.DoubleSide,
+          depthTest: false,
+          depthWrite: false,
+          transparent: true,
+          opacity: 0.95,
+        }),
+      );
+      ring.rotation.x = -Math.PI / 2;
+      ring.renderOrder = color === 0x38ecff ? 102 : 101;
+      this.playerIndicator.add(ring);
+    }
+    this.playerIndicator.name = "player-identity-ring";
+    this.playerIndicator.visible = false;
+    this.scene.add(this.playerIndicator);
     this.camera.position.set(35, 42, 48);
     this.camera.lookAt(0, 0, 0);
     this.resize();
@@ -754,7 +787,13 @@ export class World {
     this.camera.updateProjectionMatrix();
     this.renderer.setSize(innerWidth, innerHeight);
   }
-  render(time: number, focus: T.Vector3, menu: boolean, reduced: boolean) {
+  render(
+    time: number,
+    focus: T.Vector3,
+    menu: boolean,
+    reduced: boolean,
+    alive = true,
+  ) {
     for (const actor of this.actors.children)
       if (actor.userData.lowRange)
         actor.visible =
@@ -765,19 +804,50 @@ export class World {
       reduced || this.lowDetail ? 0 : time * 0.012,
       reduced ? 0 : time * 0.006,
     );
+    const dt =
+      this.renderTime === undefined
+        ? 1 / 60
+        : Math.max(0, time - this.renderTime);
+    this.renderTime = time;
     const menuFocus = sampleRoute(MISSIONS[this.missionIndex].route, 0.18);
-    const target = menu ? new T.Vector3(menuFocus.x, 0, menuFocus.z) : focus;
-    const desired = menu
-      ? new T.Vector3(
-          target.x + 34 + (reduced ? 0 : Math.sin(time * 0.07) * 2),
-          43,
-          target.z + 50,
-        )
-      : new T.Vector3(focus.x, focus.y + 27, focus.z + 25);
-    this.camera.position.lerp(desired, menu ? 0.025 : 0.09);
-    this.camera.lookAt(target);
+    if (!menu && this.wasMenu) this.resetCamera(focus);
+    if (!menu) {
+      // Narrow portrait screens need a smaller horizontal dead zone.
+      const horizontal = Math.min(4.5, Math.max(1.8, this.camera.aspect * 4));
+      this.followTarget.x = followAxis(
+        this.followTarget.x,
+        focus.x,
+        horizontal,
+        dt,
+      );
+      this.followTarget.z = followAxis(this.followTarget.z, focus.z, 3.5, dt);
+      this.camera.position.set(
+        this.followTarget.x,
+        27,
+        this.followTarget.z + 25,
+      );
+      this.camera.lookAt(this.followTarget);
+    } else {
+      const target = new T.Vector3(menuFocus.x, 0, menuFocus.z);
+      const desired = new T.Vector3(
+        target.x + 34 + (reduced ? 0 : Math.sin(time * 0.07) * 2),
+        43,
+        target.z + 50,
+      );
+      this.camera.position.lerp(
+        desired,
+        1 - Math.exp(-1.5 * Math.min(dt, 0.1)),
+      );
+      this.camera.lookAt(target);
+    }
+    this.wasMenu = menu;
+    const target = menu
+      ? new T.Vector3(menuFocus.x, 0, menuFocus.z)
+      : this.followTarget;
     this.sun.position.set(target.x - 20, 35, target.z + 12);
     this.sun.target.position.copy(target);
+    this.playerIndicator.position.set(focus.x, 0.12, focus.z);
+    this.playerIndicator.visible = !menu && alive;
     this.sun.target.updateMatrixWorld();
     this.marker.rotation.z = time * 0.6;
     this.marker.scale.setScalar(1 + Math.sin(time * 2) * 0.05);

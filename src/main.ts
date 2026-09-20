@@ -783,7 +783,13 @@ function frame(now: number) {
     if (mode === "result") game.updatePresentation(frameDelta);
   }
   $("#crosshair").hidden = mode !== "playing" || !pointerSeen || input.assist;
-  world.render(now / 1000, game.pos, mode === "menu", prefs.reduced);
+  world.render(
+    now / 1000,
+    game.pos,
+    mode === "menu",
+    prefs.reduced,
+    game.hp > 0,
+  );
 }
 async function init() {
   try {

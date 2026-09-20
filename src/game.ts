@@ -489,8 +489,7 @@ export class Game {
     );
     this.refreshCoverGrid();
     this.player = model("commando", mission.start.x, mission.start.z);
-    this.world.camera.position.set(mission.start.x, 27, mission.start.z + 25);
-    this.world.camera.lookAt(this.player.position);
+    this.world.resetCamera(this.player.position);
     this.playerMotion = new CharacterMotion(this.player);
     this.deathClock = 0;
     this.world.actors.add(this.player);
