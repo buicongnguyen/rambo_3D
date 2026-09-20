@@ -28,7 +28,7 @@ import {
   ROCKET_GUNS,
   MISSILE_SALVOS,
 } from "./bosses.mjs";
-import { routeFormation, relayFormation } from "./routes.mjs";
+import { routeFormation } from "./routes.mjs";
 import { difficultyConfig, terrainFactor, WORLD_BOUNDS } from "./campaign.mjs";
 import { WEAPONS, type WeaponSpec } from "./arsenal";
 import { Ride } from "./rides";
@@ -39,7 +39,7 @@ import { SpatialGrid, knockbackDistance, turboStats } from "./combat.mjs";
 import * as T from "three";
 import { CharacterMotion, FallenBody, VehicleMotion } from "./animation";
 import { World, model } from "./world";
-import { MISSIONS, COVER, SPAWNS, PATCHES } from "./missions";
+import { MISSIONS, COVER, SPAWNS, PATCHES, type Box } from "./missions";
 import { moveCircle, segmentBox, segmentCircle, routeStep } from "./rules.mjs";
 export type Input = {
   x: number;
@@ -80,6 +80,7 @@ export type Actor = {
   index: number;
   warn: T.Mesh;
   reinforced?: boolean;
+  emerging?: Box;
   motion?: CharacterMotion;
   vehicleMotion?: VehicleMotion;
   routeTime?: number;
@@ -399,6 +400,9 @@ export class Game {
   sink = 0;
   private iceVelocity = new T.Vector2();
   private guardIds = new Set<Actor>();
+  pendingGuards = 0;
+  private reinforcementClock = 0;
+  private reinforcementNext = 0;
   onRadio: (text: string) => void = () => {};
   onSound: (type: string) => void = () => {};
   onEnd: (win: boolean) => void = () => {};
@@ -481,6 +485,9 @@ export class Game {
     this.sink = 0;
     this.iceVelocity.set(0, 0);
     this.guardIds.clear();
+    this.pendingGuards = 0;
+    this.reinforcementClock = 0;
+    this.reinforcementNext = 0;
     this.world.build(index);
     const mission = MISSIONS[index];
     this.friendlyTracer.dispose();
@@ -732,6 +739,7 @@ export class Game {
     index: number,
     bossKind = MISSIONS[this.index].bossModel,
     armored = false,
+    entrance?: Box,
   ) {
     const def = BOSS_DEFS[bossKind as keyof typeof BOSS_DEFS];
     if (!boss || def.ground) {
@@ -745,7 +753,9 @@ export class Game {
         pz > WORLD_BOUNDS.minZ + 2 &&
         pz < WORLD_BOUNDS.maxZ - 2 &&
         ![...obstacles, ...this.coverGrid.near(px, pz, clearance)].some(
-          (b: any) => segmentBox(px, pz, px, pz, b, clearance) !== Infinity,
+          (b: any) =>
+            b !== entrance &&
+            segmentBox(px, pz, px, pz, b, clearance) !== Infinity,
         ) &&
         !this.enemyGrid
           .near(px, pz, clearance + 3)
@@ -756,6 +766,7 @@ export class Game {
                 clearance + other.radius + 0.12,
           );
       if (!clear(x, z)) {
+        if (entrance) return; // An occupied door waits; guards never teleport elsewhere.
         let found = false;
         for (let r = 1; r <= 18 && !found; r++)
           for (let i = 0; i < 16; i++) {
@@ -825,6 +836,7 @@ export class Game {
     });
     const actor = this.enemies.at(-1)!;
     this.enemyGrid.insert(actor, x, z, actor.radius * 2);
+    return actor;
   }
   showWeapon() {
     if (this.riding && this.usesPersonalWeapon)
@@ -1296,11 +1308,62 @@ export class Game {
       }
     }
   }
+  private updateReinforcements(dt: number) {
+    if (!this.pendingGuards || this.quakeTime > 0 || this.hp <= 0) return;
+    this.reinforcementClock -= dt;
+    if (this.reinforcementClock > 0) return;
+    this.reinforcementClock = 0.25;
+    const houses = COVER.filter((b) => b.asset === "relayHouse");
+    for (let offset = 0; offset < houses.length; offset++) {
+      const index = (this.reinforcementNext + offset) % houses.length;
+      const house = houses[index],
+        entry = house.entrance!,
+        exit = house.exit!;
+      const clearance = this.riding ? this.riding.spec.radius + 0.8 : 1.5;
+      if (
+        Math.hypot(this.pos.x - exit.x, this.pos.z - exit.z) < clearance ||
+        this.rides.some(
+          (v) =>
+            v.hp > 0 &&
+            segmentBox(entry.x, entry.z, exit.x, exit.z, v.box, 0.7) !==
+              Infinity,
+        ) ||
+        this.enemies.some(
+          (e) =>
+            e.hp > 0 &&
+            (e.emerging === house ||
+              Math.hypot(e.x - exit.x, e.z - exit.z) < e.radius + 0.9),
+        )
+      )
+        continue;
+      const guard = this.spawn(
+        entry.x,
+        entry.z,
+        false,
+        200 + this.guardIds.size,
+        undefined,
+        false,
+        house,
+      );
+      if (!guard) continue;
+      guard.emerging = house;
+      guard.mesh.rotation.y = house.rotation!;
+      guard.alerted = true;
+      guard.memory = 12;
+      guard.lastSeen = { ...MISSIONS[this.index].objective };
+      guard.warn.visible = false;
+      this.guardIds.add(guard);
+      this.pendingGuards--;
+      this.reinforcementNext = index + 1;
+      this.reinforcementClock = 0.85;
+      break;
+    }
+  }
   private checkExtraction() {
     if (!this.objective || this.bossDead) return;
     const cleared = MISSIONS[this.index].finale
       ? this.bossSpawned && !this.enemies.some((e) => e.boss && e.hp > 0)
-      : [...this.guardIds].every((e) => e.hp <= 0);
+      : this.pendingGuards === 0 && [...this.guardIds].every((e) => e.hp <= 0);
     if (cleared) {
       this.bossDead = true;
       this.world.exit.visible = true;
@@ -2288,13 +2351,22 @@ export class Game {
     });
     const mission = MISSIONS[this.index];
     if (
-      input.interact &&
-      !this.riding &&
+      this.hp > 0 &&
       !this.objective &&
       Math.hypot(
         this.pos.x - mission.objective.x,
         this.pos.z - mission.objective.z,
-      ) < 3
+      ) < 3 &&
+      !COVER.some(
+        (box) =>
+          segmentBox(
+            this.pos.x,
+            this.pos.z,
+            mission.objective.x,
+            mission.objective.z,
+            box,
+          ) !== Infinity,
+      )
     ) {
       this.objective = true;
       this.score += 500;
@@ -2310,27 +2382,17 @@ export class Game {
           `${count} command boss${count > 1 ? "es" : ""} inbound. Defeat them all to open extraction.`,
         );
       } else {
-        const count =
+        this.pendingGuards =
           missionPacing(mission.stage, mission.level).guards *
           difficultyConfig(this.difficulty).soldiers;
-        for (let n = 0; n < count; n++) {
-          const before = this.enemies.length;
-          const p = relayFormation(mission, count)[n];
-          this.spawn(p.x, p.z, false, 200 + n);
-          if (this.enemies.length > before) {
-            const guard = this.enemies[this.enemies.length - 1];
-            this.guardIds.add(guard);
-            guard.alerted = true;
-            guard.memory = 8;
-            guard.lastSeen = { ...mission.objective };
-          }
-        }
+        this.reinforcementClock = 0.8;
         this.onRadio(
-          "Relay guards incoming. Clear the counterattack to open extraction.",
+          "Relay secured. Guards are leaving the nearby houses. Clear the counterattack to open extraction.",
         );
       }
       this.onSound("objective");
     }
+    this.updateReinforcements(dt);
     input.interact = false;
     if (this.companion) {
       this.companion.visible = !(this.riding && this.objective);
@@ -2395,6 +2457,40 @@ export class Game {
         if (Math.hypot(e.x - this.pos.x, e.z - this.pos.z) < 30)
           e.motion?.update(dt, { vx: 0, vz: 0 });
         e.warn.visible = false;
+        continue;
+      }
+      if (e.emerging) {
+        const house = e.emerging,
+          exit = house.exit!;
+        const dx = exit.x - e.x,
+          dz = exit.z - e.z,
+          distance = Math.hypot(dx, dz);
+        const step = Math.min(distance, dt * 3.2);
+        const beforeX = e.x,
+          beforeZ = e.z;
+        const next = moveCircle(
+          e.x,
+          e.z,
+          distance ? (dx / distance) * step : 0,
+          distance ? (dz / distance) * step : 0,
+          e.radius,
+          [
+            ...this.coverGrid.near(e.x, e.z, 2).filter((b: Box) => b !== house),
+            ...this.rides.filter((v) => v.hp > 0).map((v) => v.box),
+          ],
+          WORLD_BOUNDS,
+        );
+        e.x = next.x;
+        e.z = next.z;
+        e.mesh.position.set(e.x, this.world.groundHeight(e.x, e.z), e.z);
+        e.motion?.update(dt, {
+          vx: (e.x - beforeX) / dt,
+          vz: (e.z - beforeZ) / dt,
+        });
+        e.warn.visible = false;
+        e.cool = 0.9; // Always finish the doorway walk and gun warning before firing.
+        if (Math.hypot(e.x - exit.x, e.z - exit.z) < 0.05)
+          e.emerging = undefined;
         continue;
       }
       if (e.boss) {

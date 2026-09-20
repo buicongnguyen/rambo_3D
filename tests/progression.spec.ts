@@ -32,7 +32,8 @@ test("opening kit, short relay objective and earned vehicles work through extrac
     };
     g.invincible = 1000;
     g.pos.set(0, 0, -25);
-    g.update(1 / 60, { ...cmd, interact: true });
+    g.update(1 / 60, { ...cmd });
+    for (let i = 0; i < 240; i++) g.update(1 / 60, { ...cmd });
     const guards = [...g.guardIds] as any[],
       blocked = !g.bossDead;
     for (const e of guards) g.hurt(e, 999);

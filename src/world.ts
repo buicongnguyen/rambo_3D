@@ -27,6 +27,7 @@ const names = [
   "jeep",
   "snowPine",
   "house",
+  "relayHouse",
   "fuelDrum",
   "spider",
   "laserTank",
@@ -551,8 +552,13 @@ export class World {
           }
         }
       } else if (box.kind === "building") {
-        const house = model("house", box.x, box.z);
-        house.scale.set(box.w / 5, 1 + (index % 3) * 0.15, box.d / 7);
+        const house = model(
+          box.asset === "relayHouse" ? "relayHouse" : "house",
+          box.x,
+          box.z,
+        );
+        if (box.asset === "relayHouse") house.rotation.y = box.rotation!;
+        else house.scale.set(box.w / 5, 1 + (index % 3) * 0.15, box.d / 7);
         this.terrain.add(house);
       } else this.terrain.add(coverModel(box, mission.layout));
     }

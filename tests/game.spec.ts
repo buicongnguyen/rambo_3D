@@ -77,7 +77,15 @@ test("three levels progress through relay guards and finale bosses with persiste
       const { MISSIONS } = await import("/src/missions.ts");
       const m = MISSIONS[index];
       g.pos.set(m.objective.x, 0, m.objective.z);
-      g.update(1 / 60, { ...h.input, x: 0, z: 0, fire: false, interact: true });
+      g.invincible = 1000;
+      for (let i = 0; i < 300; i++)
+        g.update(1 / 60, {
+          ...h.input,
+          x: 0,
+          z: 0,
+          fire: false,
+          interact: false,
+        });
       return { objective: g.objective, boss: g.boss?.max };
     }, index);
     expect(state.objective).toBe(true);
@@ -139,13 +147,11 @@ test("mobile layout and touch input release", async ({ browser }) => {
   await page.locator("#deploy").tap();
   await expect(page.locator("#touch")).toBeVisible();
   const z = await page.evaluate(() => (window as any).__nightfall.game.pos.z);
-  await page
-    .locator("#move-pad")
-    .dispatchEvent("pointerdown", {
-      pointerId: 1,
-      button: 0,
-      ...(await stickPoint(page, "up")),
-    });
+  await page.locator("#move-pad").dispatchEvent("pointerdown", {
+    pointerId: 1,
+    button: 0,
+    ...(await stickPoint(page, "up")),
+  });
   await page.waitForTimeout(400);
   await page
     .locator("#move-pad")
@@ -211,8 +217,7 @@ test("short opening can be completed on Easy through simulated movement and norm
         z,
         fire: true,
         assist: true,
-        interact:
-          Math.hypot(g.pos.x - m.objective.x, g.pos.z - m.objective.z) < 3,
+        interact: false,
         dodge: frame % 170 === 0,
         reload: false,
         swap: false,

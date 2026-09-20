@@ -37,7 +37,8 @@ test("either O arm allows movement, rewards, a shared relay fight and extraction
         for (let i = 0; i < 120; i++) g.update(1 / 60, { ...cmd, x: side });
         const moved = g.pos.x * side > 8;
         g.pos.set(m.objective.x, 0, m.objective.z);
-        g.update(1 / 60, { ...cmd, interact: true });
+        g.update(1 / 60, { ...cmd });
+        for (let i = 0; i < 300; i++) g.update(1 / 60, { ...cmd });
         const guards = g.enemies.filter(
           (e: any) => g.guardIds.has(e) && e.hp > 0,
         );

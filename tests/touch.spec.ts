@@ -105,7 +105,7 @@ test("mobile buttons work with simultaneous touches and survive cancellation", a
       MISSIONS[0].objective.z,
     );
   });
-  await page.locator('[data-action="interact"]').tap();
+  // Proximity secures the relay without a tap, even on a touch device.
   await expect
     .poll(() => page.evaluate(() => (window as any).__nightfall.game.objective))
     .toBe(true);
