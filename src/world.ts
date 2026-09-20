@@ -709,6 +709,7 @@ export class World {
     );
     this.batchTerrain();
     this.quality(this.lowDetail);
+    this.terrain.updateMatrixWorld(true);
   }
   batchTerrain() {
     this.terrain.updateMatrixWorld(true);
@@ -853,7 +854,23 @@ export class World {
     this.marker.scale.setScalar(1 + Math.sin(time * 2) * 0.05);
     this.exit.rotation.z = -time * 0.12;
     this.camera.updateMatrixWorld();
+    // Top-level groups have identity transforms; terrain was baked at build time.
+    // Refresh visible dynamic objects, while the batcher handles visible source rigs.
+    for (const object of this.scene.children)
+      if (object !== this.terrain && object !== this.actors)
+        object.updateMatrixWorld(true);
+    for (const actor of this.actors.children)
+      if (actor.visible && !actor.userData.batchActor)
+        actor.updateMatrixWorld(true);
     this.actorBatches.update(this.camera);
-    this.renderer.render(this.scene, this.camera);
+    // The visible transforms above are already current. Suppress the renderer's
+    // second full-scene traversal, then restore the normal Three.js contract.
+    const autoUpdate = this.scene.matrixWorldAutoUpdate;
+    this.scene.matrixWorldAutoUpdate = false;
+    try {
+      this.renderer.render(this.scene, this.camera);
+    } finally {
+      this.scene.matrixWorldAutoUpdate = autoUpdate;
+    }
   }
 }

@@ -3,6 +3,19 @@ import * as T from "three";
 export class ActorBatches {
   private sources = new Map<T.Object3D, T.Mesh[]>();
   private batches = new Map<string, T.InstancedMesh>();
+  private groups = new Map<
+    string,
+    { source: T.Mesh | undefined; matrices: T.Matrix4[] }
+  >();
+  private keys = new WeakMap<
+    T.Mesh,
+    {
+      geometry: T.BufferGeometry;
+      material: T.Material | T.Material[];
+      shadow: boolean;
+      key: string;
+    }
+  >();
   private frustum = new T.Frustum();
   private projection = new T.Matrix4();
   private sphere = new T.Sphere();
@@ -14,7 +27,11 @@ export class ActorBatches {
         camera.matrixWorldInverse,
       ),
     );
-    const groups = new Map<string, { source: T.Mesh; matrices: T.Matrix4[] }>();
+    const groups = this.groups;
+    for (const group of groups.values()) {
+      group.matrices.length = 0;
+      group.source = undefined;
+    }
     for (const [root, parts] of this.sources)
       if (root.parent !== this.scene || !root.userData.batchActor) {
         parts.forEach((p) => (p.visible = true));
@@ -46,19 +63,37 @@ export class ActorBatches {
         const materials = Array.isArray(part.material)
           ? part.material
           : [part.material];
-        const material = materials
-          .map((m) =>
-            m.userData.batchBase
-              ? m.userData.batchBase + ":fade" + Math.round(m.opacity * 8)
-              : m.uuid,
-          )
-          .join(",");
-        const key = part.geometry.uuid + ":" + material + ":" + part.castShadow;
+        const fading = materials.some((m) => !!m.userData.batchBase);
+        let cached = this.keys.get(part);
+        if (
+          fading ||
+          !cached ||
+          cached.geometry !== part.geometry ||
+          cached.material !== part.material ||
+          cached.shadow !== part.castShadow
+        ) {
+          const material = materials
+            .map((m) =>
+              m.userData.batchBase
+                ? m.userData.batchBase + ":fade" + Math.round(m.opacity * 8)
+                : m.uuid,
+            )
+            .join(",");
+          cached = {
+            geometry: part.geometry,
+            material: part.material,
+            shadow: part.castShadow,
+            key: part.geometry.uuid + ":" + material + ":" + part.castShadow,
+          };
+          this.keys.set(part, cached);
+        }
+        const key = cached.key;
         let group = groups.get(key);
         if (!group) {
           group = { source: part, matrices: [] };
           groups.set(key, group);
         }
+        group.source = part;
         group.matrices.push(part.matrixWorld);
       }
     }
@@ -67,6 +102,7 @@ export class ActorBatches {
       mesh.visible = false;
     }
     for (const [key, { source, matrices }] of groups) {
+      if (!source || !matrices.length) continue;
       let mesh = this.batches.get(key);
       if (!mesh || mesh.instanceMatrix.count < matrices.length) {
         if (mesh) this.disposeBatch(mesh);
@@ -108,6 +144,8 @@ export class ActorBatches {
     for (const parts of this.sources.values())
       parts.forEach((p) => (p.visible = true));
     this.sources.clear();
+    this.groups.clear();
+    this.keys = new WeakMap();
     for (const mesh of this.batches.values()) {
       this.disposeBatch(mesh);
     }
