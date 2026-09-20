@@ -19,6 +19,16 @@ test("mobile status leaves bottom thumb controls clear across phone sizes", asyn
     [1024, 768],
   ]) {
     await page.setViewportSize({ width, height });
+    await expect(page.locator("#radio")).toBeHidden();
+    await expect(page.locator("#mission-label")).toBeHidden();
+    await expect(page.locator("#score")).toBeHidden();
+    await expect(page.locator("#objectives span:visible")).toHaveCount(1);
+    expect(
+      (await page.locator(".objective-panel").boundingBox())!.height,
+    ).toBeLessThan(65);
+    expect(
+      (await page.locator(".health-panel").boundingBox())!.height,
+    ).toBeLessThan(65);
     const layout = await page.evaluate(() => {
       const pad = document.querySelector("#move-pad")!.getBoundingClientRect();
       const controls = [

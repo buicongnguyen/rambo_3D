@@ -11,3 +11,7 @@ Validation: production TypeScript/Vite build; 40 unit checks; browser checks for
 The joystick behavior alone did not match Tank's thumb placement: RAMBO's status windows still occupied the bottom corners. Touch controls now sit 20px from the bottom in portrait and 16px in landscape, plus the device safe-area inset. Portrait status panels sit above the action cluster. Landscape status panels fit between the joystick and combat buttons, stacking on narrow phones. Health, shield, awareness, ammunition and weapon names remain visible in compact panels. Desktop styling is unchanged.
 
 Validated with collision/hit-target checks at 390x844, 320x568, 844x390, 568x320 and 1024x768, plus existing multitouch and analog-control regressions. Updated portrait and landscape captures show the arrangement.
+
+## Essential mobile HUD
+
+Mobile now hides the long radio panel, mission metadata, completed/future objectives, score, awareness tutorial, boss phase text and keyboard hints. The compact mission card shows only the stage name and first unfinished objective. Health/shield and weapon/ammunition remain visible; dodge cooldown or vehicle armor appears only when applicable. The minimap is 60px and boss health uses a compact strip. Mission and ordinary health panels are checked to remain below 65px high across five viewport sizes. Desktop information remains unchanged.

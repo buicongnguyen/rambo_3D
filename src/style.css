@@ -1761,3 +1761,76 @@ input {
     padding: 5px 7px;
   }
 }
+/* Essential information only during touch gameplay. */
+@media (pointer: coarse) {
+  #radio,
+  #mission-label,
+  #score,
+  #awareness,
+  #boss-phase {
+    display: none;
+  }
+  .objective-panel {
+    width: 200px;
+    padding: 6px 8px;
+    background: #12251eb8;
+  }
+  .objective-panel h2 {
+    font-size: 16px;
+    margin: 0 0 3px;
+  }
+  #objectives span.done,
+  #objectives span:not(.done) ~ span {
+    display: none;
+  }
+  #objectives {
+    font-size: 10px;
+  }
+  .health-panel,
+  .ammo-panel {
+    padding: 6px 8px;
+    background: #12251eb8;
+  }
+  .health-track {
+    margin: 4px 0;
+  }
+  .health-meta {
+    display: none;
+  }
+  .health-panel[data-context="true"] .health-meta {
+    display: flex;
+  }
+  #shield-text {
+    margin-top: 2px;
+  }
+  .ammo-panel strong {
+    font-size: 24px;
+  }
+  .ammo-panel > div {
+    font-size: 9px;
+  }
+  .hud-right {
+    gap: 4px;
+  }
+  #minimap {
+    width: 60px;
+    height: 60px;
+  }
+  #boss-panel {
+    top: calc(76px + env(safe-area-inset-top));
+    width: min(200px, 40vw);
+    padding: 5px 8px;
+  }
+  #boss-name {
+    font-size: 9px;
+  }
+  .boss-track {
+    margin: 4px 0 0;
+    height: 3px;
+  }
+}
+@media (pointer: coarse) {
+  .objective-panel {
+    align-self: start;
+  }
+}

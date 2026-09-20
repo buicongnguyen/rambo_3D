@@ -79,13 +79,11 @@ test("mobile buttons work with simultaneous touches and survive cancellation", a
   expect(
     await page.evaluate(() => (window as any).__nightfall.game.reserves[9]),
   ).toBe(2);
-  await page
-    .locator("#move-pad")
-    .dispatchEvent("pointerdown", {
-      pointerId: 40,
-      button: 0,
-      ...(await stickPoint(page, "up")),
-    });
+  await page.locator("#move-pad").dispatchEvent("pointerdown", {
+    pointerId: 40,
+    button: 0,
+    ...(await stickPoint(page, "up")),
+  });
   await page.locator('[data-action="dodge"]').tap();
   await expect
     .poll(() =>
@@ -119,10 +117,7 @@ test("mobile buttons work with simultaneous touches and survive cancellation", a
     { width: 844, height: 390 },
   ]) {
     await page.setViewportSize(viewport);
-    await expect(page.locator("#radio")).toHaveCSS("transform", "none");
-    const radioBox = await page.locator("#radio").boundingBox();
-    expect(radioBox!.x).toBeGreaterThanOrEqual(0);
-    expect(radioBox!.x + radioBox!.width).toBeLessThanOrEqual(viewport.width);
+    await expect(page.locator("#radio")).toBeHidden();
     const usable = await page.locator("#touch button").evaluateAll((buttons) =>
       buttons.every((b) => {
         const r = b.getBoundingClientRect();

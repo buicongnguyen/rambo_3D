@@ -417,6 +417,9 @@ function updateHud() {
       Math.ceil(game.riding.hp) +
       " / " +
       game.riding.spec.hp;
+  $(".health-panel").dataset.context = String(
+    !!game.riding || game.dashCooldown > 0,
+  );
   $("#score").textContent = `${game.score.toString().padStart(6, "0")} PTS`;
   const ride = game.riding;
   const personalWeapon = game.usesPersonalWeapon;
