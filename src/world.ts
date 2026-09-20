@@ -511,20 +511,20 @@ export class World {
         this.actors.add(mesh);
         this.destructibles.push({ box, mesh, hp: box.hp!, kind: box.kind });
       } else if (box.kind === "concrete" || box.kind === "boundary") {
-        this.mesh(
-          new T.BoxGeometry(box.w, 1.35, box.d),
-          concrete,
-          box.x,
-          0.675,
-          box.z,
-        );
-        this.mesh(
-          new T.BoxGeometry(box.w, 0.12, box.d),
-          line,
-          box.x,
-          1.22,
-          box.z,
-        );
+        // The stripe is a solid band, not a second face laid on the wall.
+        // Coplanar concrete/stripe sides caused flickering as the camera moved.
+        for (const [bottom, top, material] of [
+          [0, 1.16, concrete],
+          [1.16, 1.28, line],
+          [1.28, 1.35, concrete],
+        ] as const)
+          this.mesh(
+            new T.BoxGeometry(box.w, top - bottom, box.d),
+            material,
+            box.x,
+            (bottom + top) / 2,
+            box.z,
+          );
         this.mesh(
           new T.BoxGeometry(box.w + 0.12, 0.18, box.d + 0.12),
           concrete,
