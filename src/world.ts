@@ -28,6 +28,7 @@ const names = [
   "snowPine",
   "house",
   "relayHouse",
+  "ruinWall",
   "fuelDrum",
   "spider",
   "laserTank",
@@ -485,6 +486,20 @@ export class World {
         const landform = landformModel(box, bedrock);
         this.ownedGeometries.push((landform.children[1] as T.Mesh).geometry);
         this.terrain.add(landform);
+      } else if (box.asset === "ruinWall") {
+        const mesh = model("ruinWall", box.x, box.z);
+        const horizontal = box.w >= box.d;
+        mesh.scale.set(
+          (horizontal ? box.w : box.d) / 4,
+          (box.height ?? 2.4) / 2.4,
+          (horizontal ? box.d : box.w) / 0.45,
+        );
+        mesh.rotation.y = horizontal ? 0 : Math.PI / 2;
+        mesh.userData.lowRange = 58;
+        mesh.userData.batchActor = true;
+        mesh.userData.batchRadius = Math.max(box.w, box.d) / 2 + 2;
+        this.actors.add(mesh);
+        this.destructibles.push({ box, mesh, hp: box.hp!, kind: box.kind! });
       } else if (
         box.kind === "tree" ||
         box.kind === "snowTree" ||

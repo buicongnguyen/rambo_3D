@@ -62,7 +62,7 @@ test("opening kit, short relay objective and earned vehicles work through extrac
     blocked: true,
     opened: true,
     won: true,
-    next: { enemies: 49, rides: ["motorcycle", "jeep"], weapons: [1, 2, 5, 9] },
+    next: { enemies: 25, rides: ["motorcycle", "jeep"], weapons: [1, 2, 5, 9] },
   });
 });
 

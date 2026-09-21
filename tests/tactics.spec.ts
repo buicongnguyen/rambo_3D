@@ -97,13 +97,11 @@ for (const mobile of [false, true])
         pointerId: 81,
         pointerType: "touch",
       });
-      await page
-        .locator("#move-pad")
-        .dispatchEvent("pointerdown", {
-          pointerId: 82,
-          button: 0,
-          ...(await stickPoint(page, "left")),
-        });
+      await page.locator("#move-pad").dispatchEvent("pointerdown", {
+        pointerId: 82,
+        button: 0,
+        ...(await stickPoint(page, "left")),
+      });
     } else await page.keyboard.down("KeyB");
     await expect
       .poll(() => page.evaluate(() => (window as any).__nightfall.game.kills))
@@ -120,8 +118,8 @@ for (const mobile of [false, true])
     await expect
       .poll(() =>
         page.evaluate(() =>
-          (window as any).__blastEvents.some(
-            (s: string) => s === "CHAIN BLAST · 3 HOSTILES DOWN",
+          (window as any).__blastEvents.some((s: string) =>
+            s.startsWith("CHAIN BLAST · 3 HOSTILES DOWN"),
           ),
         ),
       )

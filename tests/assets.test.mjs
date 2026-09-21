@@ -2,7 +2,7 @@ import fs from "node:fs";
 import path from "node:path";
 import { test } from "node:test";
 import assert from "node:assert/strict";
-test("all thirty-six Blender GLBs are valid glTF 2, contain real geometry, and meet asset budget", () => {
+test("all thirty-seven Blender GLBs are valid glTF 2, contain real geometry, and meet asset budget", () => {
   const names = [
     "commando",
     "rifleman",
@@ -20,6 +20,7 @@ test("all thirty-six Blender GLBs are valid glTF 2, contain real geometry, and m
     "snowPine",
     "house",
     "relayHouse",
+    "ruinWall",
     "fuelDrum",
     "spider",
     "laserTank",

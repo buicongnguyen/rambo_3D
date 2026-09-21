@@ -1345,7 +1345,7 @@ input {
     display: none;
   }
   #touch .swap-weapon {
-    background: #e1ed9833;
+    background: #22372b;
     border: 2px solid var(--lime);
     padding: 4px;
     font-weight: 800;
@@ -1833,4 +1833,22 @@ input {
   .objective-panel {
     align-self: start;
   }
+}
+
+.manual-section {
+  border-top: 1px solid #ffffff26;
+  padding: 12px 0;
+}
+.manual-section summary {
+  cursor: pointer;
+  color: #e1ed98;
+  font-weight: 700;
+  padding: 8px 0;
+}
+.manual-section summary:focus-visible {
+  outline: 2px solid #e1ed98;
+  outline-offset: 4px;
+}
+.manual-section p {
+  font-size: 13px;
 }

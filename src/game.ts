@@ -7,6 +7,7 @@ import {
 import {
   missionPacing,
   enemyLoot,
+  ammoReward,
   seesPlayer,
   turnToward,
   angleDelta,
@@ -155,6 +156,7 @@ export class Game {
   combatNoticeUntil = 0;
   blastTarget?: (typeof COVER)[number];
   private blastAimTime = 0;
+  private blastDepth = 0;
   private blastAimWeapon = "";
   private blastMarker = new T.Mesh(
     new T.RingGeometry(0.7, 0.85, 24),
@@ -1249,6 +1251,12 @@ export class Game {
     if (e.hp <= 0) {
       this.kills++;
       this.score += e.boss ? 1500 : e.armored ? 350 : 100;
+      if (rear) {
+        this.score += 50;
+        const gained = Math.min(5, this.maxShield - this.shield);
+        this.shield += gained;
+        this.combatMessage(`FLANK FINISH · +50 SCORE · +${gained} SHIELD`, 2);
+      }
       this.world.actors.remove(e.warn);
       const tank = e.armored || e.bossKind === "laserTank";
       const dx = direction?.x ?? e.x - this.pos.x,
@@ -1377,6 +1385,8 @@ export class Game {
     if (!prop || prop.hp <= 0) return;
     prop.hp -= damage;
     if (prop.hp > 0) {
+      if (box.asset === "ruinWall")
+        this.impacts.emit(box.x, 1, box.z, "stone", this.world.lowDetail, 0.55);
       if (prop.kind === "tree" || prop.kind === "snowTree")
         this.impacts.emit(box.x, 1, box.z, "leaf", this.world.lowDetail, 0.4);
       return;
@@ -1384,6 +1394,13 @@ export class Game {
     this.world.destructibles.splice(this.world.destructibles.indexOf(prop), 1);
     COVER.splice(COVER.indexOf(box), 1);
     this.liveCover.delete(box);
+    if (box.asset === "ruinWall") {
+      prop.mesh.removeFromParent();
+      this.impacts.emit(box.x, 0.6, box.z, "stone", this.world.lowDetail, 1.8);
+      this.destruction.masonry(box.x, box.z, this.world.lowDetail);
+      this.combatMessage("WALL BREACHED · FLANKING ROUTE OPEN", 1.5);
+      return;
+    }
     if (prop.kind !== "fuel" && prop.kind !== "explosive") {
       prop.mesh.removeFromParent();
       this.impacts.emit(box.x, 1.2, box.z, "leaf", this.world.lowDetail, 1.8);
@@ -1396,13 +1413,22 @@ export class Game {
   private environmentExplosion(x: number, z: number) {
     const { radius } = ENV_BLAST;
     const beforeKills = this.kills;
+    const rootBlast = this.blastDepth++ === 0;
     this.onSound("explosion");
     // Walls and buildings contain a blast; soft foliage and other explosive stores do not.
     const solid = COVER.filter(
       (b) => !["tree", "snowTree", "fuel", "explosive"].includes(b.kind ?? ""),
     );
-    const damageAt = (tx: number, tz: number, maximum: number, r = 0) =>
-      solid.some((b) => segmentBox(x, z, tx, tz, b) !== Infinity)
+    const damageAt = (
+      tx: number,
+      tz: number,
+      maximum: number,
+      r = 0,
+      target?: Box,
+    ) =>
+      solid.some(
+        (b) => b !== target && segmentBox(x, z, tx, tz, b) !== Infinity,
+      )
         ? 0
         : blastDamage(Math.hypot(tx - x, tz - z), radius, maximum, r);
     for (const e of this.enemies) {
@@ -1436,7 +1462,13 @@ export class Game {
     }
     // Each store was removed before detonation, so reciprocal chains cannot score or explode twice.
     for (const next of [...this.world.destructibles]) {
-      const damage = damageAt(next.box.x, next.box.z, ENV_BLAST.prop);
+      const damage = damageAt(
+        next.box.x,
+        next.box.z,
+        ENV_BLAST.prop,
+        0,
+        next.box,
+      );
       if (damage > 0) this.damageProp(next.box, damage);
     }
     this.impacts.emit(
@@ -1448,11 +1480,23 @@ export class Game {
       radius,
       true,
     );
-    if (this.kills > beforeKills)
-      this.combatMessage(
-        `CHAIN BLAST · ${this.kills - beforeKills} HOSTILES DOWN`,
-        2,
+    this.blastDepth--;
+    // Nested store detonations belong to one chain: award each kill only once.
+    const defeated = this.kills - beforeKills;
+    if (rootBlast && defeated > 0) {
+      const bonus = Math.max(0, defeated - 1) * 75;
+      const protection = Math.min(
+        15,
+        Math.max(0, defeated - 1) * 5,
+        this.maxShield - this.shield,
       );
+      this.score += bonus;
+      this.shield += protection;
+      this.combatMessage(
+        `CHAIN BLAST · ${defeated} HOSTILES DOWN${bonus ? ` · +${bonus} SCORE · +${protection} SHIELD` : ""}`,
+        2.5,
+      );
+    }
   }
   private updateTerrainEvents(dt: number) {
     this.quakeTime = Math.max(0, this.quakeTime - dt);
@@ -2937,26 +2981,26 @@ export class Game {
       const isAmmo = p.userData.kind === "ammo",
         isLoot = p.userData.expires !== undefined;
       const isShield = p.userData.kind === "shield";
+      const reward = isAmmo
+        ? ammoReward(
+            this.inventory,
+            this.reserves,
+            WEAPONS,
+            this.weapon,
+            this.difficulty,
+          )
+        : null;
       if (
         this.canCollect(p.position, 1.1) &&
         (isAmmo
-          ? this.inventory.some(
-              (i) =>
-                Number.isFinite(this.reserves[i]) &&
-                this.reserves[i] < WEAPONS[i].mag * 4,
-            )
+          ? reward !== null
           : isShield
             ? this.shield < this.maxShield
             : this.hp < this.maxHp ||
               (this.riding && this.riding.hp < this.riding.spec.hp))
       ) {
         if (isAmmo) {
-          for (const i of this.inventory)
-            if (Number.isFinite(this.reserves[i]))
-              this.reserves[i] = Math.min(
-                WEAPONS[i].mag * 4,
-                this.reserves[i] + WEAPONS[i].mag,
-              );
+          this.reserves[reward!.index] += reward!.amount;
           this.selectStrongestWeapon();
           this.showWeapon();
         } else if (isShield)
@@ -2974,7 +3018,7 @@ export class Game {
         }
         this.onRadio(
           isAmmo
-            ? "Ammunition recovered: +1 magazine for owned special weapons."
+            ? `Ammunition recovered: +${reward!.amount} ${WEAPONS[reward!.index].name} rounds.`
             : isShield
               ? `Shield charged: +${isLoot ? 20 : 40} protection.`
               : this.riding

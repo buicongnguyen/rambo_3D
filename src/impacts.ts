@@ -138,30 +138,37 @@ export class ImpactEffects {
       return;
     const limit = low ? 12 : 28;
     while (this.activeCount >= limit) {
-      const oldest = this.bursts
-        .filter((b) => b.group.visible)
-        .sort((a, b) => b.age - a.age)[0];
+      // Minor contacts must not erase the blast that caused them. At capacity,
+      // replace a contact first; a new blast may replace the oldest blast.
+      const active = this.bursts.filter((b) => b.group.visible);
+      const contacts = active.filter((b) => !b.blast);
+      if (!contacts.length && !blast && active.length <= limit) return;
+      const oldest = (contacts.length ? contacts : active).reduce((a, b) =>
+        a.age >= b.age ? a : b,
+      );
       oldest.group.visible = false;
     }
     const b = this.bursts.find((b) => !b.group.visible) ?? this.makeBurst();
     if (b.group.parent !== this.scene) this.scene.add(b.group);
     b.age = 0;
-    b.life = blast || kind === "leaf" ? 1.15 : 0.65;
+    b.life = blast ? 2.4 : kind === "leaf" || kind === "stone" ? 1.15 : 0.65;
     b.radius = radius;
     b.kind = kind;
     b.blast = blast;
     b.group.position.set(x, y, z);
     b.group.visible = true;
     const color =
-      kind === "armor"
-        ? 0xffe4a0
-        : kind === "laser"
-          ? 0x65eaff
-          : kind === "gas" || kind === "leaf"
-            ? 0x9be747
-            : kind === "flame"
-              ? 0xff681c
-              : 0xffb336;
+      kind === "stone"
+        ? 0xb7ad97
+        : kind === "armor"
+          ? 0xffe4a0
+          : kind === "laser"
+            ? 0x65eaff
+            : kind === "gas" || kind === "leaf"
+              ? 0x9be747
+              : kind === "flame"
+                ? 0xff681c
+                : 0xffb336;
     b.glow.material.color.setHex(color);
     const fiery = (blast && kind !== "gas") || kind === "flame";
     b.core.material.map = fiery ? this.fireTexture : this.texture;
@@ -175,7 +182,13 @@ export class ImpactEffects {
     b.smoke.forEach((s, i) => {
       s.visible = i < (low ? 1 : 3);
       s.material.color.setHex(
-        kind === "leaf" ? 0x40862c : kind === "gas" ? 0x779541 : 0x655f56,
+        kind === "leaf"
+          ? 0x40862c
+          : kind === "gas"
+            ? 0x779541
+            : kind === "stone"
+              ? 0x9b9485
+              : 0x655f56,
       );
     });
     this.pose(b);
@@ -189,8 +202,7 @@ export class ImpactEffects {
     b.glow.scale.setScalar(r * (1.25 + t * 4));
     b.glow.material.opacity = flash * (b.kind === "leaf" ? 0.04 : 0.45);
     b.ring.scale.setScalar(r * (0.35 + t * 1.5));
-    b.ring.material.opacity =
-      Math.max(0, 1 - t / 0.42) * (b.kind === "leaf" ? 0 : 0.65);
+    b.ring.material.opacity = Math.max(0, 1 - t / 0.42) * (b.blast ? 0.65 : 0);
     for (let i = 0; i < b.sparks.length; i++) {
       const a = (i * Math.PI * 2) / b.sparks.length + 0.3;
       const speed = r * (2.3 + (i % 2) * 1.2);
@@ -212,7 +224,7 @@ export class ImpactEffects {
         t * (0.8 + i * 0.2),
         Math.sin(a) * t * r * 0.6,
       );
-      s.scale.setScalar(r * (0.65 + t * 1.9));
+      s.scale.setScalar(r * (0.65 + t * (b.blast ? 0.85 : 1.9)));
       s.material.opacity = Math.min(0.5, t * 4) * Math.max(0, 1 - t / b.life);
     }
   }

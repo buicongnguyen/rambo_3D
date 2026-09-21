@@ -88,6 +88,25 @@ export class DestructionEffects {
       );
     }
   }
+  masonry(x: number, z: number, low: boolean) {
+    for (let i = 0; i < (low ? 5 : 10); i++) {
+      const material = new T.MeshBasicMaterial({
+        color: i % 2 ? 0x8e8777 : 0xb5a58b,
+        transparent: true,
+        depthWrite: false,
+      });
+      const mesh = new T.Mesh(this.chip, material);
+      mesh.scale.set(1.5 + (i % 3), 1.2, 1.4);
+      mesh.position.set(x, this.groundHeight(x, z) + 1 + (i % 3) * 0.3, z);
+      const a = i * 2.4;
+      this.add(
+        mesh,
+        new T.Vector3(Math.sin(a) * 2.8, 2 + (i % 3), Math.cos(a) * 2.8),
+        [material],
+        low,
+      );
+    }
+  }
   tree(x: number, z: number, low: boolean) {
     for (let i = 0; i < (low ? 7 : 13); i++) {
       const wood = i % 4 === 0;

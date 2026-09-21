@@ -14,7 +14,7 @@ export function missionPacing(stage, level) {
     };
   if (stage === 0 && level === 1)
     return {
-      density: 4,
+      density: 2,
       tanks: 1,
       guards: 3,
       vehicles: ["motorcycle", "jeep"],
@@ -31,8 +31,8 @@ export function missionPacing(stage, level) {
       ],
     };
   return {
-    density: 4,
-    tanks: null,
+    density: stage === 0 ? 2 : 4,
+    tanks: stage === 0 ? 2 : null,
     guards: 3,
     vehicles: ["motorcycle", "jeep", "tank"],
     weapons: [2, 3, 4, 5, 6, 7, 8, 1, 10],
@@ -197,4 +197,24 @@ export function coverHeight(box) {
         ? 1.4
         : 1.8)
   );
+}
+
+/** One finite weapon per package; ordinary rifle/shotgun reserves stay unlimited. */
+export function ammoReward(inventory, reserves, weapons, selected, difficulty) {
+  const eligible = inventory.filter(
+    (i) => Number.isFinite(reserves[i]) && reserves[i] < weapons[i].mag * 4,
+  );
+  if (!eligible.length) return null;
+  const index = eligible.includes(selected)
+    ? selected
+    : eligible.reduce((a, b) =>
+        reserves[a] / weapons[a].mag <= reserves[b] / weapons[b].mag ? a : b,
+      );
+  const fraction =
+    difficulty === "crazy" ? 0.1 : difficulty === "hard" ? 0.2 : 1;
+  const amount = Math.min(
+    weapons[index].mag * 4 - reserves[index],
+    Math.max(1, Math.ceil(weapons[index].mag * fraction)),
+  );
+  return { index, amount };
 }
