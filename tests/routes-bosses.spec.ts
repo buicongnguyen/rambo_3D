@@ -24,11 +24,9 @@ test("every rotated mission preserves exact Crazy patrols, clear vehicle starts 
       g.start(index, { armor: 0, power: 0, mobility: 0 }, "crazy");
       const patrols = 24 + m.level * 4 + (m.biome === "city" ? 8 : 0);
       const expected =
-        index === 0
-          ? 48
-          : index === 1
-            ? 196
-            : patrols * 16 + Math.max(3, Math.floor(patrols / 8)) * 4;
+        index < 3
+          ? [48, 100, 264][index]
+          : patrols * 16 + Math.max(3, Math.floor(patrols / 8)) * 4;
       return {
         index,
         count: g.enemies.length,

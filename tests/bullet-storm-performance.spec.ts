@@ -89,13 +89,14 @@ test("all stages deploy mixed dense patrols and dense combat stays bounded in bo
   );
   for (const row of result.stages) {
     expect(row.clear, JSON.stringify(row)).toBe(true);
-    expect(row.infantry).toBeGreaterThanOrEqual(
-      row.index === 0 ? 12 : row.index === 1 ? 48 : 96,
-    );
+    if (row.index < 3) {
+      expect(row.infantry).toBe([12, 24, 64][row.index]);
+      expect(row.tanks).toBe([0, 1, 2][row.index]);
+    } else {
+      expect(row.infantry).toBeGreaterThanOrEqual(96);
+      expect(row.tanks).toBeGreaterThanOrEqual(3);
+    }
     expect(row.infantry % 4).toBe(0);
-    expect(row.tanks).toBeGreaterThanOrEqual(
-      row.index === 0 ? 0 : row.index === 1 ? 1 : 3,
-    );
     expect(row.trees).toBeGreaterThan(0);
   }
   for (const row of result.profiles) {

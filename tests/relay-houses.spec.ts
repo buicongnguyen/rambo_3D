@@ -221,7 +221,7 @@ test("relay houses and emerging infantry render in the snow battlefield", async 
     w.resetCamera(g.pos);
   });
   await expect(page.locator("#objectives")).toContainText(
-    "✓ Secure forward relay",
+    "✓ Find their signal",
   );
   await expect(page.locator("#interact-prompt")).toBeHidden();
   await page.screenshot({ path: "docs/relay-houses.png" });
