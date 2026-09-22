@@ -114,3 +114,9 @@ See the [combat review and balance plan](docs/TACTICAL_COMBAT_REVIEW.md) for sou
 Q / SWAP selects your starter frag grenade. Aim its amber landing ring with the mouse; mobile FIRE targets nearby enemies. The real projectile arc clears low crates and is blocked by tall cover. Enemies use forward vision cones, turn gradually, and investigate last seen/heard positions instead of tracking you through walls. Gunfire reveals you locally. Attack infantry from behind for 1.75× direct bullet damage; regular tank rear armor admits at least 65% of bullet damage. Bosses have no rear bonus. The HUD reports enemy sight and the minimap shows enemy facing.
 
 See [progression and flanking](docs/PROGRESSION_AND_FLANKING.md) for equipment unlocks, specific rules, and validation. This replaces the previous starter kit and loot-frequency rules in the historical balance notes.
+
+## Enemy infantry roles
+
+Knife rushers chase after alarm; long-sword soldiers telegraph a broad sweep; knife throwers strafe and launch visible spinning blades; rocket troops warn with a locked orange aiming line. Riflemen remain the majority. Roles replace existing patrol slots and appear gradually across the first three missions. Cover, sidestepping and recovery windows give the starter rifle and dodge useful counters. Easy/Normal allow one infantry rocket aiming or airborne at a time; Hard/Crazy allow two.
+
+See the [enemy infantry evaluation and plan](docs/ENEMY_INFANTRY_PLAN.md) for exact balance, sources, Blender assets, attack rules and validation.

@@ -11,6 +11,8 @@ export type MotionState = {
   aiming?: boolean;
   reload?: number;
   dodging?: boolean;
+  melee?: boolean;
+  attack?: { kind: string; progress: number };
 };
 const ease = (t: number) => {
   t = T.MathUtils.clamp(t, 0, 1);
@@ -113,6 +115,36 @@ export class CharacterMotion {
     this.pose("ForearmL", -0.08 - this.recoil * 0.12);
     this.pose("ForearmR", -this.recoil * 0.1);
     this.offset("Weapon", 0, -this.recoil * 0.065);
+    this.pose("Weapon");
+    if (s.melee) {
+      this.pose("ArmL", opposite * swing + 0.35, 0, -0.12);
+      this.pose("ForearmL", 0.25);
+      this.pose("Weapon", -0.3);
+    }
+    if (s.attack) {
+      const { kind, progress } = s.attack;
+      const wind = Math.min(1, progress),
+        strike = Math.min(1, Math.max(0, progress - 1) * 5);
+      this.state = progress < 1 ? "windup" : "strike";
+      if (kind === "rusher" || kind === "swordsman") {
+        this.pose(
+          "Spine",
+          -0.1 * wind + 0.2 * strike,
+          -0.4 * wind + 0.8 * strike,
+        );
+        this.pose(
+          "ArmR",
+          -0.65 * wind + 1.15 * strike,
+          -0.35 * wind + 0.8 * strike,
+          0.2 * wind,
+        );
+        this.pose("ForearmR", -0.4 * wind + 0.5 * strike);
+        this.pose("Weapon", -0.6 * wind + 0.75 * strike, -0.5 * wind + strike);
+      } else if (kind === "thrower") {
+        this.pose("ArmR", -1.65 * wind + 1.8 * strike, 0.2, 0.2);
+        this.pose("ForearmR", -0.6 * wind + 0.6 * strike);
+      }
+    }
     if (s.reload) {
       const cycle = Math.sin(ease(s.reload) * Math.PI);
       this.pose("Spine", -0.04, cycle * 0.14);

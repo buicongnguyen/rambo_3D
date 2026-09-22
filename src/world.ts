@@ -43,6 +43,9 @@ const names = [
   "projectile_rocket",
   "projectile_arrow",
   "projectile_grenade",
+  "weapon_knife",
+  "weapon_sword",
+  "projectile_knife",
 ];
 export async function loadAssets(progress: (n: number) => void) {
   let done = 0;

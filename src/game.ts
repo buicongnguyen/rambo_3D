@@ -1,3 +1,10 @@
+import {
+  INFANTRY,
+  infantryRole,
+  pressureLimits,
+  inMeleeSector,
+} from "./enemy-roles.mjs";
+import { equipInfantry, infantryWarnings, type InfantryRole } from "./infantry";
 import { Squad } from "./squad";
 import { fieldBonuses, openedPrisonWalls, TREASURE } from "./rescue.mjs";
 import {
@@ -33,7 +40,7 @@ import {
 } from "./bosses.mjs";
 import { routeFormation } from "./routes.mjs";
 import { difficultyConfig, terrainFactor, WORLD_BOUNDS } from "./campaign.mjs";
-import { WEAPONS, type WeaponSpec } from "./arsenal";
+import { WEAPONS, ENEMY_WEAPONS, type WeaponSpec } from "./arsenal";
 import { Ride } from "./rides";
 import { ImpactEffects } from "./impacts";
 import { DestructionEffects } from "./destruction";
@@ -67,6 +74,8 @@ export type Actor = {
   radius: number;
   boss: boolean;
   armored?: boolean;
+  role?: InfantryRole;
+  attack?: { time: number; aim: number; reach: number; fired: boolean };
   bossKind?: string;
   guard?: boolean;
   cacheGuard?: boolean;
@@ -160,6 +169,7 @@ export class Game {
   private deathClock = 0;
   private dodgeVector = { x: 0, z: 0 };
   enemies: Actor[] = [];
+  private roleHints = new Set<InfantryRole>();
   bullets: Bullet[] = [];
   effects: Effect[] = [];
   pickups: T.Object3D[] = [];
@@ -534,6 +544,7 @@ export class Game {
     this.power = save.power;
     this.combatNotice = "";
     this.combatNoticeUntil = 0;
+    this.roleHints.clear();
     this.blastAimTime = 0;
     this.blastTarget = undefined;
     this.blastMarker.visible = false;
@@ -667,6 +678,10 @@ export class Game {
             p.z - Math.floor(n / Math.ceil(Math.sqrt(multiplier))) * 1.6,
             false,
             i * multiplier + n,
+            undefined,
+            false,
+            undefined,
+            infantryRole(this.index, i * multiplier + n) as InfantryRole,
           );
           if (p.cacheGuard && this.enemies.length > before)
             this.enemies.at(-1)!.cacheGuard = true;
@@ -887,6 +902,7 @@ export class Game {
     bossKind = MISSIONS[this.index].bossModel,
     armored = false,
     entrance?: Box,
+    role: InfantryRole = "rifleman",
   ) {
     const def = BOSS_DEFS[bossKind as keyof typeof BOSS_DEFS];
     if (!boss || def.ground) {
@@ -936,6 +952,7 @@ export class Game {
       z,
       boss ? def.scale : armored ? 0.62 : 1,
     );
+    if (!boss && !armored) equipInfantry(mesh, role);
     if (boss && bossKind === "gunship") mesh.position.y = 4;
     if (!boss) mesh.rotation.y = ((index % 4) * Math.PI) / 2;
     mesh.userData.lowRange = 48;
@@ -944,8 +961,14 @@ export class Game {
       ? def.hp + MISSIONS[this.index].stage * 100
       : armored
         ? 230 + MISSIONS[this.index].stage * 25
-        : 65 + MISSIONS[this.index].level * 8;
-    const warn = new T.Mesh(this.warnGeo, this.warnMat);
+        : INFANTRY[role].hp + MISSIONS[this.index].level * 8;
+    const warn = new T.Mesh(
+      !boss && !armored && role !== "rifleman"
+        ? infantryWarnings[role]
+        : this.warnGeo,
+      this.warnMat,
+    );
+    warn.visible = false;
     warn.rotation.x = -Math.PI / 2;
     warn.position.set(x, 0.07, z);
     this.world.actors.add(mesh, warn);
@@ -977,6 +1000,7 @@ export class Game {
       anchor: boss ? { x, z } : undefined,
       radius: boss ? def.radius : armored ? 1.7 : 0.65,
       armored,
+      role: !boss && !armored ? role : undefined,
       boss,
       index,
       warn,
@@ -1276,20 +1300,29 @@ export class Game {
     originY = 0.95,
     flashOffset = 0.7,
   ) {
-    const flash = new T.Mesh(this.effectGeo, this.effectMat.clone());
-    flash.position.set(
-      x + Math.sin(angle) * flashOffset,
-      originY,
-      z + Math.cos(angle) * flashOffset,
-    );
-    flash.scale.set(0.32, 0.32, 0.8);
-    flash.rotation.y = angle;
-    flash.material.color.setHex(0xffe8a5);
-    this.world.actors.add(flash);
-    this.effects.push({ mesh: flash, life: 0.055, max: 0.055 });
+    if (spec?.visual !== "knife") {
+      const flash = new T.Mesh(this.effectGeo, this.effectMat.clone());
+      flash.position.set(
+        x + Math.sin(angle) * flashOffset,
+        originY,
+        z + Math.cos(angle) * flashOffset,
+      );
+      flash.scale.set(0.32, 0.32, 0.8);
+      flash.rotation.y = angle;
+      flash.material.color.setHex(0xffe8a5);
+      this.world.actors.add(flash);
+      this.effects.push({ mesh: flash, life: 0.055, max: 0.055 });
+    }
     let mesh: T.Object3D;
     const visual = spec?.visual;
-    if (
+    if (visual === "knife") {
+      mesh = new T.Group();
+      mesh.add(model("projectile_knife"));
+      const trail = new T.Mesh(this.hostileTracer, this.tracerMaterial);
+      trail.scale.set(0.8, 0.8, 0.9);
+      trail.position.z = -0.3;
+      mesh.add(trail); // Small warm streak keeps the spinning steel readable over snow.
+    } else if (
       visual === "rocket" ||
       visual === "arrow" ||
       visual === "grenade" ||
@@ -1318,13 +1351,14 @@ export class Game {
       originY,
       spec,
       age: 0,
-      maxLife: enemy ? 4 : (spec?.life ?? 1.05),
+      maxLife:
+        enemy && !spec?.id.startsWith("enemy") ? 4 : (spec?.life ?? 1.05),
       hits: new Set(),
       x,
       z,
       vx: Math.sin(angle) * speed,
       vz: Math.cos(angle) * speed,
-      life: enemy ? 4 : (spec?.life ?? 1.05),
+      life: enemy && !spec?.id.startsWith("enemy") ? 4 : (spec?.life ?? 1.05),
       damage,
       enemy,
     });
@@ -1461,6 +1495,64 @@ export class Game {
       }
     }
   }
+  private updateInfantryAttack(e: Actor, dt: number, cover: Box[]) {
+    const attack = e.attack;
+    if (!attack || !e.role || e.role === "rifleman") {
+      e.warn.visible = false;
+      return;
+    }
+    const profile = INFANTRY[e.role];
+    attack.time += dt;
+    e.warn.visible = !attack.fired;
+    e.warn.rotation.set(-Math.PI / 2, 0, -attack.aim);
+    if (profile.melee) e.warn.scale.setScalar(attack.reach);
+    else if (e.role === "rocketeer") e.warn.scale.set(1, attack.reach, 1);
+    else e.warn.scale.setScalar(1.2);
+    if (!attack.fired && attack.time >= profile.warning) {
+      attack.fired = true;
+      e.warn.visible = false;
+      e.cool = profile.recovery;
+      if (profile.melee) {
+        const radius = this.riding?.spec.radius ?? 0.52;
+        if (
+          this.invincible === 0 &&
+          inMeleeSector(
+            e,
+            this.pos,
+            attack.aim,
+            profile.reach,
+            profile.arc,
+            radius,
+          ) &&
+          !cover.some(
+            (b) => segmentBox(e.x, e.z, this.pos.x, this.pos.z, b) !== Infinity,
+          )
+        ) {
+          // Blades cannot meaningfully penetrate a tank; boots/jeeps remain vulnerable.
+          this.takeDamage(this.riding?.kind === "tank" ? 1 : profile.damage);
+          this.invincible = Math.max(this.invincible, 0.25);
+          this.playerMotion.hit();
+          this.spark(this.pos.x, this.pos.z);
+          this.onSound("damage");
+        }
+      } else {
+        const spec =
+          e.role === "rocketeer" ? ENEMY_WEAPONS.rocket : ENEMY_WEAPONS.knife;
+        this.shoot(
+          e.x,
+          e.z,
+          attack.aim,
+          true,
+          spec.damage,
+          spec.speed,
+          spec,
+          this.world.groundHeight(e.x, e.z) + 1.15,
+        );
+        e.motion?.kick();
+      }
+    }
+    if (attack.time >= profile.warning + 0.24) e.attack = undefined;
+  }
   private updateReinforcements(dt: number) {
     if (!this.pendingGuards || this.quakeTime > 0 || this.hp <= 0) return;
     this.reinforcementClock -= dt;
@@ -1497,6 +1589,10 @@ export class Game {
         undefined,
         false,
         house,
+        // Opening relay guards stay simple. Later garrisons also field specialists.
+        this.index === 0
+          ? "rifleman"
+          : (infantryRole(this.index, this.guardIds.size + 2) as InfantryRole),
       );
       if (!guard) continue;
       guard.emerging = house;
@@ -2600,6 +2696,19 @@ export class Game {
       (x, z, direction) =>
         this.shoot(x, z, direction, false, 12, WEAPONS[0].speed, WEAPONS[0]),
     );
+    const limits = pressureLimits(this.difficulty);
+    const pressure = { melee: 0, thrower: 0, rocket: 0 };
+    const attackGroup = (role: InfantryRole) =>
+      role === "rocketeer"
+        ? "rocket"
+        : role === "thrower"
+          ? "thrower"
+          : "melee";
+    for (const e of this.enemies)
+      if (e.hp > 0 && e.attack && !e.attack.fired && e.role)
+        pressure[attackGroup(e.role)]++;
+    for (const b of this.bullets)
+      if (b.spec?.id === "enemyRocket") pressure.rocket++;
     for (const e of this.enemies) {
       if (e.hp <= 0) continue;
       if (
@@ -2609,6 +2718,8 @@ export class Game {
         if (Math.hypot(e.x - this.pos.x, e.z - this.pos.z) < 30)
           e.motion?.update(dt, { vx: 0, vz: 0 });
         e.warn.visible = false;
+        e.attack = undefined;
+        e.cool = Math.max(e.cool, 0.7);
         continue;
       }
       if (e.emerging) {
@@ -2656,6 +2767,9 @@ export class Game {
         this.updateBoss(e, dt);
         continue;
       }
+      const role = e.role ?? "rifleman",
+        profile = INFANTRY[role];
+      const specialist = !e.armored && role !== "rifleman";
       const beforeX = e.x,
         beforeZ = e.z;
       const distance = Math.hypot(e.x - this.pos.x, e.z - this.pos.z);
@@ -2668,6 +2782,8 @@ export class Game {
           e.routeTarget = undefined;
         }
         e.warn.visible = false;
+        e.attack = undefined;
+        e.cool = Math.max(e.cool, 0.6);
         continue;
       }
       const seen = seesPlayer(e, this.pos, navigationCover, e.mesh.rotation.y);
@@ -2683,6 +2799,7 @@ export class Game {
         e.routeTarget = undefined;
       }
       if (!e.alerted || !e.lastSeen) {
+        e.attack = undefined;
         e.mesh.rotation.y += dt * 0.18;
         e.warn.visible = false;
         e.motion?.update(dt, { vx: 0, vz: 0 });
@@ -2690,19 +2807,62 @@ export class Game {
       }
       const target = seen ? this.pos : e.lastSeen;
       const a = Math.atan2(target.x - e.x, target.z - e.z);
-      e.mesh.rotation.y = turnToward(
-        e.mesh.rotation.y,
-        a,
-        dt * (e.armored ? 1.1 : 2.2),
-      );
+      e.mesh.rotation.y = e.attack
+        ? e.attack.aim
+        : turnToward(
+            e.mesh.rotation.y,
+            a,
+            dt * (e.armored ? 1.1 : profile.melee ? 4 : 2.2),
+          );
       const hasSight =
         seen && Math.abs(angleDelta(e.mesh.rotation.y, a)) < 0.22;
       // Keep a readable windup after an enemy emerges from cover.
-      e.cool = hasSight
-        ? e.cool - dt
-        : Math.max(e.cool, e.armored ? ENEMY_TANK.warning : 0.6);
+      if (specialist) {
+        if (!seen && e.attack) {
+          e.attack = undefined;
+          e.cool = Math.max(e.cool, 0.6);
+        }
+        if (!e.attack) e.cool = Math.max(0, e.cool - dt);
+        const reach =
+          profile.reach +
+          (profile.melee ? (this.riding?.spec.radius ?? 0.52) : 0);
+        const group = attackGroup(role);
+        if (
+          !e.attack &&
+          hasSight &&
+          e.cool <= 0 &&
+          distance <= reach &&
+          (!profile.melee || distance > 0.1) &&
+          (role !== "rocketeer" || distance >= 6) &&
+          pressure[group] < limits[group]
+        ) {
+          e.attack = {
+            time: 0,
+            aim: a,
+            reach: profile.melee ? reach : distance,
+            fired: false,
+          };
+          pressure[group]++;
+          if (!this.roleHints.has(role)) {
+            this.roleHints.add(role);
+            const hints = {
+              rusher: "KNIFE RUSHER · BACKSTEP OR DODGE",
+              swordsman: "SWORD SWEEP · LEAVE THE ORANGE ARC",
+              thrower: "KNIFE THROWER · SIDESTEP OR USE COVER",
+              rocketeer: "ROCKET AIMING · MOVE OFF THE ORANGE LINE",
+              rifleman: "",
+            };
+            this.combatMessage(hints[role], 2.2);
+          }
+        }
+      } else
+        e.cool = hasSight
+          ? e.cool - dt
+          : Math.max(e.cool, e.armored ? ENEMY_TANK.warning : 0.6);
       e.warn.visible =
-        hasSight && e.cool < (e.armored ? ENEMY_TANK.warning : 0.6);
+        !specialist &&
+        hasSight &&
+        e.cool < (e.armored ? ENEMY_TANK.warning : 0.6);
       e.warn.position.set(e.x, this.world.groundHeight(e.x, e.z) + 0.08, e.z);
       e.warn.scale.setScalar(e.armored ? 2 : 1.2);
       if (!e.boss) {
@@ -2726,20 +2886,42 @@ export class Game {
           const rx = (e.routeTarget?.x ?? e.x) - e.x,
             rz = (e.routeTarget?.z ?? e.z) - e.z;
           const d = Math.hypot(rx, rz);
-          const step = Math.min(d, dt * 1.9);
+          const step = Math.min(d, dt * (specialist ? profile.speed : 1.9));
           if (d > 0.001) {
             vx = (rx / d) * step;
             vz = (rz / d) * step;
           }
         } else {
           // Adapt the original 2D range keeping and strafing to world meters.
-          const desired = e.armored ? 16 : e.index % 3 === 0 ? 11 : 7;
+          const desired = e.armored
+            ? 16
+            : specialist
+              ? profile.melee
+                ? profile.reach * 0.78 + (this.riding?.spec.radius ?? 0.52)
+                : role === "thrower"
+                  ? 9
+                  : 16
+              : e.index % 3 === 0
+                ? 11
+                : 7;
           const advance =
-            distance > desired + 1 ? 1 : distance < desired * 0.55 ? -0.7 : 0;
-          const strafe = Math.sin(this.elapsed * 1.2 + e.index * 2.4) * 0.45;
-          vx = (Math.sin(a) * advance + Math.cos(a) * strafe) * dt * 1.9;
-          vz = (Math.cos(a) * advance - Math.sin(a) * strafe) * dt * 1.9;
+            distance > desired + (profile.melee ? 0.05 : 1)
+              ? 1
+              : distance < desired * 0.55
+                ? -0.7
+                : 0;
+          const strafe = profile.melee
+            ? 0
+            : Math.sin(this.elapsed * 1.2 + e.index * 2.4) *
+              (role === "thrower" ? 0.75 : 0.45);
+          const speed = specialist ? profile.speed : 1.9;
+          vx = (Math.sin(a) * advance + Math.cos(a) * strafe) * dt * speed;
+          vz = (Math.cos(a) * advance - Math.sin(a) * strafe) * dt * speed;
           e.routeTime = 0;
+        }
+        if (e.attack) {
+          vx = 0;
+          vz = 0;
         }
         // Local spacing keeps riflemen from collapsing into one visible body.
         for (const other of this.enemyGrid.near(
@@ -2747,7 +2929,7 @@ export class Game {
           e.z,
           e.radius + 2.5,
         ) as Actor[]) {
-          if (other === e || other.hp <= 0 || other.boss) continue;
+          if (e.attack || other === e || other.hp <= 0 || other.boss) continue;
           const ox = e.x - other.x,
             oz = e.z - other.z,
             d = Math.hypot(ox, oz);
@@ -2794,8 +2976,16 @@ export class Game {
       e.motion?.update(dt, {
         vx: (e.x - beforeX) / dt,
         vz: (e.z - beforeZ) / dt,
-        aiming: e.cool < 0.6,
+        aiming: !!e.attack || e.cool < 0.6,
+        melee: specialist && profile.melee,
+        attack: e.attack
+          ? { kind: role, progress: e.attack.time / profile.warning }
+          : undefined,
       });
+      if (specialist) {
+        this.updateInfantryAttack(e, dt, navigationCover);
+        continue;
+      }
       if (e.armored && hasSight) {
         e.auxCool = (e.auxCool ?? 1) - dt;
         if (e.auxCool <= 0) {
@@ -2962,6 +3152,8 @@ export class Game {
                 : 0),
         nz,
       );
+      if (b.spec?.visual === "knife")
+        b.mesh.children[0].rotation.x = b.age * 22;
       if (b.spec?.visual === "flame") b.mesh.scale.setScalar(0.3 + b.age * 4);
       if (
         b.spec?.visual === "rocket" &&

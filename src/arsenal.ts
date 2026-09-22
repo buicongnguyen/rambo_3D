@@ -165,7 +165,41 @@ export const WEAPONS = [
     splash: 2.8,
   },
 ] as const;
-export type WeaponSpec = (typeof WEAPONS)[number];
+// Hostile gear is deliberately separate from the eleven collectible player weapons.
+export const ENEMY_WEAPONS = {
+  knife: {
+    id: "enemyKnife",
+    priority: 0,
+    name: "THROWING KNIFE",
+    mag: 1,
+    reload: 0,
+    cool: 2.5,
+    damage: 10,
+    speed: 11,
+    life: 1.6,
+    pellets: 1,
+    spread: 0,
+    visual: "knife",
+    splash: 0,
+  },
+  rocket: {
+    id: "enemyRocket",
+    priority: 0,
+    name: "INFANTRY ROCKET",
+    mag: 1,
+    reload: 0,
+    cool: 4.5,
+    damage: 24,
+    speed: 11,
+    life: 2.2,
+    pellets: 1,
+    spread: 0,
+    visual: "rocket",
+    splash: 2.2,
+  },
+} as const;
+export type WeaponSpec =
+  (typeof WEAPONS)[number] | (typeof ENEMY_WEAPONS)[keyof typeof ENEMY_WEAPONS];
 export const VEHICLES = {
   motorcycle: {
     name: "MOTORCYCLE",

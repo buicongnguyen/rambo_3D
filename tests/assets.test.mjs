@@ -2,7 +2,7 @@ import fs from "node:fs";
 import path from "node:path";
 import { test } from "node:test";
 import assert from "node:assert/strict";
-test("all forty-one Blender GLBs are valid glTF 2, contain real geometry, and meet asset budget", () => {
+test("all forty-four Blender GLBs are valid glTF 2, contain real geometry, and meet asset budget", () => {
   const names = [
     "commando",
     "rifleman",
@@ -47,6 +47,9 @@ test("all forty-one Blender GLBs are valid glTF 2, contain real geometry, and me
     "projectile_rocket",
     "projectile_arrow",
     "projectile_grenade",
+    "weapon_knife",
+    "weapon_sword",
+    "projectile_knife",
   ];
   let bytes = 0;
   for (const name of names) {
@@ -136,4 +139,17 @@ test("rescue assets expose an animated gate and keep the added download under 11
   }
   assert.ok(bytes < 110000);
   assert.ok(fs.statSync("art/rescue-kit.blend").size > 100000);
+});
+
+test("Blender specialist blades have steel bevels and stay below 70 KB combined", () => {
+  let bytes = 0;
+  for (const name of ["weapon_knife", "weapon_sword", "projectile_knife"]) {
+    const b = fs.readFileSync(`public/models/${name}.glb`);
+    bytes += b.length;
+    const g = JSON.parse(b.toString("utf8", 20, 20 + b.readUInt32LE(12)));
+    assert.ok(g.materials.some((m) => m.name === "Honed bevel"));
+    assert.ok(g.materials.some((m) => m.name === "Wrapped dark leather"));
+  }
+  assert.ok(bytes < 70000, `${bytes} bytes`);
+  assert.ok(fs.statSync("art/infantry-kit.blend").size > 100000);
 });
