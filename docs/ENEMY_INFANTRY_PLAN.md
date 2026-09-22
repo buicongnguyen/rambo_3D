@@ -74,3 +74,4 @@ Future tuning should be based on play sessions: measure deaths by role, damage d
 - Review found and corrected a text-encoding issue, an oversized first blade export, a phone-test selector, mirrored angled attack warnings, and low-contrast thrown steel on snow. The final blade has a short warm streak; the three GLBs fit the original total asset budget.
 
 - A rendered-world-coordinate regression checks every melee/rocket warning at six headings, including left, right and diagonal. It reproduced the mirrored sector/line before the fix and is part of the release suite.
+- The full CI run passed 102 of 103 browser checks. Its remaining check expected the old three-section guide; it now verifies four collapsed sections and explicitly opens/closes the new enemy-counter section before checking phone controls. That updated regression passed locally.
