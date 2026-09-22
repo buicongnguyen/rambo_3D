@@ -56,7 +56,7 @@ test("opening kit, short relay objective and earned vehicles work through extrac
       grenades: 4,
       enemies: 12,
       rides: 0,
-      drops: [9],
+      drops: [9, 2],
     },
     guards: 2,
     blocked: true,

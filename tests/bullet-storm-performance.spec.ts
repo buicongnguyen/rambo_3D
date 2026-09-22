@@ -38,6 +38,8 @@ test("all stages deploy mixed dense patrols and dense combat stays bounded in bo
       g.quakeTime = 0;
       const e = g.enemies[Math.floor(g.enemies.length * 0.45)];
       g.pos.set(e.x, 0, e.z);
+      g.squad.clear();
+      g.squad.deploy(3, g.pos, COVER);
       g.inventory = [0, 1, 2];
       g.activateTurbo();
       const durations = [];
@@ -62,6 +64,7 @@ test("all stages deploy mixed dense patrols and dense combat stays bounded in bo
       profiles.push({
         low,
         population: g.enemies.length,
+        allies: g.squad.allies.length,
         active: g.enemies.filter(
           (e: any) => e.hp > 0 && Math.hypot(e.x - g.pos.x, e.z - g.pos.z) < 30,
         ).length,
@@ -101,6 +104,7 @@ test("all stages deploy mixed dense patrols and dense combat stays bounded in bo
   }
   for (const row of result.profiles) {
     expect(row.population).toBe(660);
+    expect(row.allies).toBe(3);
     expect(row.drawCalls).toBeLessThan(row.low ? 1500 : 2000);
     expect(row.maxBullets).toBeGreaterThan(10);
     expect(row.fragments).toBeLessThanOrEqual(row.low ? 64 : 144);

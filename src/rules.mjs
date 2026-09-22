@@ -69,6 +69,9 @@ export function freshSave() {
     mobility: 0,
     best: 0,
     completed: false,
+    credits: 0,
+    squad: 0,
+    fieldKit: 0,
   };
 }
 export function validateSave(raw) {
@@ -92,8 +95,21 @@ export function validateSave(raw) {
     typeof raw.completed !== "boolean"
   )
     return fallback;
+  for (const [k, limit] of [
+    ["credits", 1000000],
+    ["squad", 3],
+    ["fieldKit", 3],
+  ])
+    if (
+      raw[k] !== undefined &&
+      (!Number.isSafeInteger(raw[k]) || raw[k] < 0 || raw[k] > limit)
+    )
+      return fallback;
   return {
     version: 2,
+    credits: raw.credits ?? 0,
+    squad: raw.squad ?? 0,
+    fieldKit: raw.fieldKit ?? 0,
     mission: raw.mission,
     armor: raw.armor,
     power: raw.power,
@@ -102,9 +118,25 @@ export function validateSave(raw) {
     completed: raw.completed,
   };
 }
-export function advanceCampaign(save, upgrade, score) {
+export function advanceCampaign(save, upgrade, score, rewards = {}) {
   const next = validateSave(save);
-  next.best = Math.max(next.best, Math.floor(Math.max(0, score)));
+  if (next.completed) return next;
+  next.best = Math.max(
+    next.best,
+    Number.isFinite(score)
+      ? Math.min(100000000, Math.floor(Math.max(0, score)))
+      : 0,
+  );
+  const credits =
+    Number.isSafeInteger(rewards.credits) && rewards.credits >= 0
+      ? Math.min(rewards.credits, 10000)
+      : 0;
+  const squad =
+    Number.isSafeInteger(rewards.squad) && rewards.squad >= 0
+      ? Math.min(3, rewards.squad)
+      : next.squad;
+  next.credits = Math.min(1000000, next.credits + credits);
+  next.squad = squad;
   if (next.mission === LEVEL_COUNT - 1) {
     next.completed = true;
     return next;

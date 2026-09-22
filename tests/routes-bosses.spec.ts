@@ -61,7 +61,7 @@ test("every rotated mission preserves exact Crazy patrols, clear vehicle starts 
   for (const row of rows) {
     expect(row.count, JSON.stringify(row)).toBe(row.expected);
     expect(row).toMatchObject({
-      weapons: row.index === 0 ? 1 : row.index === 1 ? 4 : 9,
+      weapons: row.index === 0 ? 2 : row.index === 1 ? 4 : 9,
       health: row.index < 2 ? 2 : 6,
       shield: row.index === 0 ? 1 : row.index === 1 ? 2 : 5,
       carsClear: true,
@@ -107,7 +107,9 @@ test("shield crates absorb personal damage, remain at capacity and preserve vehi
     vehicle: { shield: 80, armorLost: 10 },
     reset: 0,
   });
-  await expect(page.locator("#shield-text")).toHaveText("SHIELD 0 / 80");
+  await expect(page.locator("#shield-text")).toHaveText(
+    "SHIELD 0 · ALLIES 0 · ¤0",
+  );
 });
 
 test("boss light volleys are frequent and heavy salvos warn, cover broad areas and respect cover", async ({

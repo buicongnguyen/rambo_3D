@@ -1,3 +1,5 @@
+import { Squad } from "./squad";
+import { fieldBonuses, openedPrisonWalls, TREASURE } from "./rescue.mjs";
 import {
   ENEMY_TANK,
   armorMultiplier,
@@ -139,9 +141,21 @@ export class Game {
     toneMapped: false,
   });
   player: T.Group;
-  companion?: T.Group;
+  squad: Squad;
+  prisons: {
+    box: Box;
+    mesh: T.Group;
+    captive: T.Group;
+    marker: T.Mesh;
+    gate?: T.Object3D;
+    freed: boolean;
+    open: number;
+    collisionOpen: boolean;
+  }[] = [];
+  treasures: T.Group[] = [];
+  credits = 0;
+  rescued = 0;
   playerMotion!: CharacterMotion;
-  companionMotion?: CharacterMotion;
   corpses: FallenBody[] = [];
   private deathClock = 0;
   private dodgeVector = { x: 0, z: 0 };
@@ -179,8 +193,6 @@ export class Game {
     this.combatNoticeUntil = this.elapsed + seconds;
   }
   hazards: Hazard[] = [];
-  private followTarget = { x: 0, z: 0 };
-  private followClock = 0;
   private throwDistance = 12.75;
   private grenadeMarker = new T.Mesh(
     new T.RingGeometry(2.9, 3, 40),
@@ -408,6 +420,15 @@ export class Game {
   onRadio: (text: string) => void = () => {};
   onSound: (type: string) => void = () => {};
   onEnd: (win: boolean) => void = () => {};
+  private rescueMarkerGeo = new T.RingGeometry(1.05, 1.22, 32);
+  private rescueMarkerMat = new T.MeshBasicMaterial({
+    color: 0x57eaff,
+    toneMapped: false,
+    side: T.DoubleSide,
+    transparent: true,
+    opacity: 0.85,
+    depthWrite: false,
+  });
   private bulletGeo = new T.BoxGeometry(0.1, 0.1, 0.65);
   private effectGeo = new T.IcosahedronGeometry(0.25, 0);
   private effectMat = new T.MeshBasicMaterial({
@@ -459,6 +480,7 @@ export class Game {
   });
   constructor(world: World) {
     this.world = world;
+    this.squad = new Squad(world);
     this.impacts = new ImpactEffects(world.actors);
     this.destruction = new DestructionEffects(world.actors, (x, z) =>
       world.groundHeight(x, z),
@@ -476,7 +498,13 @@ export class Game {
   }
   start(
     index: number,
-    save: { armor: number; power: number; mobility: number },
+    save: {
+      armor: number;
+      power: number;
+      mobility: number;
+      squad?: number;
+      fieldKit?: number;
+    },
     difficulty: string,
   ) {
     this.cleanup();
@@ -517,10 +545,12 @@ export class Game {
     this.mobility = save.mobility;
     this.maxHp = difficultyConfig(difficulty).health + save.armor * 35;
     this.hp = this.maxHp;
-    this.shield = 0;
+    this.shield = Math.min(3, Math.max(0, save.fieldKit ?? 0)) * 10;
+    this.credits = this.rescued = 0;
     this.ammo = 24;
     this.magazines = WEAPONS.map((w) => w.mag);
     this.reserves = WEAPONS.map((w, i) => (i < 2 ? Infinity : w.mag * 3));
+    this.reserves[9] += Math.min(3, Math.max(0, save.fieldKit ?? 0));
     this.inventory = [0, 9];
     this.shownWeapon = -1;
     this.weapon = 0;
@@ -574,6 +604,45 @@ export class Game {
       else this.pickups.push(mesh);
     }
     const obstacles = [...COVER, ...this.rides.map((v) => v.box)];
+    this.squad.deploy(save.squad ?? 0, mission.start, obstacles);
+    for (const box of COVER.filter((b) => b.kind === "prison")) {
+      const mesh = model("prisonHouse", box.x, box.z),
+        captive = model("captive", box.entrance!.x, box.entrance!.z);
+      mesh.rotation.y = box.rotation!;
+      captive.rotation.y = box.rotation!;
+      captive.position.y = this.world.groundHeight(
+        captive.position.x,
+        captive.position.z,
+      );
+      mesh.userData.batchActor = true;
+      mesh.userData.batchRadius = 5;
+      captive.userData.batchActor = true;
+      let gate: T.Object3D | undefined;
+      mesh.traverse((o) => {
+        if (o.userData.joint === "Gate") gate = o;
+      });
+      const marker = new T.Mesh(this.rescueMarkerGeo, this.rescueMarkerMat);
+      marker.rotation.x = -Math.PI / 2;
+      marker.position.set(box.exit!.x, 0.055, box.exit!.z);
+      this.world.actors.add(mesh, captive, marker);
+      this.prisons.push({
+        box,
+        mesh,
+        captive,
+        marker,
+        gate,
+        freed: false,
+        open: 0,
+        collisionOpen: false,
+      });
+    }
+    for (const p of fieldBonuses(mission, obstacles, PATCHES, drops)) {
+      if (p.kind === "weapon") {
+        const mesh = this.supplyCrate("weapon", p.x, p.z, 2);
+        mesh.userData.bonusRounds = 60;
+        this.weaponDrops.push({ mesh, index: 2 });
+      } else this.addTreasure(p.kind as keyof typeof TREASURE, p.x, p.z);
+    }
     const patrols = guardedPatrols(
       SPAWNS,
       [
@@ -634,6 +703,76 @@ export class Game {
       this.spawn(p.x, p.z - 3, false, 10000 + i, mission.bossModel, true);
     }
     this.showWeapon();
+  }
+  private addTreasure(kind: keyof typeof TREASURE, x: number, z: number) {
+    const mesh = model(kind, x, z);
+    mesh.userData.kind = kind;
+    mesh.userData.batchActor = true;
+    this.treasures.push(mesh);
+    this.world.actors.add(mesh);
+  }
+  private updateRescues(dt: number) {
+    for (const prison of this.prisons) {
+      const exit = prison.box.exit!;
+      if (
+        !prison.freed &&
+        this.canCollect(new T.Vector3(exit.x, 0, exit.z), 1.8)
+      ) {
+        prison.freed = true;
+        prison.marker.visible = false;
+        prison.captive.removeFromParent();
+        this.rescued++;
+        const joined = this.squad.add(
+          prison.box.entrance!.x,
+          prison.box.entrance!.z,
+          prison.box,
+        );
+        this.score += 250;
+        this.addTreasure("diamond", exit.x, exit.z);
+        this.onRadio(
+          joined
+            ? "Prisoner freed! Your ally follows and fires in your direction. Recover the diamond, then extract to keep your squad and treasure."
+            : "Prisoner evacuated. Your three-person support squad is full; recover the rescue diamond.",
+        );
+        this.combatMessage(
+          joined ? "ALLY RESCUED · SQUAD +1" : "PRISONER EVACUATED",
+          2,
+        );
+        this.onSound("objective");
+      }
+      if (prison.freed) {
+        prison.open = Math.min(1, prison.open + dt * 1.6);
+        if (prison.gate) prison.gate.position.y = prison.open * 2.6;
+        if (prison.open === 1 && !prison.collisionOpen) {
+          prison.collisionOpen = true;
+          const index = COVER.indexOf(prison.box);
+          if (index !== -1) {
+            COVER.splice(index, 1, ...openedPrisonWalls(prison.box));
+            this.refreshCoverGrid();
+          }
+        }
+      }
+    }
+    for (let i = this.treasures.length - 1; i >= 0; i--) {
+      const t = this.treasures[i];
+      t.position.y =
+        this.world.groundHeight(t.position.x, t.position.z) +
+        0.22 +
+        Math.sin(this.elapsed * 2 + i) * 0.08;
+      t.rotation.y += dt * 0.6;
+      if (this.canCollect(t.position, 1.4)) {
+        const kind = t.userData.kind as keyof typeof TREASURE;
+        this.credits += TREASURE[kind];
+        this.score += TREASURE[kind];
+        t.removeFromParent();
+        this.treasures.splice(i, 1);
+        this.combatMessage(
+          `${kind.toUpperCase()} +${TREASURE[kind]} · EXTRACT TO BANK`,
+          1.2,
+        );
+        this.onSound("objective");
+      }
+    }
   }
   private supplyCrate(
     kind: "health" | "shield" | "weapon" | "ammo",
@@ -700,7 +839,15 @@ export class Game {
     this.impacts.clear();
     for (const corpse of this.corpses) corpse.dispose();
     this.corpses = [];
-    this.companionMotion = undefined;
+    this.squad.clear();
+    for (const p of this.prisons) {
+      p.mesh.removeFromParent();
+      p.captive.removeFromParent();
+      p.marker.removeFromParent();
+    }
+    for (const t of this.treasures) t.removeFromParent();
+    this.prisons = [];
+    this.treasures = [];
     this.riding = undefined;
     this.rides = [];
     this.weaponDrops = [];
@@ -727,12 +874,10 @@ export class Game {
       if (h.rock) this.world.actors.remove(h.rock);
     }
     this.hazards = [];
-    this.followClock = 0;
     this.enemies = [];
     this.bullets = [];
     this.effects = [];
     this.pickups = [];
-    this.companion = undefined;
   }
   spawn(
     x: number,
@@ -2368,12 +2513,17 @@ export class Game {
 
       if (this.canCollect(drop.mesh.position, 1.5)) {
         this.magazines[this.weapon] = this.ammo;
-        if (!this.inventory.includes(drop.index))
+        if (!this.inventory.includes(drop.index)) {
           this.inventory.push(drop.index);
-        else if (Number.isFinite(this.reserves[drop.index]))
+          if (drop.mesh.userData.bonusRounds) {
+            this.magazines[drop.index] = drop.mesh.userData.bonusRounds;
+            this.reserves[drop.index] = 0;
+          }
+        } else if (Number.isFinite(this.reserves[drop.index]))
           this.reserves[drop.index] = Math.min(
             WEAPONS[drop.index].mag * 4,
-            this.reserves[drop.index] + WEAPONS[drop.index].mag * 2,
+            this.reserves[drop.index] +
+              (drop.mesh.userData.bonusRounds ?? WEAPONS[drop.index].mag * 2),
           );
         this.selectStrongestWeapon();
         this.showWeapon();
@@ -2438,60 +2588,18 @@ export class Game {
     }
     this.updateReinforcements(dt);
     input.interact = false;
-    if (this.companion) {
-      this.companion.visible = !(this.riding && this.objective);
-      if (this.riding && this.objective) this.companion.position.copy(this.pos);
-    }
+    this.updateRescues(dt);
     const navigationCover = [...COVER, ...parked];
-    const companionBefore = this.companion?.position.clone();
-    if (this.companion && this.objective && !this.riding) {
-      const p = this.companion.position,
-        d = p.distanceTo(this.pos);
-      if (d > 2) {
-        this.followClock -= dt;
-        if (this.followClock <= 0) {
-          this.followTarget = routeStep(
-            p.x,
-            p.z,
-            this.pos.x,
-            this.pos.z,
-            navigationCover,
-            0.45,
-            WORLD_BOUNDS,
-          );
-          this.followClock = 0.35;
-        }
-        const fd = Math.max(
-          0.1,
-          Math.hypot(this.followTarget.x - p.x, this.followTarget.z - p.z),
-        );
-        const next = moveCircle(
-          p.x,
-          p.z,
-          ((this.followTarget.x - p.x) / fd) * Math.min(fd, dt * 6.6),
-          ((this.followTarget.z - p.z) / fd) * Math.min(fd, dt * 6.6),
-          0.4,
-          navigationCover,
-          WORLD_BOUNDS,
-        );
-        p.x = next.x;
-        p.z = next.z;
-        this.companion.rotation.y = Math.atan2(
-          this.pos.x - p.x,
-          this.pos.z - p.z,
-        );
-      }
-    }
-    if (this.companion && companionBefore) {
-      this.companion.position.y = this.world.groundHeight(
-        this.companion.position.x,
-        this.companion.position.z,
-      );
-      this.companionMotion?.update(dt, {
-        vx: (this.companion.position.x - companionBefore.x) / dt,
-        vz: (this.companion.position.z - companionBefore.z) / dt,
-      });
-    }
+    this.squad.update(
+      dt,
+      this.pos,
+      !!this.riding,
+      firing,
+      angle,
+      navigationCover,
+      (x, z, direction) =>
+        this.shoot(x, z, direction, false, 12, WEAPONS[0].speed, WEAPONS[0]),
+    );
     for (const e of this.enemies) {
       if (e.hp <= 0) continue;
       if (
@@ -3040,12 +3148,7 @@ export class Game {
       Math.hypot(
         this.pos.x - mission.extract.x,
         this.pos.z - mission.extract.z,
-      ) < 2.5 &&
-      (!this.companion ||
-        Math.hypot(
-          this.companion.position.x - mission.extract.x,
-          this.companion.position.z - mission.extract.z,
-        ) < 5)
+      ) < 2.5
     ) {
       this.endTurbo();
       this.phase = "won";

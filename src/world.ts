@@ -28,6 +28,10 @@ const names = [
   "snowPine",
   "house",
   "relayHouse",
+  "prisonHouse",
+  "money",
+  "gold",
+  "diamond",
   "ruinWall",
   "fuelDrum",
   "spider",
@@ -341,8 +345,13 @@ export class World {
     this.terrain.add(o);
     return o;
   }
-  groundHeight(_x: number, _z: number) {
-    return 0;
+  private rescueFloors: Box[] = [];
+  groundHeight(x: number, z: number) {
+    return this.rescueFloors.some(
+      (b) => Math.abs(x - b.x) < 2.05 && Math.abs(z - b.z) < 2.05,
+    )
+      ? 0.24
+      : 0;
   }
   build(index: number) {
     this.missionIndex = index;
@@ -359,6 +368,7 @@ export class World {
     const mission = MISSIONS[index],
       biome = mission.biome;
     buildLayout(mission);
+    this.rescueFloors = COVER.filter((b) => b.kind === "prison");
     this.scene.background = new T.Color(mission.fog);
     this.scene.fog = new T.FogExp2(mission.fog, 0.009);
     const width = WORLD_BOUNDS.x * 2,
@@ -575,7 +585,8 @@ export class World {
         if (box.asset === "relayHouse") house.rotation.y = box.rotation!;
         else house.scale.set(box.w / 5, 1 + (index % 3) * 0.15, box.d / 7);
         this.terrain.add(house);
-      } else this.terrain.add(coverModel(box, mission.layout));
+      } else if (box.kind !== "prison")
+        this.terrain.add(coverModel(box, mission.layout));
     }
     let seed = 19 + mission.stage * 13 + mission.level * 7;
     const rand = () => {

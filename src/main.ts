@@ -1,3 +1,4 @@
+import { buyFieldKit, fieldKitCost } from "./economy.mjs";
 import { InteractionHint } from "./environment.mjs";
 import {
   STAGES,
@@ -58,7 +59,7 @@ app.innerHTML = `
 <aside class="intel"><div class="intel-top"><span class="live-dot"></span> LIVE RECON <span>SECTOR 07</span></div><div class="intel-map"><div class="scan"></div><div class="coordinate c1">17°04′ N</div><div class="coordinate c2">106°42′ E</div><div class="map-line l1"></div><div class="map-line l2"></div><span class="map-dot d1"></span><span class="map-dot d2"></span><span class="map-dot d3"></span><span class="map-label">KHE SAN VALLEY</span></div><div class="intel-bottom"><span>MISSION BRIEF / <b id="brief-number">01</b></span><h2 id="brief-title">Emerald Killbox</h2><p id="brief-copy"></p><div class="intel-meta"><span>◆ SOLO CAMPAIGN</span><span>● 3D TACTICAL ACTION</span></div></div></aside>
 <section class="campaign" aria-label="Campaign missions"><div class="campaign-heading"><span>CHOOSE YOUR NEXT FRONT</span><span>CAMPAIGN / NIGHTFALL</span></div><div id="mission-cards" class="mission-cards"></div></section>
 <footer class="menu-footer"><span>AN ORIGINAL LOW-POLY COMBAT EXPERIENCE <b id="best-score"></b></span><button id="controls-open">FIELD MANUAL <span>↗</span></button><span>BUILT WITH BLENDER + THREE.JS</span></footer></main>
-<section id="hud" hidden aria-label="Mission status"><div class="hud-top"><div class="objective-panel"><span class="eyebrow" id="mission-label"></span><h2 id="mission-title"></h2><div id="objectives"></div></div><div class="hud-right"><button class="icon-button" id="pause">Ⅱ <span>PAUSE</span></button><canvas id="minimap" width="144" height="144" aria-label="Tactical map: road pale green, player white, enemies orange, weapons purple, medical green, shields blue, relay yellow"></canvas><span class="map-caption" id="route-direction">NORTHBOUND ROUTE</span></div></div><div id="boss-panel" hidden><div><b id="boss-name"></b><span id="boss-phase">ARMORED TARGET</span></div><div class="boss-track"><i id="boss-bar"></i></div></div><div id="radio" role="status"><span>VALE / RADIO</span><p></p></div><div id="interact-prompt" hidden></div><div id="combat-notice" role="status" hidden></div><div class="hud-bottom"><div class="health-panel"><div class="hud-kicker">GHOST <span id="health-text"></span></div><div class="health-track"><i id="health-bar"></i></div><div id="shield-text" aria-label="Personal shield">SHIELD 0 / 80</div><div id="awareness">UNSEEN · FLANK FOR REAR HITS</div><div class="health-meta"><span id="dash-text">DODGE READY</span><span id="score">000000</span></div></div><div class="controls-strip"><button id="turbo" aria-label="Activate Turbo" aria-keyshortcuts="F">F · TURBO READY</button> <kbd>WASD</kbd> MOVE <kbd>B</kbd> BLAST <kbd>SPACE</kbd> AUTO FIRE <kbd>E</kbd> INTERACT <kbd>SHIFT</kbd> DODGE</div><div class="ammo-panel"><div id="weapon-name">M4 / ASSAULT RIFLE</div><strong id="ammo">24</strong><span id="ammo-reserve">/ ∞</span><small id="reload-label">R RELOAD · Q SWITCH</small><button id="weapon-swap" aria-label="Switch weapon" aria-keyshortcuts="Q" title="Press Q to cycle collected weapons">Q - SWAP WEAPON</button></div></div><div id="touch"><div id="move-pad" aria-label="Movement joystick: drag to walk or run" role="group"><span class="stick-nub"></span><small>MOVE</small></div><div class="touch-actions"><button data-action="swap" aria-label="Switch weapon" class="swap-weapon">SWAP WEAPON</button><button data-action="reload">RELOAD</button><button data-action="interact" aria-label="Board or exit nearby vehicle">USE</button><button data-action="dodge">DODGE</button><button data-action="turbo" aria-label="Activate Turbo" class="turbo">TURBO</button><button data-hold="blast" class="blast" aria-label="Target explosive stores" title="Hold to fire at a safe explosive store">BLAST</button><button data-hold="fire" class="fire">FIRE</button></div></div></section>
+<section id="hud" hidden aria-label="Mission status"><div class="hud-top"><div class="objective-panel"><span class="eyebrow" id="mission-label"></span><h2 id="mission-title"></h2><div id="objectives"></div></div><div class="hud-right"><button class="icon-button" id="pause">Ⅱ <span>PAUSE</span></button><canvas id="minimap" width="144" height="144" aria-label="Tactical map: road pale green, player white, enemies orange, weapons purple, medical green, shields blue, relay yellow, prisons and allies cyan, treasure gold"></canvas><span class="map-caption" id="route-direction">NORTHBOUND ROUTE</span></div></div><div id="boss-panel" hidden><div><b id="boss-name"></b><span id="boss-phase">ARMORED TARGET</span></div><div class="boss-track"><i id="boss-bar"></i></div></div><div id="radio" role="status"><span>VALE / RADIO</span><p></p></div><div id="interact-prompt" hidden></div><div id="combat-notice" role="status" hidden></div><div class="hud-bottom"><div class="health-panel"><div class="hud-kicker">GHOST <span id="health-text"></span></div><div class="health-track"><i id="health-bar"></i></div><div id="shield-text" aria-label="Shield, allies and field credits">SHIELD 0 / 80</div><div id="awareness">UNSEEN · FLANK FOR REAR HITS</div><div class="health-meta"><span id="dash-text">DODGE READY</span><span id="score">000000</span></div></div><div class="controls-strip"><button id="turbo" aria-label="Activate Turbo" aria-keyshortcuts="F">F · TURBO READY</button> <kbd>WASD</kbd> MOVE <kbd>B</kbd> BLAST <kbd>SPACE</kbd> AUTO FIRE <kbd>E</kbd> INTERACT <kbd>SHIFT</kbd> DODGE</div><div class="ammo-panel"><div id="weapon-name">M4 / ASSAULT RIFLE</div><strong id="ammo">24</strong><span id="ammo-reserve">/ ∞</span><small id="reload-label">R RELOAD · Q SWITCH</small><button id="weapon-swap" aria-label="Switch weapon" aria-keyshortcuts="Q" title="Press Q to cycle collected weapons">Q - SWAP WEAPON</button></div></div><div id="touch"><div id="move-pad" aria-label="Movement joystick: drag to walk or run" role="group"><span class="stick-nub"></span><small>MOVE</small></div><div class="touch-actions"><button data-action="swap" aria-label="Switch weapon" class="swap-weapon">SWAP WEAPON</button><button data-action="reload">RELOAD</button><button data-action="interact" aria-label="Board or exit nearby vehicle">USE</button><button data-action="dodge">DODGE</button><button data-action="turbo" aria-label="Activate Turbo" class="turbo">TURBO</button><button data-hold="blast" class="blast" aria-label="Target explosive stores" title="Hold to fire at a safe explosive store">BLAST</button><button data-hold="fire" class="fire">FIRE</button></div></div></section>
 <div id="overlay" class="overlay" hidden></div><div id="toast" role="status" hidden></div>`;
 const canvas = $<HTMLCanvasElement>("#scene");
 let world: World, game: Game;
@@ -248,6 +249,31 @@ function menu() {
     });
   $("#launch-area").innerHTML =
     `<button class="primary" id="deploy" ${ready ? "" : "disabled"}>${save.completed ? "REPLAY CAMPAIGN" : save.mission > 0 ? "CONTINUE OPERATION" : "DEPLOY TO STAGE"} <span>↗</span></button>${save.mission > 0 && !save.completed ? '<button class="text-button" id="new-campaign">START NEW CAMPAIGN</button>' : ""}`;
+  const price = fieldKitCost(save);
+  $("#launch-area").insertAdjacentHTML(
+    "beforeend",
+    `<button class="text-button field-shop" id="field-shop">FIELD KIT ${save.fieldKit}/3 · ${save.credits} CREDITS · ${save.squad} ALLIES</button>`,
+  );
+  $("#field-shop").onclick = () => {
+    const available =
+      previewMission === undefined &&
+      !save.completed &&
+      price !== null &&
+      save.credits >= price;
+    showOverlay(
+      `<span class="eyebrow">RECOVERED TREASURE / ${save.credits} CREDITS</span><h2>Bring a better field kit.</h2><p>Banknotes: 10 · Gold: 25 · Diamond: 75 credits. Extract to bank mission treasure and keep rescued allies. Your rifle always has unlimited reloads.</p><p>Permanent Field Kit rank ${save.fieldKit}/3: each rank adds 10 starting shield and one extra frag grenade to every mission, including retries. This is separate from your free mission upgrade.</p><button class="primary" id="buy-kit" ${available ? "" : "disabled"}>${price === null ? "FIELD KIT MAXED" : `UPGRADE · ${price} CREDITS`}</button>${previewMission !== undefined ? "<p>Deploy to your selected stage before upgrading its new campaign.</p>" : price !== null && save.credits < price ? `<p>Recover ${price - save.credits} more credits and extract.</p>` : ""}<button class="text-button" id="close-shop">RETURN TO BRIEFING</button>`,
+    );
+    $("#buy-kit").onclick = () => {
+      if (!available || mode !== "menu") return;
+      save = buyFieldKit(save);
+      write("nightfall-campaign", save);
+      menu();
+    };
+    $("#close-shop").onclick = () => {
+      $("#overlay").hidden = true;
+      $("#field-shop").focus();
+    };
+  };
   $("#deploy").onclick = () => {
     if (previewMission !== undefined) {
       save = { ...freshSave(), mission: previewMission, best: save.best };
@@ -264,7 +290,7 @@ function menu() {
   if (reset)
     reset.onclick = () => {
       showOverlay(
-        `<span class="eyebrow">NEW CAMPAIGN</span><h2>Back to the beginning?</h2><p>This resets mission progress and upgrades. Your best score is kept.</p><button class="primary" id="confirm-new">START OVER <span>↗</span></button><button class="text-button" id="cancel-new">KEEP MY PROGRESS</button>`,
+        `<span class="eyebrow">NEW CAMPAIGN</span><h2>Back to the beginning?</h2><p>This resets mission progress, upgrades, treasure and your squad. Your best score is kept.</p><button class="primary" id="confirm-new">START OVER <span>↗</span></button><button class="text-button" id="cancel-new">KEEP MY PROGRESS</button>`,
       );
       $("#confirm-new").onclick = () => {
         save = { ...freshSave(), best: save.best };
@@ -296,7 +322,7 @@ function showOverlay(html: string) {
   const overlay = $("#overlay");
   overlay.innerHTML = `<section class="modal" role="dialog" aria-modal="true" aria-label="Mission panel">${html}</section>`;
   overlay.hidden = false;
-  overlay.querySelector<HTMLButtonElement>("button")?.focus();
+  overlay.querySelector<HTMLButtonElement>("button:not(:disabled)")?.focus();
 }
 function pause() {
   if (mode !== "playing") return;
@@ -336,12 +362,12 @@ $("#home").onclick = (e) => {
 $("#controls-open").onclick = () => {
   showOverlay(
     `<span class="eyebrow">FIELD MANUAL / QUICK START</span><h2>Find the signal. Bring them home.</h2>
-    <p>Move, fire, and reach the yellow relay. It secures automatically; defeat the guards leaving the houses, then follow green extraction. You can leave other patrols alive.</p>
+    <p>Move, fire, and reach the yellow relay. It secures automatically; defeat the guards leaving the houses, then follow green extraction. You can leave other patrols alive. Blue prison doors are optional rescue stops: approach to free allies who follow and fire in your direction. Three allies can support you; they travel with your vehicle and extract with you.</p>
     <div class="manual-grid"><span>WASD / LEFT PAD</span><b>Move</b><span>SPACE / FIRE</span><b>Assisted aim and fire</b><span>MOUSE + CLICK</span><b>Manual aim and fire</b><span>Q / SWAP</span><b>Rifle ↔ frag grenade</b></div>
-    <p>The rifle has unlimited reloads. Four frag grenades are ready. Easy gives extra health with the same enemies; it is a good place to start.</p>
+    <p>The rifle has unlimited reloads. Four frag grenades are ready before field-kit upgrades. Find the early M249 cache for 60 bonus rounds. Easy gives extra health with the same enemies; it is a good place to start.</p>
     <details class="manual-section"><summary>Smart moves & rewards</summary><p>Hold B / BLAST to target a visible fuel drum or red EXPLOSIVE crate. Its explosion hurts nearby enemies and you; solid cover shields the blast. Chain kills grant +75 score per additional enemy and up to +15 shield. Rear bullet hits deal 1.75× damage to soldiers; a rear-hit finish adds +50 score and +5 shield. Enemy tank armor is weaker from behind. Bosses have no rear-hit bonus.</p><p>Grenades arc over low cover. Q / SWAP selects them; mouse aim sets the landing distance, or mobile FIRE targets an enemy. Shoot cracked masonry to open a route through roofless city compounds. Solid houses and perimeter walls remain cover.</p></details>
     <details class="manual-section"><summary>Weapons, vehicles & advanced controls</summary><div class="manual-grid"><span>R / RELOAD</span><b>Reload</b><span>SHIFT / DODGE</span><b>Dodge while moving</b><span>E / USE</span><b>Board or exit a vehicle</b><span>F / TURBO</span><b>Two weapons for 3 seconds</b><span>ESC / PAUSE</span><b>Settings</b></div><p>Bikes and jeeps arrive in mission two; tanks and the full arsenal arrive at the first finale. Tanks start with six ready explosive cannon shells and 1,680 armor. Q / SWAP cycles the cannon and collected weapons. Jeeps carry 20 shotgun rounds. Tanks and jeeps crush soldiers while moving; tanks crush small trees at half speed.</p><p>The M249 fires 30 rounds per second with 10 damage per round, a 120-round belt and a 2.8-second reload. The rifle deals 28 per round. Small arms deal only 20% damage to enemy tank armor; use rockets, explosives or laser. Strongest usable weapons equip automatically; manual switching stays available. Turbo consumes both weapons' ammunition, then cools for 14 seconds. Tuned Weapons unlocks extra vehicle guns and extends Turbo; Light Kit reduces its cooldown.</p></details>
-    <details class="manual-section"><summary>Difficulty, supplies & campaign</summary><p>Every defeated enemy has an independent one-in-three chance to drop one package: health (+15), shield (+20), or ammunition for one owned special weapon. Easy and Normal give one magazine. Hard gives 20% and Crazy 10%, rounded up to at least one round. The selected eligible weapon gets priority; otherwise the least stocked weapon gets the refill. Packages expire after 45 seconds, with at most 48 on the map.</p><p>Hard doubles soldiers; Crazy quadruples soldiers and has four finale bosses. Longer O, U and S routes arrive after the compact opening. On O routes, either arm reaches the relay. Snow slides, sand slows, mud sinks, and quake dust warns that ground enemies will briefly freeze. Leave orange danger rings before missiles, lasers or volcanic rocks land. Defeat every finale boss and exit your vehicle to extract.</p></details>
+    <details class="manual-section"><summary>Difficulty, supplies & campaign</summary><p>Rescued allies are protected support, so you never lose a mission because of an escort. Banknotes, gold and rescue diamonds are worth 10, 25 and 75 credits. Only successful extraction saves treasure and your squad. Spend credits at the briefing Field Kit shop for up to three permanent ranks: +10 starting shield and +1 frag per rank. Unrescued prisoners remain optional; extra rescues after three allies evacuate directly.</p><p>Every defeated enemy has an independent one-in-three chance to drop one package: health (+15), shield (+20), or ammunition for one owned special weapon. Easy and Normal give one magazine. Hard gives 20% and Crazy 10%, rounded up to at least one round. The selected eligible weapon gets priority; otherwise the least stocked weapon gets the refill. Packages expire after 45 seconds, with at most 48 on the map.</p><p>Hard doubles soldiers; Crazy quadruples soldiers and has four finale bosses. Longer O, U and S routes arrive after the compact opening. On O routes, either arm reaches the relay. Snow slides, sand slows, mud sinks, and quake dust warns that ground enemies will briefly freeze. Leave orange danger rings before missiles, lasers or volcanic rocks land. Defeat every finale boss and exit your vehicle to extract.</p></details>
     <button id="close-manual" class="primary">READY FOR THE FIELD <span>↗</span></button>`,
   );
   $("#close-manual").onclick = () => {
@@ -368,22 +394,35 @@ for (const button of document.querySelectorAll<HTMLButtonElement>(
       );
   };
 function end(win: boolean) {
+  if (mode === "result") return;
   mode = "result";
   clearInput();
   const m = MISSIONS[game.index],
     final = win && game.index === LEVEL_COUNT - 1;
-  if (final) {
-    save = advanceCampaign(save, "armor", game.score);
+  // Bank once at extraction, even if the browser closes before the upgrade choice.
+  // Armor is the saved default; choosing another advantage replaces that one rank.
+  if (win) {
+    save = advanceCampaign(save, "armor", game.score, {
+      credits: game.credits,
+      squad: game.squad.allies.length,
+    });
     write("nightfall-campaign", save);
   }
   showOverlay(
-    `<span class="eyebrow">${win ? "TRANSMISSION RECEIVED" : "SIGNAL LOST"} / 0${game.index + 1}</span><h2>${final ? "Everyone comes home." : win ? "Mission accomplished." : "Not your last stand."}</h2><p>${win ? m.success : "Use cover to break enemy sightlines. Dodge when orange rings appear, and collect green health drops. Your completed campaign progress is safe."}</p><div class="result-stats"><div><b>${game.score.toLocaleString()}</b><span>MISSION SCORE</span></div><div><b>${game.kills}</b><span>TARGETS DOWN</span></div><div><b>${formatTime(game.elapsed)}</b><span>FIELD TIME</span></div></div>${win && !final ? '<span class="eyebrow">CHOOSE YOUR NEXT ADVANTAGE</span><div class="upgrades"><button data-upgrade="armor"><b>01 / FIELD ARMOR</b><span>+35 maximum health</span></button><button data-upgrade="power"><b>02 / TUNED WEAPONS</b><span>+20% base damage · +0.4s Turbo (max 5s) · vehicle auxiliary gun; rank 3 adds a third gun</span></button><button data-upgrade="mobility"><b>03 / LIGHT KIT</b><span>−0.55s dodge cooldown · −0.75s Turbo cooldown (min 8s)</span></button></div>' : `<button id="result-primary" class="primary">${win ? "RETURN TO BRIEFING" : "RETRY MISSION"} <span>↗</span></button>`}${!win ? '<button id="result-menu" class="text-button">MISSION BRIEFING</button>' : ""}`,
+    `<span class="eyebrow">${win ? "TRANSMISSION RECEIVED" : "SIGNAL LOST"} / 0${game.index + 1}</span><h2>${final ? "Everyone comes home." : win ? "Mission accomplished." : "Not your last stand."}</h2><p>${win ? m.success : "Use cover to break enemy sightlines. Dodge when orange rings appear, and collect green health drops. Your completed campaign progress is safe."}</p><p class="rescue-result">${win ? `${game.rescued} rescued · ${game.squad.allies.length} allies returning · ${game.credits} credits recovered` : "Unbanked mission treasure is lost. Your saved squad and field kit return on retry."}</p><div class="result-stats"><div><b>${game.score.toLocaleString()}</b><span>MISSION SCORE</span></div><div><b>${game.kills}</b><span>TARGETS DOWN</span></div><div><b>${formatTime(game.elapsed)}</b><span>FIELD TIME</span></div></div>${win && !final ? '<span class="eyebrow">CHOOSE YOUR NEXT ADVANTAGE · ARMOR SAVED BY DEFAULT</span><div class="upgrades"><button data-upgrade="armor"><b>01 / FIELD ARMOR</b><span>+35 maximum health</span></button><button data-upgrade="power"><b>02 / TUNED WEAPONS</b><span>+20% base damage · +0.4s Turbo (max 5s) · vehicle auxiliary gun; rank 3 adds a third gun</span></button><button data-upgrade="mobility"><b>03 / LIGHT KIT</b><span>−0.55s dodge cooldown · −0.75s Turbo cooldown (min 8s)</span></button></div>' : `<button id="result-primary" class="primary">${win ? "RETURN TO BRIEFING" : "RETRY MISSION"} <span>↗</span></button>`}${!win ? '<button id="result-menu" class="text-button">MISSION BRIEFING</button>' : ""}`,
   );
   for (const b of document.querySelectorAll<HTMLButtonElement>(
     "[data-upgrade]",
   ))
     b.onclick = () => {
-      save = advanceCampaign(save, b.dataset.upgrade, game.score);
+      if (mode !== "result") return;
+      const chosen = b.dataset.upgrade;
+      if (chosen !== "armor" && chosen !== "power" && chosen !== "mobility")
+        return;
+      if (chosen !== "armor") {
+        save.armor--;
+        save[chosen]++;
+      }
       write("nightfall-campaign", save);
       menu();
     };
@@ -410,8 +449,10 @@ function updateHud() {
     `<span class="${game.objective ? "done" : ""}">${game.objective ? "✓" : "◇"} ${m.action}${game.objective ? "" : " · APPROACH"}</span><span class="${game.bossDead ? "done" : ""}">${game.bossDead ? "✓" : "◇"} Neutralize ${m.finale ? "all command bosses" : "relay guards"}${game.pendingGuards ? ` · ${game.pendingGuards} incoming` : ""}</span><span class="${game.bossDead ? "current" : ""}">◇ Reach extraction</span>`;
   $("#route-direction").textContent = m.direction + " ROUTE";
   $("#health-text").textContent = `${Math.ceil(game.hp)} / ${game.maxHp}`;
+  $("#shield-text").title =
+    "Personal shield · Supporting allies · Treasure to bank at extraction";
   $("#shield-text").textContent =
-    `SHIELD ${Math.ceil(game.shield)} / ${game.maxShield}`;
+    `SHIELD ${Math.ceil(game.shield)} · ALLIES ${game.squad.allies.length} · ¤${game.credits}`;
   $("#health-bar").style.width = `${(game.hp / game.maxHp) * 100}%`;
   $("#health-bar").classList.toggle("danger", game.hp / game.maxHp < 0.3);
   $("#dash-text").textContent =
@@ -470,17 +511,39 @@ function updateHud() {
   const notice = $("#combat-notice");
   const teaching = game.index === 0 && !game.objective && game.elapsed < 35;
   const moved = Math.hypot(game.pos.x, game.pos.z - 18) > 3;
-  const coach = teaching
-    ? !moved && game.elapsed < 10
-      ? matchMedia("(pointer: coarse)").matches
-        ? "LEFT PAD · MOVE TOWARD THE YELLOW RELAY"
-        : "WASD · MOVE TOWARD THE YELLOW RELAY"
-      : game.kills === 0 && game.elapsed < 20
-        ? "HOLD SPACE / FIRE · ASSISTED AIM"
-        : game.elapsed < 26
-          ? "B / BLAST · TURN FUEL DEPOTS AGAINST PATROLS"
-          : "YELLOW RELAY → GUARDS → GREEN EXTRACTION"
-    : "";
+  const nearbyPrison = game.prisons.find(
+    (p) =>
+      !p.freed &&
+      Math.hypot(p.box.exit!.x - game.pos.x, p.box.exit!.z - game.pos.z) < 9,
+  );
+  const nearbyBonus = game.weaponDrops.some(
+    (d) =>
+      d.mesh.userData.bonusRounds &&
+      Math.hypot(
+        d.mesh.position.x - game.pos.x,
+        d.mesh.position.z - game.pos.z,
+      ) < 5,
+  );
+  const movementHint = teaching && !moved && game.elapsed < 8;
+  const coach = movementHint
+    ? matchMedia("(pointer: coarse)").matches
+      ? "LEFT PAD · MOVE TOWARD THE YELLOW RELAY"
+      : "WASD · MOVE TOWARD THE YELLOW RELAY"
+    : nearbyPrison
+      ? "BLUE PRISON DOOR · APPROACH TO RESCUE AN ALLY"
+      : nearbyBonus
+        ? "M249 CACHE · COLLECT 60 BONUS ROUNDS"
+        : teaching
+          ? !moved && game.elapsed < 10
+            ? matchMedia("(pointer: coarse)").matches
+              ? "LEFT PAD · MOVE TOWARD THE YELLOW RELAY"
+              : "WASD · MOVE TOWARD THE YELLOW RELAY"
+            : game.kills === 0 && game.elapsed < 20
+              ? "HOLD SPACE / FIRE · ASSISTED AIM"
+              : game.elapsed < 26
+                ? "B / BLAST · TURN FUEL DEPOTS AGAINST PATROLS"
+                : "YELLOW RELAY → GUARDS → GREEN EXTRACTION"
+          : "";
   const activeNotice = game.elapsed < game.combatNoticeUntil;
   notice.hidden = !activeNotice && !coach;
   notice.textContent = activeNotice ? game.combatNotice : coach;
@@ -549,18 +612,6 @@ function updateHud() {
     : game.nearestRide
       ? "BOARD"
       : "USE";
-  if (
-    game.bossDead &&
-    game.companion &&
-    Math.hypot(game.pos.x - m.extract.x, game.pos.z - m.extract.z) < 2.5 &&
-    Math.hypot(
-      game.companion.position.x - m.extract.x,
-      game.companion.position.z - m.extract.z,
-    ) >= 5
-  ) {
-    prompt.hidden = false;
-    prompt.textContent = "WAIT FOR MARA TO REACH EXTRACTION";
-  }
   $("#radio").classList.toggle("visible", performance.now() < radioUntil);
   ctx.fillStyle = "#152723";
   ctx.fillRect(0, 0, 144, 144);
@@ -640,6 +691,22 @@ function updateHud() {
           : "#63f397",
       2,
     );
+  for (const p of game.prisons)
+    if (!p.freed) {
+      ctx.strokeStyle = "#57eaff";
+      ctx.lineWidth = 1.5;
+      ctx.strokeRect(mapX(p.box.x) - 3, mapZ(p.box.z) - 3, 6, 6);
+    }
+  for (const a of game.squad.allies)
+    if (a.mesh.visible)
+      point(a.mesh.position.x, a.mesh.position.z, "#57eaff", 2);
+  for (const t of game.treasures)
+    point(
+      t.position.x,
+      t.position.z,
+      t.userData.kind === "diamond" ? "#b4f6ff" : "#ffd166",
+      2,
+    );
   point(game.pos.x, game.pos.z, "#f6f5da", 3);
   if (!game.objective) point(m.objective.x, m.objective.z, "#e1ee93", 4);
   if (game.bossDead) point(m.extract.x, m.extract.z, "#88e9cd", 4);
@@ -653,7 +720,9 @@ $("#weapon-swap").onclick = () => {
 window.addEventListener("keydown", (e) => {
   if (e.code === "Tab" && !$("#overlay").hidden) {
     const buttons = Array.from(
-      $("#overlay").querySelectorAll<HTMLElement>("button,input,select"),
+      $("#overlay").querySelectorAll<HTMLElement>(
+        "button:not(:disabled),input:not(:disabled),select:not(:disabled)",
+      ),
     );
     const first = buttons[0],
       last = buttons.at(-1);

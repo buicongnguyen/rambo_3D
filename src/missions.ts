@@ -1,3 +1,4 @@
+import { addPrisons } from "./rescue.mjs";
 import { missionStory } from "./story.mjs";
 import { addRuins } from "./ruins.mjs";
 import { addRelayHouses } from "./relay-houses.mjs";
@@ -80,11 +81,11 @@ export const MISSIONS: Mission[] = STAGES.flatMap((s, stage) =>
       description: s.tip,
       brief:
         stage === 0 && level === 0
-          ? `${story.stakes} Reach the yellow radio relay, defeat its two response guards, then reach green extraction. Rifle ammunition is unlimited; four frag grenades are ready. Clearing every patrol is optional.`
-          : `${story.stakes} ${story.action}. ${s.tip} Follow the ${plan.shape.toLowerCase()} road${plan.shape === "O" ? " — choose either arm around the central woodland" : ""}, fight for vehicles and weapon caches, secure the relay, ${level === 2 ? "destroy the command bosses" : "defeat the relay guards"} and reach extraction. Vale is coordinating the evacuation from the air.`,
+          ? `${story.stakes} Reach the yellow radio relay, defeat its two response guards, then reach green extraction. Rifle ammunition is unlimited; four frag grenades are ready. An early M249 cache and blue prison door offer optional bonuses: approach the door to free a soldier who follows and fires with you. Clearing every patrol is optional.`
+          : `${story.stakes} ${story.action}. ${s.tip} Follow the ${plan.shape.toLowerCase()} road${plan.shape === "O" ? " — choose either arm around the central woodland" : ""}, fight for vehicles and weapon caches, secure the relay, ${level === 2 ? "destroy the command bosses" : "defeat the relay guards"} and reach extraction. Free prisoners at blue doors to grow your squad; extract treasure to upgrade your field kit. Vale is coordinating the evacuation from the air.`,
       radio:
         stage === 0 && level === 0
-          ? "Vale: Find their signal. Reach the yellow relay, clear two response guards, then follow green extraction. Clearing other patrols is optional."
+          ? "Vale: Find their signal. Reach the yellow relay, clear two response guards, then follow green extraction. Blue prison doors rescue allies automatically. Collect the nearby M249 cache; clearing other patrols is optional."
           : `${s.name}. ${s.tip} Follow the ${plan.direction.toLowerCase()}. ${plan.shape === "O" ? "Both sides of the loop lead to the relay. Choose your approach. " : ""}Patrols hold vehicles and weapon caches ahead. Shoot small trees to open firing lanes. Approach the yellow relay to secure it automatically; response guards leave nearby houses.`,
       success: story.success,
       action: story.action,
@@ -120,6 +121,7 @@ export function buildLayout(m: Mission) {
     SPAWNS.push(...opening.spawns);
     addRelayHouses(m, COVER, PATCHES);
     addRuins(m, COVER);
+    addPrisons(m, COVER, PATCHES);
     finishEnvironment(COVER, m.bounds);
     return;
   }
@@ -131,6 +133,7 @@ export function buildLayout(m: Mission) {
     tacticalCover(m, COVER);
     addRelayHouses(m, COVER, PATCHES);
     addRuins(m, COVER);
+    addPrisons(m, COVER, PATCHES);
     finishEnvironment(COVER, m.bounds);
     return;
   }
@@ -251,5 +254,6 @@ export function buildLayout(m: Mission) {
   tacticalCover(m, COVER);
   addRelayHouses(m, COVER, PATCHES);
   addRuins(m, COVER);
+  addPrisons(m, COVER, PATCHES);
   finishEnvironment(COVER, m.bounds);
 }
