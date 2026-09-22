@@ -68,7 +68,9 @@ Future tuning should be based on play sessions: measure deaths by role, damage d
 
 - Production TypeScript/Vite build passed.
 - All 56 unit tests passed.
-- Thirty targeted browser regressions passed across combat, animation, navigation, progression, rescue, mobile layout and dense-combat performance. The final nine specialist checks also passed (eight together and the corrected phone control-selector check separately).
+- Thirty targeted browser regressions passed across combat, animation, navigation, progression, rescue, mobile layout and dense-combat performance. All ten final specialist browser checks passed together after the warning-direction correction.
 - A 660-enemy Crazy city scenario with three allies measured mean simulation updates of 3.00 ms (Low) / 3.04 ms (High), p95 4.60 / 4.40 ms, and 37 / 39 draw calls. These are local software-renderer test samples, not guaranteed device FPS; randomized active populations differ between runs.
 - Close-up art and ordinary phone-scale warning screenshots were inspected. The player remains visually distinct and all seven mobile action controls retain their established layout.
-- Review found and corrected a text-encoding issue, an oversized first blade export, a phone-test selector, and low-contrast thrown steel on snow. The final blade has a short warm streak; the three GLBs fit the original total asset budget.
+- Review found and corrected a text-encoding issue, an oversized first blade export, a phone-test selector, mirrored angled attack warnings, and low-contrast thrown steel on snow. The final blade has a short warm streak; the three GLBs fit the original total asset budget.
+
+- A rendered-world-coordinate regression checks every melee/rocket warning at six headings, including left, right and diagonal. It reproduced the mirrored sector/line before the fix and is part of the release suite.

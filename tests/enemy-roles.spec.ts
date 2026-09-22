@@ -451,3 +451,30 @@ test("melee arcs and rocket line remain visible at ordinary mobile gameplay scal
   await page.screenshot({ path: ".tools/infantry-mobile.png" });
   await context.close();
 });
+
+test("angled melee arcs and rocket lines point in the real attack direction", async ({
+  page,
+}) => {
+  await ready(page);
+  const errors = await page.evaluate(() => {
+    const { g, spawn } = (window as any).infantryFixture;
+    const errors: number[] = [];
+    for (const [i, role] of ["rusher", "swordsman", "rocketeer"].entries()) {
+      const e = spawn(role, (i - 1) * 6, 0);
+      for (const aim of [0, 0.7, -0.7, Math.PI / 2, -Math.PI / 2, Math.PI]) {
+        e.attack = { time: 0, aim, reach: 4, fired: false };
+        g.updateInfantryAttack(e, 1 / 60, []);
+        e.warn.updateWorldMatrix(true, false);
+        const tip = e.warn.localToWorld(g.pos.clone().set(0, -1, 0));
+        errors.push(
+          Math.hypot(
+            tip.x - e.x - Math.sin(aim) * 4,
+            tip.z - e.z - Math.cos(aim) * 4,
+          ),
+        );
+      }
+    }
+    return errors;
+  });
+  expect(Math.max(...errors)).toBeLessThan(0.001);
+});

@@ -1504,7 +1504,7 @@ export class Game {
     const profile = INFANTRY[e.role];
     attack.time += dt;
     e.warn.visible = !attack.fired;
-    e.warn.rotation.set(-Math.PI / 2, 0, -attack.aim);
+    e.warn.rotation.set(-Math.PI / 2, 0, attack.aim);
     if (profile.melee) e.warn.scale.setScalar(attack.reach);
     else if (e.role === "rocketeer") e.warn.scale.set(1, attack.reach, 1);
     else e.warn.scale.setScalar(1.2);
