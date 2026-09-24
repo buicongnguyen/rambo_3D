@@ -9,15 +9,15 @@
     },
     {
       "index": 1,
-      "infantry": 48,
+      "infantry": 24,
       "tanks": 1,
-      "trees": 480,
+      "trees": 476,
       "clear": true
     },
     {
       "index": 2,
-      "infantry": 128,
-      "tanks": 4,
+      "infantry": 64,
+      "tanks": 2,
       "trees": 216,
       "clear": true
     },
@@ -25,35 +25,35 @@
       "index": 3,
       "infantry": 96,
       "tanks": 3,
-      "trees": 82,
+      "trees": 80,
       "clear": true
     },
     {
       "index": 4,
       "infantry": 112,
       "tanks": 3,
-      "trees": 816,
+      "trees": 814,
       "clear": true
     },
     {
       "index": 5,
       "infantry": 128,
       "tanks": 4,
-      "trees": 348,
+      "trees": 346,
       "clear": true
     },
     {
       "index": 6,
       "infantry": 96,
       "tanks": 3,
-      "trees": 82,
+      "trees": 80,
       "clear": true
     },
     {
       "index": 7,
       "infantry": 112,
       "tanks": 3,
-      "trees": 561,
+      "trees": 557,
       "clear": true
     },
     {
@@ -67,14 +67,14 @@
       "index": 9,
       "infantry": 96,
       "tanks": 3,
-      "trees": 82,
+      "trees": 80,
       "clear": true
     },
     {
       "index": 10,
       "infantry": 112,
       "tanks": 3,
-      "trees": 768,
+      "trees": 766,
       "clear": true
     },
     {
@@ -88,14 +88,14 @@
       "index": 12,
       "infantry": 128,
       "tanks": 4,
-      "trees": 58,
+      "trees": 56,
       "clear": true
     },
     {
       "index": 13,
       "infantry": 144,
       "tanks": 4,
-      "trees": 480,
+      "trees": 476,
       "clear": true
     },
     {
@@ -109,35 +109,35 @@
       "index": 15,
       "infantry": 96,
       "tanks": 3,
-      "trees": 82,
+      "trees": 80,
       "clear": true
     },
     {
       "index": 16,
       "infantry": 112,
       "tanks": 3,
-      "trees": 823,
+      "trees": 821,
       "clear": true
     },
     {
       "index": 17,
       "infantry": 128,
       "tanks": 4,
-      "trees": 352,
+      "trees": 347,
       "clear": true
     },
     {
       "index": 18,
       "infantry": 96,
       "tanks": 3,
-      "trees": 82,
+      "trees": 80,
       "clear": true
     },
     {
       "index": 19,
       "infantry": 112,
       "tanks": 3,
-      "trees": 570,
+      "trees": 560,
       "clear": true
     },
     {
@@ -152,26 +152,28 @@
     {
       "low": true,
       "population": 660,
-      "active": 141,
-      "meanUpdateMs": 2.2350000003973642,
-      "p95UpdateMs": 3.399999976158142,
-      "maxBullets": 36,
-      "drawCalls": 624,
-      "triangles": 3336892,
+      "allies": 3,
+      "active": 148,
+      "meanUpdateMs": 2.2475000003973644,
+      "p95UpdateMs": 3.199999988079071,
+      "maxBullets": 30,
+      "drawCalls": 42,
+      "triangles": 141096,
       "fragments": 64,
-      "corpses": 19
+      "corpses": 17
     },
     {
       "low": false,
       "population": 660,
-      "active": 151,
-      "meanUpdateMs": 3.6666666666666665,
-      "p95UpdateMs": 4.700000047683716,
-      "maxBullets": 43,
-      "drawCalls": 767,
-      "triangles": 4893207,
-      "fragments": 98,
-      "corpses": 14
+      "allies": 3,
+      "active": 147,
+      "meanUpdateMs": 2.3400000000993413,
+      "p95UpdateMs": 4.199999988079071,
+      "maxBullets": 24,
+      "drawCalls": 58,
+      "triangles": 185928,
+      "fragments": 126,
+      "corpses": 18
     }
   ],
   "renderer": "WebKit WebGL"

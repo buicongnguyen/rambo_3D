@@ -65,7 +65,9 @@ test("all forty-four Blender GLBs are valid glTF 2, contain real geometry, and m
     assert.ok(json.accessors.some((a) => a.type === "VEC3"));
     assert.equal(json.asset.version, "2.0");
   }
-  assert.ok(bytes < 9_650_000);
+  // The stylized pass shares one tiny painted-light ramp per file instead of
+  // per-material noise textures; keep the library well under the old 9.65 MB.
+  assert.ok(bytes < 5_500_000, `${bytes} bytes`);
   assert.ok(fs.statSync("art/nightfall.blend").size > 100_000);
 });
 
@@ -152,4 +154,42 @@ test("Blender specialist blades have steel bevels and stay below 70 KB combined"
   }
   assert.ok(bytes < 70000, `${bytes} bytes`);
   assert.ok(fs.statSync("art/infantry-kit.blend").size > 100000);
+});
+
+const gltf = (name) => {
+  const b = fs.readFileSync(`public/models/${name}.glb`);
+  return JSON.parse(b.toString("utf8", 20, 20 + b.readUInt32LE(12)));
+};
+const triangles = (g) =>
+  g.meshes
+    .flatMap((m) => m.primitives)
+    .reduce((n, p) => n + g.accessors[p.indices].count / 3, 0);
+
+test("runtime recolour contracts keep their named Blender materials", () => {
+  // infantry.ts tints Sand canvas per role; liveries.ts repaints these by name.
+  const names = (n) => gltf(n).materials.map((m) => m.name);
+  assert.ok(names("rifleman").includes("Sand canvas"));
+  assert.ok(names("commando").includes("Hero bandana"));
+  for (const n of ["Vehicle paint", "Vehicle trim"])
+    assert.ok(names("tank").includes(n), n);
+  // Tintable materials carry their colour as a factor over a neutral ramp.
+  const sand = gltf("rifleman").materials.find((m) => m.name === "Sand canvas");
+  assert.ok(sand.pbrMetallicRoughness.baseColorTexture);
+  assert.ok(sand.pbrMetallicRoughness.baseColorFactor[0] > 0.3);
+});
+
+test("instanced crowds and scenery stay within triangle budgets", () => {
+  // Hundreds of soldiers and palms can be on screen on Crazy difficulty.
+  for (const [name, budget] of [
+    ["rifleman", 7000],
+    ["commando", 7000],
+    ["captive", 7000],
+    ["palm", 2000],
+    ["snowPine", 2000],
+    ["tank", 16000],
+  ])
+    assert.ok(
+      triangles(gltf(name)) < budget,
+      `${name}: ${triangles(gltf(name))} triangles`,
+    );
 });

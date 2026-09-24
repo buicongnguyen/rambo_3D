@@ -5,32 +5,19 @@ import bpy, math, os, random
 ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 bpy.ops.object.select_all(action='SELECT')
 bpy.ops.object.delete(use_global=False)
-def material(name, color, metallic=0, emission=0):
-    m=bpy.data.materials.new(name); m.diffuse_color=(*color,1); m.use_nodes=True
-    p=m.node_tree.nodes.get('Principled BSDF')
-    p.inputs['Base Color'].default_value=(*color,1)
-    p.inputs['Roughness'].default_value=.84
-    p.inputs['Metallic'].default_value=metallic
-    if emission:
-        p.inputs['Emission Color'].default_value=(*color,1)
-        p.inputs['Emission Strength'].default_value=emission
-    else:
-        rng=random.Random(name); image=bpy.data.images.new(name+' grain',width=64,height=64)
-        pixels=[]
-        for y in range(64):
-            for x in range(64):
-                grain=rng.uniform(-.025,.025)+.018*math.sin(x*.32)*math.sin(y*.25)
-                pixels.extend([max(0,min(1,c+grain)) for c in color]+[1])
-        image.pixels.foreach_set(pixels); image.pack()
-        tex=m.node_tree.nodes.new('ShaderNodeTexImage');tex.image=image
-        m.node_tree.links.new(tex.outputs['Color'],p.inputs['Base Color'])
-    return m
-wall=material('Barracks weathered plaster',(.36,.39,.34))
-trim=material('Barracks pale entry trim',(.66,.67,.52))
-metal=material('Barracks roof and steel',(.12,.17,.17),.45)
-black=material('Barracks dark interior',(.025,.032,.031))
-glass=material('Barracks inset teal glass',(.08,.20,.22),.25)
-amber=material('Barracks amber entrance beacon',(.95,.31,.045),0,1.2)
+import sys
+sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
+import style
+K = style.Kit()
+def material(name, color, metallic=0, emission=0, rough=.8):
+    return K.mat(name, color, rough, metallic, emission, ramp=None if name.endswith('dark interior') else (.70, 1.0))
+wall=material('Barracks weathered plaster','#c99a5c')
+trim=material('Barracks pale entry trim','#f3e6c4')
+metal=material('Barracks roof and steel','#4a5663',.45,rough=.45)
+black=material('Barracks dark interior','#15181b')
+glass=material('Barracks inset teal glass','#2fb5c8',.25,rough=.1)
+amber=material('Barracks amber entrance beacon','#ff9a1f',0,1.8)
+crimson=material('Barracks hostile crimson','#c4162a',rough=.5)
 def box(name, location, size, mat, bevel=.035):
     bpy.ops.mesh.primitive_cube_add(size=1,location=location)
     o=bpy.context.object;o.name=name;o.scale=size
@@ -51,9 +38,9 @@ box('Interior floor',(0,0,.025),(4.68,5.68,.05),black,0)
 box('Interior shadow wall',(0,-.8,1.5),(4.6,.1,3),black,0)
 box('Roof slab',(0,0,3.60),(5,6,.2),metal)
 for x in [-2.4,2.4]:
-    box('Raised roof edge',(x,0,3.78),(.18,6,.18),trim)
+    box('Raised roof edge',(x,0,3.78),(.18,6,.18),crimson)
 for y in [-2.9,2.9]:
-    box('Raised roof edge',(0,y,3.78),(5,.18,.18),trim)
+    box('Raised roof edge',(0,y,3.78),(5,.18,.18),crimson)
 for x in [-1.04,1.04]:
     box('Recessed door jamb',(x,-2.94,1.28),(.14,.12,2.56),trim,.018)
 box('Door header',(0,-2.94,2.65),(2.2,.12,.16),trim)
@@ -81,6 +68,7 @@ root=bpy.data.objects.new('RelayHouse',None);bpy.context.collection.objects.link
 root['doorWidth']=1.9;root['doorHeight']=2.55;root['forward']='+Z after glTF export'
 for o in list(bpy.context.scene.objects):
     if o != root:o.parent=root
+K.paint_height(list(bpy.context.scene.objects))
 bpy.ops.object.select_all(action='SELECT')
 bpy.ops.export_scene.gltf(filepath=os.path.join(ROOT,'public','models','relayHouse.glb'),export_format='GLB',use_selection=True,export_yup=True,export_extras=True,export_apply=True)
 bpy.ops.wm.save_as_mainfile(filepath=os.path.join(ROOT,'art','relay-house.blend'))

@@ -1,0 +1,82 @@
+# Stylized AAA pass: Blender art, look, game feel and logic fixes
+
+## Evaluation
+
+The previous library was functional but read as grey-green blocks from the gameplay camera:
+
+- **Colour.** Every material baked a 128 px noise texture whose sRGB values were authored as if they were linear, so the whole palette rendered darker and muddier than intended. ACES tone mapping then desaturated it further. Player, enemies, vehicles and terrain shared the same olive/sand range, and the player was identifiable mainly by the cyan ring.
+- **Silhouettes.** Soldiers were stubby boxes with ball hands. All eleven weapons shared one receiver/barrel silhouette. Snow pines rendered as glassy grey cones and palms as flat triangles. Tanks were rectangles with no readable turret or wheels.
+- **Readability.** Enemy roles only tinted a khaki uniform, allies were identical to the hero, and enemy tanks were identical to the player's tank.
+- **Terrain.** The ground, about 80% of every frame, was a single flat colour per stage.
+- **Cost.** The 44 GLBs totalled 9.2 MB (budget 9.65 MB), mostly repeated noise textures. Soldiers were 12.9K triangles each and are instanced by the hundred on Crazy.
+
+The quality bar is the stylized AAA look of games such as Mario Kart 8 or Brawl Stars: chunky toy-like forms, soft bevels, saturated glossy paint, strong silhouettes and clear team colours. It is used as a bar, not a source; every model here is original and procedurally authored.
+
+## Blender pipeline
+
+`art/style.py` is a shared kit used by every generator:
+
+- **Painted light.** Each material is a colour factor multiplied by one shared 2 × 32 px neutral ramp: cool shadow at the bottom, warm light at the top. `paint_height()` maps each exported asset's height onto that ramp, which gives every model a hand-painted ambient-occlusion gradient for a few hundred bytes per file.
+- **Colour as a factor.** Colours are authored as sRGB swatches and exported as `baseColorFactor`, so runtime variants recolour a clone cleanly. This covers infantry roles (`Sand canvas`), hostile armour (`Vehicle paint` and `Vehicle trim`) and allies (`Hero bandana`).
+- **Primitives.** Soft-bevel boxes, tapered boxes, capsule limbs, side-profile prisms and fat tyres with lugs. Bevel segments scale with part size, so small details stay cheap.
+- **Culling.** Materials cull back faces except foliage, and there are no physical-material extensions.
+
+Contracts kept: file names, joint names and pivots with identity rest rotation, weapon grip origins, mount and muzzle joints, the house footprint (5 × 7 m), the ruin wall (4 × 2.4 × 0.45 m), the prison slab top (0.24 m), the relay-house doorway and extras, the prison gate, and the blade material names.
+
+| Asset group | Change |
+| --- | --- |
+| Hero commando | Green fatigues, bare arms, black hair with a red bandana and tails, brass bandolier. The two-handed rifle hold reads from above. |
+| Hostile rifleman | Khaki uniform and helmet (tinted per role), crimson helmet band and shoulder pads, goggles. |
+| Captive / allies | Ivory prisoner clothes and a cyan headband. Rescued allies (commando model) get cyan bandanas at runtime. |
+| Weapons | Eleven distinct silhouettes: tan-furniture rifle, pump shotgun, belt-fed MG with bipod, scoped sniper, twin-tank flamer, revolver-drum launcher, compound bow, banded rocket tube, white/cyan laser, frag and gas grenades. |
+| Vehicles | Toy-proportioned tank with a sloped hull, bright road wheels, cupola and pennant. Jeep with flared fenders, fat tyres and a mounted shotgun. Knobby-tyre scrambler. |
+| Bosses | Charcoal gunship with crimson stripes, a gunmetal spider with glowing core and hazard legs, a navy laser tank with cyan capacitors, a vivid blue quad mech, an orange rocket mech and a desert-yellow missile truck. Every mount is unchanged. |
+| Scenery | Serrated V-folded palm fronds on a stacked-shingle trunk. Tiered pines with snow caps. Faceted rocks. A framed ammo crate with stencils. A tent, a watchtower with sandbags and a red roof, a stucco city house with awnings, a glossy fuel drum and a patrol boat. |
+| Kits | The relay barracks (sand plaster, crimson roof trim), prison and treasure, and ruin wall use the new palette with unchanged geometry. |
+
+Size and cost: the 44 GLBs now total about 3.9 MB, against 9.2 MB before. Soldiers dropped from 12.9K to about 5.7K triangles and the tank from 22K to about 12K. Palms stay at about 1.3K. `tests/assets.test.mjs` now enforces a 5.5 MB total, per-model triangle budgets for instanced crowds and scenery, and the recolour material names.
+
+## Engine look
+
+- **Tone mapping.** Khronos PBR Neutral replaces ACES; ACES and AgX both desaturated the painted palette in side-by-side captures. The light rig pairs a warm key with a cool sky fill and warm ground bounce, and the environment reflection is a little stronger for glossy paint.
+- **Painted ground.** `groundPaint()` (in `src/surfaces.ts`) paints each stage with seeded multi-octave shade/light patches and biome accents: blue ice streaks, scorched volcanic ash, dirt clearings in the jungle, dry patches in the desert and dark mud. City stages get 4 m paving. The tiling soil noise remains as bump detail.
+- **Palettes and fog.** Stage palettes are warmer and more saturated, and fog density drops from 0.009 to 0.006, so the top of the screen no longer washes out.
+
+## Game feel
+
+`src/feel.mjs` (unit-tested) collects presentation events from the simulation. `src/feedback-ui.ts` draws them with pooled, fixed-size DOM.
+
+- **Hit-stop.** A 35 ms freeze on kills, up to about 125 ms on bosses, with a cooldown so automatic fire never stutters. It runs in the frame loop, so tests that call `Game.update` stay deterministic.
+- **Camera shake.** Trauma-squared shake from blasts (scaled by distance), heavy kills and incoming damage. It is off with *Reduce camera motion*.
+- **Hit markers.** Floating damage numbers show the damage actually dealt, never overkill, and are coloured for rear hits, armour deflection and kills. The crosshair flashes on hits and kills.
+- **Damage and streaks.** A red arc around the player points at each damage source, and a low-health pulse appears under 30% HP. Kill-streak banners run DOUBLE KILL → RAMPAGE → ONE-MAN ARMY, plus COMMANDER DOWN for bosses.
+- **Audio.** Sounds are layered noise and tone recipes through a bus compressor: gun crack, blast thump and rumble, armour ping, a streak chime.
+
+## Logic fixes
+
+1. **Stage picker.** The picker silently wiped credits, the "permanent" Field Kit and the squad. Re-picking the current stage now keeps the saved level. Deploy is labelled *DEPLOY TO STAGE N* and explains what carries over. Switching stage or replaying keeps credits, Field Kit, squad and best score.
+2. **Auto-select.** Auto-select equipped the limited frag grenade (priority 40 above the rifle's 30) after pickups, an empty M249 or an empty tank cannon, so held fire threw the whole supply. Throwables are now never auto-selected while any gun has ammo, and an ammo pickup no longer overrides a manual weapon choice unless the held weapon is dry.
+3. **Frag crates.** A frag crate reduced Field Kit rank 2–3 grenade reserves to 4. Pickups can no longer lower reserves.
+4. **Salvo warning.** The boss "HEAVY SALVO / TAKE COVER" warning was overwritten on the next tick. It now stays up until the blast zones resolve.
+5. **Boss health bar.** The bar refilled when one of several bosses died. It now sums every boss.
+6. **Cover grid.** The grid rebuilt only when `COVER.length` changed, so a prison opening and a destroyed prop in one tick left stale collision. Every mutation now invalidates it.
+7. **Gunship landing.** The gunship could pick saplings or explosive crates as landing cover and re-sorted all cover every frame. The landing spot is now cached and excludes both.
+
+Performance: `segmentBox`, the innermost collision primitive, no longer allocates. It is bit-identical over 200,000 random cases and 2.5–3.5× faster, which covers enemy line-of-sight scans. Character poses reuse scratch objects, and corpses stop walking their meshes every tick.
+
+## Validation
+
+- `npm test`: node unit tests, including the new feel, material-contract and triangle-budget tests.
+- `npm run build` and the full Playwright suite (`npm run test:e2e`) run locally.
+- Before/after model renders and in-game captures on all seven biomes, compared at the gameplay camera. `docs/aaa-models.png` and `docs/aaa-gameplay.png` are real Blender and Three.js captures, not concept art.
+
+## Suggested next steps
+
+These came from the review but are outside this pass:
+
+- a relay checkpoint on longer routes
+- route-progress encounter triggers and difficulty that scales AI, not just head count
+- boss phase changes with vulnerability windows
+- interpolated rendering on 120/144 Hz displays
+- allies that pick their own targets
+- positional audio and intensity music

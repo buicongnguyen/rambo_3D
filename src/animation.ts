@@ -14,6 +14,10 @@ export type MotionState = {
   melee?: boolean;
   attack?: { kind: string; progress: number };
 };
+// Shared scratch objects: poses run for every joint of every actor each tick.
+const scratchQuat = new T.Quaternion(),
+  scratchEuler = new T.Euler(),
+  scratchVec = new T.Vector3();
 const ease = (t: number) => {
   t = T.MathUtils.clamp(t, 0, 1);
   return t * t * (3 - 2 * t);
@@ -45,11 +49,11 @@ export class CharacterMotion {
     if (j)
       j.node.quaternion
         .copy(j.rotation)
-        .multiply(new T.Quaternion().setFromEuler(new T.Euler(x, y, z)));
+        .multiply(scratchQuat.setFromEuler(scratchEuler.set(x, y, z)));
   }
   private offset(name: string, y: number, z = 0) {
     const j = this.joints.get(name);
-    if (j) j.node.position.copy(j.position).add(new T.Vector3(0, y, z));
+    if (j) j.node.position.copy(j.position).add(scratchVec.set(0, y, z));
   }
   kick() {
     this.recoil = 1;
@@ -191,6 +195,7 @@ export class FallenBody {
   private slide = 0;
   private maxLean = 1.48;
   private stopped = false;
+  private shadowsOff = false;
   constructor(
     public mesh: T.Group,
     private motion?: CharacterMotion,
@@ -297,10 +302,12 @@ export class FallenBody {
     }
     this.opacity = 1 - ease((this.age - 2) / 2);
     for (const m of this.materials) m.opacity = this.opacity;
-    if (this.age > 2)
+    if (this.age > 2 && !this.shadowsOff) {
+      this.shadowsOff = true;
       this.mesh.traverse((o) => {
         if (o instanceof T.Mesh) o.castShadow = false;
       });
+    }
     if (this.age >= 4) {
       this.dispose();
       return true;

@@ -4,7 +4,7 @@ import { WORLD_BOUNDS } from "./campaign.mjs";
 import { sampleRoute, routeLength } from "./routes.mjs";
 import { segmentBox } from "./rules.mjs";
 import { WEAPONS } from "./arsenal";
-import { surface, grassGeometry } from "./surfaces";
+import { surface, grassGeometry, groundPaint, GROUND_PAINT } from "./surfaces";
 import * as T from "three";
 import { RoomEnvironment } from "three/addons/environments/RoomEnvironment.js";
 import { GLTFLoader } from "three/addons/loaders/GLTFLoader.js";
@@ -200,7 +200,10 @@ export class World {
     texture.colorSpace = T.SRGBColorSpace;
     return texture;
   })();
+  /** Camera trauma (0..1) from Feel; zero with reduced motion. */
+  shake = 0;
   private soilMap = surface("soil");
+  private groundTexture?: T.Texture;
   private roadMap = surface("road");
   private waterMap = surface("water");
   private wind = { value: 0 };
@@ -208,9 +211,19 @@ export class World {
   private renderTime: number | undefined;
   private wasMenu = true;
   playerIndicator = new T.Group();
+  /**
+   * Portrait phones see far less to the sides than landscape screens: pull the
+   * gameplay camera back so riflemen (7-11 m) and rocketeers stay in view.
+   */
+  private viewReach() {
+    return this.camera.aspect < 1
+      ? Math.min(1.5, 0.85 / this.camera.aspect)
+      : 1;
+  }
   resetCamera(focus: T.Vector3) {
     this.followTarget.set(focus.x, 0, focus.z);
-    this.camera.position.set(focus.x, 27, focus.z + 25);
+    const reach = this.viewReach();
+    this.camera.position.set(focus.x, 27 * reach, focus.z + 25 * reach);
     this.camera.lookAt(this.followTarget);
     this.wasMenu = false;
   }
@@ -237,16 +250,19 @@ export class World {
     this.renderer.shadowMap.enabled = true;
     this.renderer.shadowMap.type = T.PCFSoftShadowMap;
     this.renderer.outputColorSpace = T.SRGBColorSpace;
-    this.renderer.toneMapping = T.ACESFilmicToneMapping;
-    this.renderer.toneMappingExposure = 1.05;
+    // Khronos PBR Neutral keeps the painted Blender colours saturated and on-hue;
+    // ACES/AgX desaturated the stylized palette.
+    this.renderer.toneMapping = T.NeutralToneMapping;
+    this.renderer.toneMappingExposure = 1.0;
     const pmrem = new T.PMREMGenerator(this.renderer);
     const studio = new RoomEnvironment();
     this.scene.environment = pmrem.fromScene(studio, 0.04).texture;
-    this.scene.environmentIntensity = 0.35;
+    this.scene.environmentIntensity = 0.5;
     studio.dispose();
     pmrem.dispose();
-    this.scene.add(new T.HemisphereLight(0xdfeddf, 0x384332, 1.3));
-    this.sun = new T.DirectionalLight(0xffe3b0, 3.4);
+    // Cool sky fill and warm bounce under a warm key: the hand-painted light rig.
+    this.scene.add(new T.HemisphereLight(0xd6ecff, 0x6b5436, 1.25));
+    this.sun = new T.DirectionalLight(0xffdca8, 3.0);
     this.sun.position.set(-20, 35, 12);
     this.sun.castShadow = true;
     this.sun.shadow.mapSize.set(2048, 2048);
@@ -373,7 +389,7 @@ export class World {
     buildLayout(mission);
     this.rescueFloors = COVER.filter((b) => b.kind === "prison");
     this.scene.background = new T.Color(mission.fog);
-    this.scene.fog = new T.FogExp2(mission.fog, 0.009);
+    this.scene.fog = new T.FogExp2(mission.fog, 0.006);
     const width = WORLD_BOUNDS.x * 2,
       depth = WORLD_BOUNDS.maxZ - WORLD_BOUNDS.minZ;
     const centerZ = (WORLD_BOUNDS.maxZ + WORLD_BOUNDS.minZ) / 2;
@@ -384,9 +400,21 @@ export class World {
       bumpMap: this.soilMap,
       bumpScale: 0.09,
     });
+    const palette = GROUND_PAINT[biome] ?? GROUND_PAINT.jungle;
+    this.groundTexture?.dispose();
+    this.groundTexture = groundPaint(
+      biome,
+      mission.ground,
+      width + 9,
+      depth + 9,
+    );
     this.mesh(
       new T.BoxGeometry(width + 9, 1.6, depth + 9),
-      soil,
+      this.mat(0xffffff, {
+        map: this.groundTexture,
+        bumpMap: this.soilMap,
+        bumpScale: 0.09,
+      }),
       0,
       -0.85,
       centerZ,
@@ -398,10 +426,11 @@ export class World {
       -1.68,
       -43,
     ).rotation.x = -Math.PI / 2;
-    const road = this.mat(
-      biome === "city" ? 0x383e42 : biome === "ice" ? 0xa2bdc9 : 0x91836a,
-      { map: this.roadMap, bumpMap: this.roadMap, bumpScale: 0.035 },
-    );
+    const road = this.mat(palette.road, {
+      map: this.roadMap,
+      bumpMap: this.roadMap,
+      bumpScale: 0.035,
+    });
     const roadSegments = [
       ...mission.roads.flatMap((route) =>
         route.slice(1).map((p, i) => [route[i], p]),
@@ -617,7 +646,7 @@ export class World {
       g.traverse((o) => (o.userData.highDetail = i % 3 !== 0));
       this.terrain.add(g);
     }
-    const grass = this.mat(biome === "ice" ? 0xe8f3f4 : 0x657644, {
+    const grass = this.mat(palette.grass, {
       side: T.DoubleSide,
     });
     grass.onBeforeCompile = (shader) => {
@@ -857,12 +886,24 @@ export class World {
         dt,
       );
       this.followTarget.z = followAxis(this.followTarget.z, focus.z, 3.5, dt);
+      const reach = this.viewReach();
       this.camera.position.set(
         this.followTarget.x,
-        27,
-        this.followTarget.z + 25,
+        27 * reach,
+        this.followTarget.z + 25 * reach,
       );
       this.camera.lookAt(this.followTarget);
+      if (!reduced && this.shake > 0.001) {
+        // Trauma-squared shake with layered sines: smooth, never a random jitter.
+        const s = this.shake * this.shake,
+          t = time * 38;
+        this.camera.position.x +=
+          (Math.sin(t * 1.3) + 0.5 * Math.sin(t * 2.9 + 1.1)) * 0.42 * s;
+        this.camera.position.z +=
+          (Math.sin(t * 1.7 + 2.3) + 0.5 * Math.sin(t * 3.3)) * 0.42 * s;
+        this.camera.position.y += Math.sin(t * 2.1 + 0.7) * 0.22 * s;
+        this.camera.rotateZ(Math.sin(t * 1.9 + 4.2) * 0.012 * s);
+      }
     } else {
       const target = new T.Vector3(menuFocus.x, 0, menuFocus.z);
       const desired = new T.Vector3(

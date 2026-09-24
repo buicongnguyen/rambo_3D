@@ -4,24 +4,17 @@ Prison footprint 4.2m square, front +Z after glTF conversion; Gate slides upward
 import bpy, math, os, random
 ROOT=os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 bpy.ops.object.select_all(action='SELECT');bpy.ops.object.delete(use_global=False)
+import sys
+sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
+import style
+K = style.Kit()
 def mat(name,color,metal=0,rough=.65,emission=0):
-    m=bpy.data.materials.new(name);m.diffuse_color=(*color,1);m.use_nodes=True
-    p=m.node_tree.nodes.get('Principled BSDF');p.inputs['Base Color'].default_value=(*color,1)
-    p.inputs['Metallic'].default_value=metal;p.inputs['Roughness'].default_value=rough
-    if emission:
-        p.inputs['Emission Color'].default_value=(*color,1);p.inputs['Emission Strength'].default_value=emission
-    else:
-        rng=random.Random(name);im=bpy.data.images.new(name+' grain',width=16,height=16);pixels=[]
-        for i in range(256):
-            noise=rng.uniform(-.025,.025);pixels.extend([max(0,min(1,c+noise)) for c in color]+[1])
-        im.pixels.foreach_set(pixels);im.pack();tex=m.node_tree.nodes.new('ShaderNodeTexImage');tex.image=im
-        m.node_tree.links.new(tex.outputs['Color'],p.inputs['Base Color'])
-    return m
-stone=mat('Prison weathered concrete',(.28,.32,.31));steel=mat('Prison dark steel',(.1,.16,.18),.7)
-edge=mat('Prison worn edges',(.54,.58,.52),.15);cyan=mat('Rescue cyan',(.15,.9,1),.2,.35,1.5)
-green=mat('Banknote olive',(.18,.42,.22));paper=mat('Banknote edges',(.7,.77,.51));band=mat('Banknote band',(.89,.83,.55))
-gold=mat('Stamped gold',(.95,.55,.09),.8,.27);stamp=mat('Gold stamped recess',(.38,.18,.02),.65,.4)
-gem=mat('Diamond crystal',(.28,.83,.98),.45,.17,.25);facet=mat('Diamond bright facets',(.76,.98,1),.35,.13,.3)
+    return K.mat(name,color,rough,metal,emission)
+stone=mat('Prison weathered concrete','#a79f8e');steel=mat('Prison dark steel','#3b4750',.65,.4)
+edge=mat('Prison worn edges','#dcd0b5',.1);cyan=mat('Rescue cyan','#22d3f0',.2,.35,2.0)
+green=mat('Banknote olive','#39a24a');paper=mat('Banknote edges','#eef3cf');band=mat('Banknote band','#ffcf3a',0,.45)
+gold=mat('Stamped gold','#ffc02e',.9,.24);stamp=mat('Gold stamped recess','#9a5a0a',.65,.4)
+gem=mat('Diamond crystal','#3fd8ff',.45,.12,.45);facet=mat('Diamond bright facets','#dffbff',.35,.1,.6)
 created=[]
 def box(name,loc,size,material,bevel=.025,parent=None):
     bpy.ops.mesh.primitive_cube_add(size=1,location=loc);o=bpy.context.object;o.name=name;o.scale=size
@@ -33,10 +26,12 @@ def box(name,loc,size,material,bevel=.025,parent=None):
     created.append(o);return o
 
 def export(name):
+    K.paint_height(created, flat=None if name=='prisonHouse' else .82)
     shared={}
     for o in created:
         if o.type!='MESH':continue
-        key=(tuple(m.name for m in o.data.materials),tuple(tuple(round(c,5) for c in v.co) for v in o.data.vertices))
+        uv=o.data.uv_layers.active
+        key=(tuple(m.name for m in o.data.materials),tuple(tuple(round(c,5) for c in v.co) for v in o.data.vertices),tuple(round(d.uv[1],4) for d in uv.data) if uv else ())
         if key in shared:o.data=shared[key]
         else:shared[key]=o.data
     bpy.ops.object.select_all(action='DESELECT')

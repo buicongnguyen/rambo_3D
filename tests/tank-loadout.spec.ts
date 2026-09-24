@@ -192,14 +192,17 @@ test("tank six-shell bank survives swaps, reload cancellation and dismount; empt
       step(65);
     }
     const empty = v.ammo === 0 && !v.personalWeapon;
-    const fallbackAmmo = g.magazines[9];
+    // Limited frag grenades are never auto-equipped while the rifle has ammo.
+    const fallbackAmmo = g.magazines[0]; // The held frag is not auto-fired.
+    const frags = g.reserves[9] + g.magazines[9];
     step(1, { fire: true });
     step(20);
     step(1, { fire: true });
     const fallback =
       v.personalWeapon &&
-      g.weapon === 9 &&
+      g.weapon === 0 &&
       g.ammo === fallbackAmmo - 1 &&
+      g.reserves[9] + g.magazines[9] === frags &&
       v.ammo === 0;
     return {
       initial,

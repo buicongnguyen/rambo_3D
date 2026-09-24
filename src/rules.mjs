@@ -2,20 +2,40 @@ import { SpatialGrid } from "./combat.mjs";
 import { LEVEL_COUNT } from "./campaign.mjs";
 /** Earliest segment intersection t in [0,1], or Infinity. Expanded boxes support projectile radii. */
 export function segmentBox(ax, az, bx, bz, box, pad = 0) {
+  // Two scalar slab tests; this is the innermost collision primitive, so it
+  // must not allocate.
   let lo = 0,
     hi = 1;
-  for (const [a, b, min, max] of [
-    [ax, bx, box.x - box.w / 2 - pad, box.x + box.w / 2 + pad],
-    [az, bz, box.z - box.d / 2 - pad, box.z + box.d / 2 + pad],
-  ]) {
-    const v = b - a;
-    if (Math.abs(v) < 1e-9) {
-      if (a < min || a > max) return Infinity;
-      continue;
+  const minX = box.x - box.w / 2 - pad,
+    maxX = box.x + box.w / 2 + pad,
+    minZ = box.z - box.d / 2 - pad,
+    maxZ = box.z + box.d / 2 + pad;
+  const vx = bx - ax;
+  if (Math.abs(vx) < 1e-9) {
+    if (ax < minX || ax > maxX) return Infinity;
+  } else {
+    let t0 = (minX - ax) / vx,
+      t1 = (maxX - ax) / vx;
+    if (t0 > t1) {
+      const t = t0;
+      t0 = t1;
+      t1 = t;
     }
-    let t0 = (min - a) / v,
-      t1 = (max - a) / v;
-    if (t0 > t1) [t0, t1] = [t1, t0];
+    lo = Math.max(lo, t0);
+    hi = Math.min(hi, t1);
+    if (lo > hi) return Infinity;
+  }
+  const vz = bz - az;
+  if (Math.abs(vz) < 1e-9) {
+    if (az < minZ || az > maxZ) return Infinity;
+  } else {
+    let t0 = (minZ - az) / vz,
+      t1 = (maxZ - az) / vz;
+    if (t0 > t1) {
+      const t = t0;
+      t0 = t1;
+      t1 = t;
+    }
     lo = Math.max(lo, t0);
     hi = Math.min(hi, t1);
     if (lo > hi) return Infinity;

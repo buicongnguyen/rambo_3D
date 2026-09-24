@@ -46,6 +46,8 @@ import { ImpactEffects } from "./impacts";
 import { DestructionEffects } from "./destruction";
 import { tracerGeometry } from "./tracers";
 import { SpatialGrid, knockbackDistance, turboStats } from "./combat.mjs";
+import { Feel, hurtAngle } from "./feel.mjs";
+import { repaint, HOSTILE_ARMOR } from "./liveries";
 import * as T from "three";
 import { CharacterMotion, FallenBody, VehicleMotion } from "./animation";
 import { World, model } from "./world";
@@ -97,6 +99,9 @@ export type Actor = {
   vehicleMotion?: VehicleMotion;
   routeTime?: number;
   routeTarget?: { x: number; z: number };
+  /** Game time until which the HUD shows this boss's heavy-salvo warning. */
+  salvoUntil?: number;
+  landingCover?: Box;
 };
 type Hazard = {
   mesh: T.Mesh<T.RingGeometry, T.MeshBasicMaterial>;
@@ -363,9 +368,17 @@ export class Game {
       return;
     }
     this.magazines[this.weapon] = this.ammo;
-    const best = this.inventory
-      .filter((i) => this.magazines[i] > 0 || this.reserves[i] > 0)
-      .sort((a, b) => WEAPONS[b].priority - WEAPONS[a].priority)[0];
+    const usable = this.inventory.filter(
+      (i) => this.magazines[i] > 0 || this.reserves[i] > 0,
+    );
+    // Limited grenades are deliberate picks: never auto-equip one while any gun
+    // still has ammunition, or held auto-fire would lob the whole supply.
+    const thrown = (i: number) =>
+      WEAPONS[i].visual === "grenade" || WEAPONS[i].visual === "gas";
+    const guns = usable.filter((i) => !thrown(i));
+    const best = (guns.length ? guns : usable).sort(
+      (a, b) => WEAPONS[b].priority - WEAPONS[a].priority,
+    )[0];
     const tank = this.riding?.kind === "tank" ? this.riding : undefined;
     const cannon =
       !!tank &&
@@ -427,6 +440,8 @@ export class Game {
   pendingGuards = 0;
   private reinforcementClock = 0;
   private reinforcementNext = 0;
+  /** Presentation-only feedback (shake, hit-stop, streaks, hit numbers). */
+  readonly feel = new Feel();
   onRadio: (text: string) => void = () => {};
   onSound: (type: string) => void = () => {};
   onEnd: (win: boolean) => void = () => {};
@@ -571,6 +586,7 @@ export class Game {
     this.dashCooldown = 0;
     this.invincible = 0;
     this.elapsed = 0;
+    this.feel.reset();
     this.kills = 0;
     this.score = 0;
     this.objective = false;
@@ -763,6 +779,7 @@ export class Game {
           const index = COVER.indexOf(prison.box);
           if (index !== -1) {
             COVER.splice(index, 1, ...openedPrisonWalls(prison.box));
+            this.coverCount = -1; // Length alone cannot detect same-tick swaps.
             this.refreshCoverGrid();
           }
         }
@@ -953,6 +970,7 @@ export class Game {
       boss ? def.scale : armored ? 0.62 : 1,
     );
     if (!boss && !armored) equipInfantry(mesh, role);
+    if (armored && !boss) repaint(mesh, HOSTILE_ARMOR, "hostile");
     if (boss && bossKind === "gunship") mesh.position.y = 4;
     if (!boss) mesh.rotation.y = ((index % 4) * Math.PI) / 2;
     mesh.userData.lowRange = 48;
@@ -1075,7 +1093,8 @@ export class Game {
     this.shield -= absorbed;
     this.hp = Math.max(0, this.hp - (damage - absorbed));
   }
-  takeDamage(damage: number) {
+  takeDamage(damage: number, from?: { x: number; z: number }) {
+    if (damage > 0) this.feel.hurt(damage, hurtAngle(this.pos, from));
     if (this.riding) {
       const v = this.riding;
       v.hp = Math.max(0, v.hp - damage);
@@ -1113,6 +1132,7 @@ export class Game {
       true,
     );
     this.onSound("explosion");
+    this.feel.blast(Math.hypot(this.pos.x - x, this.pos.z - z), spec.splash);
     for (const enemy of this.enemies) {
       const d = Math.hypot(enemy.x - x, enemy.z - z);
       if (!hostile && enemy.hp > 0 && !enemy.boss && d < 14) {
@@ -1144,7 +1164,7 @@ export class Game {
         (box) => segmentBox(x, z, this.pos.x, this.pos.z, box) !== Infinity,
       )
     ) {
-      this.takeDamage(damage);
+      this.takeDamage(damage, { x, z });
       this.invincible = Math.max(this.invincible, 0.18);
     }
     for (const prop of [...this.world.destructibles])
@@ -1395,7 +1415,16 @@ export class Game {
         e.armored ? "REAR ARMOR BREACHED" : "REAR HIT · 1.75× DAMAGE",
       );
     e.motion?.hit();
+    const dealt = Math.min(damage, Math.max(0, e.hp)); // Never show overkill.
     e.hp -= damage;
+    if (dealt > 0)
+      this.feel.hit(
+        contact?.x ?? e.x,
+        e.mesh.position.y + (e.boss ? 3.2 : e.armored ? 2.2 : 2),
+        contact?.z ?? e.z,
+        dealt,
+        e.hp <= 0 ? "kill" : armor < 1 ? "armor" : rear ? "rear" : "hit",
+      );
     if (armor < 1 && e.hp > 0 && !rear)
       this.combatMessage("ARMOR DEFLECTS · USE ROCKETS / LASER");
     if (e.boss && e.hp > 0 && e.hp < e.max * 0.5 && !e.reinforced) {
@@ -1429,6 +1458,8 @@ export class Game {
     } else this.spark(e.x, e.z);
     if (e.hp <= 0) {
       this.kills++;
+      this.feel.kill(this.elapsed, e.boss ? 1 : e.armored ? 0.5 : 0);
+      if (this.feel.banner?.time === this.elapsed) this.onSound("streak");
       this.score += e.boss ? 1500 : e.armored ? 350 : 100;
       if (rear) {
         this.score += 50;
@@ -1529,7 +1560,10 @@ export class Game {
           )
         ) {
           // Blades cannot meaningfully penetrate a tank; boots/jeeps remain vulnerable.
-          this.takeDamage(this.riding?.kind === "tank" ? 1 : profile.damage);
+          this.takeDamage(this.riding?.kind === "tank" ? 1 : profile.damage, {
+            x: e.x,
+            z: e.z,
+          });
           this.invincible = Math.max(this.invincible, 0.25);
           this.playerMotion.hit();
           this.spark(this.pos.x, this.pos.z);
@@ -1634,6 +1668,7 @@ export class Game {
     }
     this.world.destructibles.splice(this.world.destructibles.indexOf(prop), 1);
     COVER.splice(COVER.indexOf(box), 1);
+    this.coverCount = -1;
     this.liveCover.delete(box);
     if (box.asset === "ruinWall") {
       prop.mesh.removeFromParent();
@@ -1656,6 +1691,7 @@ export class Game {
     const beforeKills = this.kills;
     const rootBlast = this.blastDepth++ === 0;
     this.onSound("explosion");
+    this.feel.blast(Math.hypot(this.pos.x - x, this.pos.z - z), 5);
     // Walls and buildings contain a blast; soft foliage and other explosive stores do not.
     const solid = COVER.filter(
       (b) => !["tree", "snowTree", "fuel", "explosive"].includes(b.kind ?? ""),
@@ -1685,7 +1721,7 @@ export class Game {
       occupied?.spec.radius ?? 0.5,
     );
     if (personal > 0 && this.invincible === 0) {
-      this.takeDamage(personal);
+      this.takeDamage(personal, { x, z });
       this.invincible = Math.max(this.invincible, 0.25);
       this.playerMotion.hit();
       this.onSound("damage");
@@ -1814,13 +1850,18 @@ export class Game {
     const aim = Math.atan2(this.pos.x - e.x, this.pos.z - e.z);
     const cycle = (this.elapsed + e.index * 1.7) % 14;
     if (kind === "gunship") {
-      const cover = COVER.filter(
-        (b) => b.kind !== "fuel" && b.kind !== "tree",
-      ).sort(
-        (a, b) =>
-          Math.hypot(a.x - anchor.x, a.z - anchor.z) -
-          Math.hypot(b.x - anchor.x, b.z - anchor.z),
-      )[0];
+      // The anchor never moves: pick solid landing cover once, and again only
+      // if that cover is destroyed. Saplings and explosive stores are not cover.
+      if (!e.landingCover || !this.liveCover.has(e.landingCover))
+        e.landingCover = COVER.filter(
+          (b) =>
+            !["fuel", "tree", "snowTree", "explosive"].includes(b.kind ?? ""),
+        ).sort(
+          (a, b) =>
+            Math.hypot(a.x - anchor.x, a.z - anchor.z) -
+            Math.hypot(b.x - anchor.x, b.z - anchor.z),
+        )[0];
+      const cover = e.landingCover;
       const land = cover
         ? {
             x: cover.x,
@@ -1985,7 +2026,7 @@ export class Game {
                 segmentBox(e.x, e.z, this.pos.x, this.pos.z, box) !== Infinity,
             )
           ) {
-            this.takeDamage(BOSS_ATTACKS.laserTank.damage);
+            this.takeDamage(BOSS_ATTACKS.laserTank.damage, { x: e.x, z: e.z });
             this.invincible = 0.3;
           }
           this.effects.push({ mesh: e.beam, life: 0.22, max: 0.22 });
@@ -2187,6 +2228,9 @@ export class Game {
   }
   private bossSalvo(e: Actor, aim: number, profile = BOSS_ATTACKS.heavy) {
     e.state = "HEAVY SALVO / TAKE COVER";
+    // Movement states overwrite e.state every tick; keep the warning readable
+    // until the blast zones resolve.
+    e.salvoUntil = this.elapsed + profile.warning + 0.4;
     this.onRadio(
       "Heavy salvo! Leave the orange blast zones or get behind concrete.",
     );
@@ -2616,10 +2660,14 @@ export class Game {
             this.reserves[drop.index] = 0;
           }
         } else if (Number.isFinite(this.reserves[drop.index]))
-          this.reserves[drop.index] = Math.min(
-            WEAPONS[drop.index].mag * 4,
-            this.reserves[drop.index] +
-              (drop.mesh.userData.bonusRounds ?? WEAPONS[drop.index].mag * 2),
+          // A pickup never lowers reserves (Field Kit ranks can exceed the cap).
+          this.reserves[drop.index] = Math.max(
+            this.reserves[drop.index],
+            Math.min(
+              WEAPONS[drop.index].mag * 4,
+              this.reserves[drop.index] +
+                (drop.mesh.userData.bonusRounds ?? WEAPONS[drop.index].mag * 2),
+            ),
           );
         this.selectStrongestWeapon();
         this.showWeapon();
@@ -3120,7 +3168,7 @@ export class Game {
           b.hits.add(victim);
         }
         if (hitPlayer && this.invincible === 0) {
-          this.takeDamage(b.damage);
+          this.takeDamage(b.damage, { x: b.originX, z: b.originZ });
           this.playerMotion.hit();
           this.invincible = Math.max(this.invincible, 0.18);
           this.spark(this.pos.x, this.pos.z);
@@ -3256,7 +3304,7 @@ export class Game {
             )) &&
           this.invincible === 0
         ) {
-          this.takeDamage(h.damage ?? 28);
+          this.takeDamage(h.damage ?? 28, { x: h.x, z: h.z });
           this.playerMotion.hit();
           this.invincible = Math.max(this.invincible, 0.2);
           this.onSound("damage");
@@ -3300,8 +3348,13 @@ export class Game {
               (this.riding && this.riding.hp < this.riding.spec.hp))
       ) {
         if (isAmmo) {
+          // Respect a manual weapon choice unless the held weapon is dry.
+          const dry =
+            this.usesPersonalWeapon &&
+            this.ammo === 0 &&
+            this.reserves[this.weapon] === 0;
           this.reserves[reward!.index] += reward!.amount;
-          this.selectStrongestWeapon();
+          if (dry) this.selectStrongestWeapon();
           this.showWeapon();
         } else if (isShield)
           this.shield = Math.min(

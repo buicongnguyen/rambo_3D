@@ -1,4 +1,5 @@
 import * as T from "three";
+import { repaint, ALLY_MARKS } from "./liveries";
 import { CharacterMotion } from "./animation";
 import { model, type World } from "./world";
 import { moveCircle, routeStep, segmentBox } from "./rules.mjs";
@@ -40,6 +41,7 @@ export class Squad {
     if (this.allies.length >= MAX_SQUAD) return false;
     const mesh = model("commando", x, z),
       motion = new CharacterMotion(mesh);
+    repaint(mesh, ALLY_MARKS, "ally");
     const grip = motion.joints.get("Weapon")?.node;
     if (grip) {
       grip.clear();

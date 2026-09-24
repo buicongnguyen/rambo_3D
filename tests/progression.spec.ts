@@ -396,9 +396,10 @@ test("loot refills finite weapon reserves and shields without creating new equip
     ammo.userData.expires = g.elapsed + 45;
     g.pickups.push(ammo);
     g.update(1 / 60, { ...cmd });
+    // Loot refills the frag, but never swaps a rifle user onto limited grenades.
     const reserve = g.reserves[9],
       selected = g.weapon,
-      rifle = g.magazines[0];
+      rifle = g.weapon === 0 ? g.ammo : g.magazines[0];
     const shield = g.supplyCrate("shield", 0, 0);
     shield.userData.expires = g.elapsed + 45;
     g.pickups.push(shield);
@@ -425,7 +426,7 @@ test("loot refills finite weapon reserves and shields without creating new equip
   });
   expect(r).toEqual({
     reserve: 1,
-    selected: 9,
+    selected: 0,
     rifle: 12,
     shield: 20,
     inventory: [0, 9],

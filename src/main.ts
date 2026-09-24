@@ -1,4 +1,5 @@
 import { buyFieldKit, fieldKitCost } from "./economy.mjs";
+import { FeedbackUI } from "./feedback-ui";
 import { InteractionHint } from "./environment.mjs";
 import {
   STAGES,
@@ -62,7 +63,7 @@ app.innerHTML = `
 <section id="hud" hidden aria-label="Mission status"><div class="hud-top"><div class="objective-panel"><span class="eyebrow" id="mission-label"></span><h2 id="mission-title"></h2><div id="objectives"></div></div><div class="hud-right"><button class="icon-button" id="pause">Ⅱ <span>PAUSE</span></button><canvas id="minimap" width="144" height="144" aria-label="Tactical map: road pale green, player white, enemies orange, weapons purple, medical green, shields blue, relay yellow, prisons and allies cyan, treasure gold"></canvas><span class="map-caption" id="route-direction">NORTHBOUND ROUTE</span></div></div><div id="boss-panel" hidden><div><b id="boss-name"></b><span id="boss-phase">ARMORED TARGET</span></div><div class="boss-track"><i id="boss-bar"></i></div></div><div id="radio" role="status"><span>VALE / RADIO</span><p></p></div><div id="interact-prompt" hidden></div><div id="combat-notice" role="status" hidden></div><div class="hud-bottom"><div class="health-panel"><div class="hud-kicker">GHOST <span id="health-text"></span></div><div class="health-track"><i id="health-bar"></i></div><div id="shield-text" aria-label="Shield, allies and field credits">SHIELD 0 / 80</div><div id="awareness">UNSEEN · FLANK FOR REAR HITS</div><div class="health-meta"><span id="dash-text">DODGE READY</span><span id="score">000000</span></div></div><div class="controls-strip"><button id="turbo" aria-label="Activate Turbo" aria-keyshortcuts="F">F · TURBO READY</button> <kbd>WASD</kbd> MOVE <kbd>B</kbd> BLAST <kbd>SPACE</kbd> AUTO FIRE <kbd>E</kbd> INTERACT <kbd>SHIFT</kbd> DODGE</div><div class="ammo-panel"><div id="weapon-name">M4 / ASSAULT RIFLE</div><strong id="ammo">24</strong><span id="ammo-reserve">/ ∞</span><small id="reload-label">R RELOAD · Q SWITCH</small><button id="weapon-swap" aria-label="Switch weapon" aria-keyshortcuts="Q" title="Press Q to cycle collected weapons">Q - SWAP WEAPON</button></div></div><div id="touch"><div id="move-pad" aria-label="Movement joystick: drag to walk or run" role="group"><span class="stick-nub"></span><small>MOVE</small></div><div class="touch-actions"><button data-action="swap" aria-label="Switch weapon" class="swap-weapon">SWAP WEAPON</button><button data-action="reload">RELOAD</button><button data-action="interact" aria-label="Board or exit nearby vehicle">USE</button><button data-action="dodge">DODGE</button><button data-action="turbo" aria-label="Activate Turbo" class="turbo">TURBO</button><button data-hold="blast" class="blast" aria-label="Target explosive stores" title="Hold to fire at a safe explosive store">BLAST</button><button data-hold="fire" class="fire">FIRE</button></div></div></section>
 <div id="overlay" class="overlay" hidden></div><div id="toast" role="status" hidden></div>`;
 const canvas = $<HTMLCanvasElement>("#scene");
-let world: World, game: Game;
+let world: World, game: Game, feedback: FeedbackUI;
 const interactionHint = new InteractionHint();
 const input: Input = {
   x: 0,
@@ -147,40 +148,105 @@ function clearInput() {
   input.turbo = false;
   input.blast = false;
 }
+let noiseBuffer: AudioBuffer | undefined, master: AudioNode | undefined;
 function sound(type: string) {
   if (!prefs.sound) return;
   try {
     audio ??= new AudioContext();
     if (audio.state === "suspended") void audio.resume();
-    const now = audio.currentTime;
+    const ctx = audio,
+      now = ctx.currentTime;
     if (type === "shot" && now - lastShotSound < 0.08) return;
     if (type === "shot") lastShotSound = now;
     if (["hit", "armor"].includes(type)) {
       if (now - lastHitSound < 0.07) return;
       lastHitSound = now;
     }
-    const oscillator = audio.createOscillator(),
-      gain = audio.createGain();
-    const notes: Record<string, [number, number, number]> = {
-      shot: [125, 45, 0.07],
-      throw: [180, 80, 0.12],
-      hit: [260, 70, 0.06],
-      armor: [1450, 510, 0.045],
-      explosion: [65, 22, 0.3],
-      objective: [480, 960, 0.3],
-      reload: [230, 320, 0.09],
-      dash: [380, 70, 0.16],
-      damage: [100, 40, 0.15],
+    if (!master) {
+      // A gentle bus compressor keeps stacked explosions from clipping.
+      const bus = ctx.createDynamicsCompressor();
+      bus.threshold.value = -16;
+      bus.ratio.value = 6;
+      bus.connect(ctx.destination);
+      master = bus;
+    }
+    if (!noiseBuffer) {
+      noiseBuffer = ctx.createBuffer(1, ctx.sampleRate, ctx.sampleRate);
+      const data = noiseBuffer.getChannelData(0);
+      for (let i = 0; i < data.length; i++) data[i] = Math.random() * 2 - 1;
+    }
+    const tone = (
+      wave: OscillatorType,
+      from: number,
+      to: number,
+      duration: number,
+      volume: number,
+      delay = 0,
+    ) => {
+      const o = ctx.createOscillator(),
+        g = ctx.createGain(),
+        t = now + delay;
+      o.type = wave;
+      o.frequency.setValueAtTime(from, t);
+      o.frequency.exponentialRampToValueAtTime(to, t + duration);
+      g.gain.setValueAtTime(volume, t);
+      g.gain.exponentialRampToValueAtTime(0.001, t + duration);
+      o.connect(g).connect(master!);
+      o.start(t);
+      o.stop(t + duration + 0.02);
     };
-    const [a, b, d] = notes[type] ?? notes.hit;
-    oscillator.type = type === "objective" ? "sine" : "triangle";
-    oscillator.frequency.setValueAtTime(a, now);
-    oscillator.frequency.exponentialRampToValueAtTime(b, now + d);
-    gain.gain.setValueAtTime(type === "shot" ? 0.035 : 0.07, now);
-    gain.gain.exponentialRampToValueAtTime(0.001, now + d);
-    oscillator.connect(gain).connect(audio.destination);
-    oscillator.start();
-    oscillator.stop(now + d + 0.01);
+    const noise = (
+      filter: BiquadFilterType,
+      from: number,
+      to: number,
+      duration: number,
+      volume: number,
+    ) => {
+      const src = ctx.createBufferSource(),
+        f = ctx.createBiquadFilter(),
+        g = ctx.createGain();
+      src.buffer = noiseBuffer!;
+      src.playbackRate.value = 0.8 + Math.random() * 0.4;
+      f.type = filter;
+      f.frequency.setValueAtTime(from, now);
+      f.frequency.exponentialRampToValueAtTime(to, now + duration);
+      g.gain.setValueAtTime(volume, now);
+      g.gain.exponentialRampToValueAtTime(0.001, now + duration);
+      src.connect(f).connect(g).connect(master!);
+      src.start(now, Math.random() * 0.5, duration + 0.05);
+    };
+    // Layered noise + tone recipes: a crack for guns, a thump and rumble for blasts.
+    if (type === "shot") {
+      noise("highpass", 2400, 900, 0.06, 0.05);
+      tone("triangle", 150, 50, 0.07, 0.03);
+    } else if (type === "explosion") {
+      noise("lowpass", 1600, 90, 0.9, 0.22);
+      tone("sine", 95, 28, 0.55, 0.22);
+    } else if (type === "hit") {
+      noise("bandpass", 3200, 1400, 0.035, 0.05);
+      tone("triangle", 300, 90, 0.05, 0.035);
+    } else if (type === "armor") {
+      tone("square", 1450, 520, 0.05, 0.025);
+      noise("highpass", 5000, 3000, 0.04, 0.03);
+    } else if (type === "damage") {
+      noise("lowpass", 700, 120, 0.18, 0.12);
+      tone("sine", 120, 45, 0.16, 0.08);
+    } else if (type === "streak") {
+      tone("triangle", 660, 990, 0.1, 0.05);
+      tone("triangle", 990, 1320, 0.14, 0.05, 0.08);
+    } else if (type === "objective") {
+      tone("sine", 480, 960, 0.3, 0.07);
+      tone("sine", 720, 1440, 0.3, 0.035, 0.06);
+    } else {
+      const notes: Record<string, [number, number, number]> = {
+        throw: [180, 80, 0.12],
+        reload: [230, 320, 0.09],
+        dash: [380, 70, 0.16],
+      };
+      const [a, b, d] = notes[type] ?? [260, 70, 0.06];
+      tone("triangle", a, b, d, 0.07);
+      if (type === "dash") noise("bandpass", 900, 300, 0.14, 0.04);
+    }
   } catch {}
 }
 function radio(text: string) {
@@ -235,7 +301,12 @@ function menu() {
       `<option value="${i}" ${i === m.stage ? "selected" : ""}>${i + 1}. ${stage.name}</option>`,
   ).join("");
   picker.onchange = () => {
-    previewMission = Number(picker.value) * 3;
+    const pick = Number(picker.value) * 3;
+    // Re-picking the stage you are already on keeps the saved level.
+    previewMission =
+      !save.completed && pick === Math.floor(save.mission / 3) * 3
+        ? undefined
+        : pick;
     menu();
   };
   document
@@ -247,8 +318,16 @@ function menu() {
         String(b.dataset.difficulty === difficulty),
       );
     });
+  const deployLabel =
+    previewMission !== undefined
+      ? `DEPLOY TO STAGE ${Math.floor(previewMission / 3) + 1}`
+      : save.completed
+        ? "REPLAY CAMPAIGN"
+        : save.mission > 0
+          ? "CONTINUE OPERATION"
+          : "DEPLOY TO STAGE";
   $("#launch-area").innerHTML =
-    `<button class="primary" id="deploy" ${ready ? "" : "disabled"}>${save.completed ? "REPLAY CAMPAIGN" : save.mission > 0 ? "CONTINUE OPERATION" : "DEPLOY TO STAGE"} <span>↗</span></button>${save.mission > 0 && !save.completed ? '<button class="text-button" id="new-campaign">START NEW CAMPAIGN</button>' : ""}`;
+    `<button class="primary" id="deploy" ${ready ? "" : "disabled"}>${deployLabel} <span>↗</span></button>${previewMission !== undefined && (save.mission > 0 || save.completed) ? '<p class="small-note" id="stage-switch-note">Starts this stage at level 1. Credits, Field Kit and squad carry over; level upgrades restart.</p>' : ""}${save.mission > 0 && !save.completed ? '<button class="text-button" id="new-campaign">START NEW CAMPAIGN</button>' : ""}`;
   const price = fieldKitCost(save);
   $("#launch-area").insertAdjacentHTML(
     "beforeend",
@@ -275,13 +354,22 @@ function menu() {
     };
   };
   $("#deploy").onclick = () => {
+    // Changing stage or replaying restarts level progression, but recovered
+    // treasure, permanent Field Kit ranks and rescued allies are kept.
+    const carried = (mission: number) => ({
+      ...freshSave(),
+      mission,
+      best: save.best,
+      credits: save.credits,
+      fieldKit: save.fieldKit,
+      squad: save.squad,
+    });
     if (previewMission !== undefined) {
-      save = { ...freshSave(), mission: previewMission, best: save.best };
+      save = carried(previewMission);
       previewMission = undefined;
       write("nightfall-campaign", save);
-    }
-    if (save.completed) {
-      save = { ...freshSave(), best: save.best };
+    } else if (save.completed) {
+      save = carried(0);
       write("nightfall-campaign", save);
     }
     start();
@@ -306,6 +394,7 @@ function start() {
   if (!ready) return;
   interactionHint.reset();
   clearInput();
+  feedback.clear();
   game.start(save.mission, save, difficulty);
   world.marker.visible = true;
   mode = "playing";
@@ -579,11 +668,16 @@ function updateHud() {
   const boss = game.boss;
   $("#boss-panel").hidden = !boss;
   if (boss) {
-    const bosses = game.enemies.filter((e) => e.boss && e.hp > 0);
-    $("#boss-name").textContent = `${m.boss} / ${bosses.length} REMAIN`;
+    // Sum every boss (dead ones at 0 hp) so a kill never refills the bar.
+    const bosses = game.enemies.filter((e) => e.boss);
+    const alive = bosses.filter((e) => e.hp > 0);
+    $("#boss-name").textContent = `${m.boss} / ${alive.length} REMAIN`;
     $("#boss-bar").style.width =
-      `${(100 * bosses.reduce((n, e) => n + e.hp, 0)) / bosses.reduce((n, e) => n + e.max, 0)}%`;
-    $("#boss-phase").textContent = boss.state ?? "ARMORED TARGET";
+      `${(100 * bosses.reduce((n, e) => n + Math.max(0, e.hp), 0)) / bosses.reduce((n, e) => n + e.max, 0)}%`;
+    const salvo = alive.find((e) => (e.salvoUntil ?? 0) > game.elapsed);
+    $("#boss-phase").textContent = salvo
+      ? "HEAVY SALVO / TAKE COVER"
+      : (boss.state ?? "ARMORED TARGET");
   }
   const prompt = $("#interact-prompt");
   const hintKey = game.riding
@@ -855,6 +949,9 @@ function frame(now: number) {
       // End-screen presentation follows elapsed time even when rendering is slow.
       acc = 0;
       game.update(frameDelta, input);
+    } else if (game.feel.hitStop > 0) {
+      // Hit-stop: hold the simulation for a few frames on heavy impacts.
+      acc = 0;
     } else {
       acc += dt;
       while (acc >= 1 / 60) {
@@ -862,6 +959,8 @@ function frame(now: number) {
         acc -= 1 / 60;
       }
     }
+    game.feel.decay(dt);
+    feedback.update(game, world, $("#crosshair"), prefs.reduced);
     if (now - lastHud > 90) {
       updateHud();
       lastHud = now;
@@ -871,6 +970,8 @@ function frame(now: number) {
     if (mode === "result") game.updatePresentation(frameDelta);
   }
   $("#crosshair").hidden = mode !== "playing" || !pointerSeen || input.assist;
+  world.shake =
+    mode === "playing" && !prefs.reduced ? (game?.feel.trauma ?? 0) : 0;
   world.render(
     now / 1000,
     game.pos,
@@ -887,6 +988,7 @@ async function init() {
       $("#load").textContent = `${Math.round(n * 100)}%`;
     });
     game = new Game(world);
+    feedback = new FeedbackUI(document.body);
     game.onRadio = radio;
     game.onSound = sound;
     game.onEnd = end;

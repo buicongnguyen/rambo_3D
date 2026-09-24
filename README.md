@@ -22,7 +22,7 @@ The opening has an early M249 cache with 60 bonus rounds. Collect banknotes (10 
 | Faultline Zero | Periodic dust plumes and 1–2-second earthquake freezes for ground enemies        |
 | Mire Crossing  | Muddy water holes gradually sink and slow the player; move out to recover        |
 
-Choose a stage from the briefing selector, or continue your saved level. Changing stages starts at that stage's first level when you deploy. Each completed level offers an upgrade. Campaign progress saves between levels, not during combat. Old three-mission saves migrate to the expanded campaign start while keeping the best score.
+Choose a stage from the briefing selector, or continue your saved level. Changing stages starts at that stage's first level when you deploy; credits, Field Kit ranks and rescued allies carry over, while per-level upgrades restart. Re-selecting your current stage keeps your saved level. Each completed level offers an upgrade. Campaign progress saves between levels, not during combat. Old three-mission saves migrate to the expanded campaign start while keeping the best score.
 
 | Difficulty | Base health | Soldiers | Bosses in each stage finale |
 | ---------- | ----------: | -------: | --------------------------: |
@@ -48,7 +48,7 @@ After the opening raid (12 soldiers) and second mission (24 soldiers plus one ta
 | F / TURBO          | Fire two weapons together for 3s       |
 | Escape             | Pause / resume                         |
 
-Mobile has a Tank-style analog movement joystick (drag gently to walk, farther to run; release to stop), FIRE, SWAP WEAPON, RELOAD, DODGE, TURBO, BOARD/EXIT/USE and PAUSE buttons. Motorcycles use personal weapons; jeeps carry a mounted shotgun. Playable tanks have 1,680 armor (previously 420), start with six explosive cannon shells and can also fire collected weapons: Q / SWAP WEAPON cycles cannon → collected weapons → cannon. Picking up a weapon automatically selects the strongest usable loadout, including the tank cannon. Personal magazines/reserves and cannon shells remain separate across swaps and exits; shells cannot be reloaded. Empty cannon fire falls back to a personal weapon. Relays and prison rescues activate automatically in vehicles too. Exit your vehicle to extract; exit the jeep to switch personal weapons. Moving tanks and jeeps crush infantry, with the normal fall/fade and score; stationary contact and soldiers behind solid cover do not award kills. Armored enemies and bosses cannot be run over.
+Mobile has a Tank-style analog movement joystick (drag gently to walk, farther to run; release to stop), FIRE, SWAP WEAPON, RELOAD, DODGE, TURBO, BOARD/EXIT/USE and PAUSE buttons. Motorcycles use personal weapons; jeeps carry a mounted shotgun. Playable tanks have 1,680 armor (previously 420), start with six explosive cannon shells and can also fire collected weapons: Q / SWAP WEAPON cycles cannon → collected weapons → cannon. Picking up a weapon automatically selects the strongest usable loadout, including the tank cannon; limited grenades are never auto-equipped while a gun has ammunition, and ammo pickups keep a manual weapon choice. Personal magazines/reserves and cannon shells remain separate across swaps and exits; shells cannot be reloaded. Empty cannon fire falls back to a personal weapon. Relays and prison rescues activate automatically in vehicles too. Exit your vehicle to extract; exit the jeep to switch personal weapons. Moving tanks and jeeps crush infantry, with the normal fall/fade and score; stationary contact and soldiers behind solid cover do not award kills. Armored enemies and bosses cannot be run over.
 
 The motorcycle, jeep and tank appear in guarded roadside bays around 13%, 40% and 67% of the route. Sniper, rocket and laser caches also have nearby defenders drawn from the existing patrol quota. Small multi-hit trees replace rock and concrete barriers in both graphics modes; destroy them to open shortcuts. Buildings still block movement and gunfire. Long, indestructible concrete walls enclose all four map edges in every level. Tanks crush small trees at half movement speed until their hull clears the tree footprint, then recover normal speed; bikes and jeeps must shoot through or go around. Nearby BOARD / EXIT / objective hints appear for one second, while E and the mobile USE / EXIT button remain available. From the first finale onward, each deployment scatters nine purple weapon crates, six green medical crates and five blue shield crates along accessible roadsides. Walk or drive nearby to collect them. Green supplies heal the player and repair the occupied vehicle; full health/armor leaves supplies available. Blue crates add 40 personal shield points up to 80. Shields absorb personal damage before health and remain stored while vehicle armor takes hits. Shoot red fuel drums or marked EXPLOSIVE crates for outward fireballs, sparks, debris and chain explosions. Damage falls off over a 5.5-metre radius: nearby soldiers can be killed, and players and vehicle armor can be damaged. Walls and buildings block blast damage. Trees can be shot or blasted apart. Enemy helicopters fly and land to rearm behind cover; spiders climb across obstacles and pause to rest; laser tanks telegraph a locked 3.2-metre-wide beam. Gunships and spiders fire frequent light volleys, then a slower heavy salvo with three warned 3.4-metre blast zones. Leave the warning rings or use solid cover.
 
@@ -61,6 +61,12 @@ Bullet tracers are compact rounded rounds at half the previous length and width.
 See [environment interaction details and validation](docs/ENVIRONMENT_INTERACTIONS.md) for perimeter walls, explosive stores, timed hints and tank tree crushing.
 
 See [the implementation and improvement plan](docs/BULLET_STORM.md) for scope, upgrade rules and suggested next additions.
+
+## Game feel
+
+Kills land with a brief hit-stop, blasts and heavy hits shake the camera, and floating damage numbers show the damage actually dealt: amber for rear hits, grey for armour deflections, gold for kills. The crosshair flashes on hits and kills. A red arc around your soldier points toward each damage source, and a pulse warns below 30% health. Chained kills call out DOUBLE KILL through ONE-MAN ARMY. Enemy tanks wear desert paint and rescued allies wear cyan bandanas, so neither is mistaken for your own. Enable *Reduce camera motion* to turn off shake and animated banners. On portrait phones the camera pulls back so riflemen and rocket troops stay on screen.
+
+![Before and after the stylized pass](docs/aaa-gameplay.png)
 
 ## Run and build
 
@@ -79,13 +85,18 @@ Production output is `dist`; `npm run preview` serves it. Low graphics limits re
 
 ## Blender
 
-35 original GLB models and editable `art/nightfall.blend` are committed. Regenerate with:
+44 original GLB models and their editable `.blend` sources are committed. Five headless generators share the stylized kit in `art/style.py`: chunky toy-like forms, soft bevels, saturated paint and one tiny painted-light ramp per file. Regenerate with:
 
 ```powershell
-.tools/blender-4.5.3-windows-x64/blender.exe --background --python-exit-code 1 --python art/build_assets.py
+$blender = ".tools/blender-4.5.3-windows-x64/blender.exe"
+foreach ($script in "build_assets", "build_relay_house", "build_rescue_kit", "build_ruin_wall", "build_infantry_kit") {
+  & $blender --background --factory-startup --python-exit-code 1 --python "art/$script.py"
+}
 ```
 
-The authoring script is the reproducible source. Regeneration replaces manual gallery edits; work on a copy for hand-authored variants. Models use articulated rigid joints for procedural motion, rather than skinned or motion-captured animation. The model library is approximately 6.7 MB, with a checked 7.5 MB budget.
+The authoring scripts are the reproducible source. Regeneration replaces manual gallery edits; work on a copy for hand-authored variants. Models use articulated rigid joints for procedural motion, rather than skinned or motion-captured animation. The model library is about 4.2 MB, with a checked 5.5 MB budget, per-model triangle budgets for instanced crowds and scenery, and named-material contracts for runtime liveries. See [the stylized AAA art, look and feel pass](docs/AAA_ART_AND_FEEL.md).
+
+![Stylized Blender model library](docs/aaa-models.png)
 
 ## Publishing
 
