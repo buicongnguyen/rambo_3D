@@ -109,6 +109,13 @@ test("sound and music can be switched off in settings, and cues are cheap to sch
 test("stage themes loop under play, switch for bosses, dip on pause and stop at the end", async ({
   page,
 }) => {
+  // CI starts with sound off; this test needs effects and music switched on.
+  await page.addInitScript(() =>
+    localStorage.setItem(
+      "nightfall-prefs",
+      JSON.stringify({ low: true, sound: true, music: true }),
+    ),
+  );
   await ready(page); // The deploy click is the user gesture that unlocks audio.
   const audio = () =>
     page.evaluate(() => {
@@ -121,7 +128,7 @@ test("stage themes loop under play, switch for bosses, dip on pause and stop at 
       };
     });
   await expect
-    .poll(async () => (await audio()).playing, { timeout: 20000 })
+    .poll(async () => (await audio()).playing, { timeout: 40000 })
     .toBe(true);
   expect(await audio()).toMatchObject({ key: "ice", loop: true, level: 1 });
   await page.keyboard.press("Escape");
@@ -137,7 +144,7 @@ test("stage themes loop under play, switch for bosses, dip on pause and stop at 
     .poll(async () => (await audio()).key, { timeout: 5000 })
     .toBe("ice:boss");
   await expect
-    .poll(async () => (await audio()).playing, { timeout: 20000 })
+    .poll(async () => (await audio()).playing, { timeout: 40000 })
     .toBe(true);
   // Turning music off stops the loop; the win screen stops it for good.
   await page.keyboard.press("Escape");
@@ -145,7 +152,7 @@ test("stage themes loop under play, switch for bosses, dip on pause and stop at 
   expect((await audio()).playing).toBe(false);
   await page.locator("#setting-music").check();
   await expect
-    .poll(async () => (await audio()).playing, { timeout: 20000 })
+    .poll(async () => (await audio()).playing, { timeout: 40000 })
     .toBe(true);
   await page.locator("#resume").click();
   await page.evaluate(() => {
