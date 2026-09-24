@@ -195,3 +195,40 @@ test("opened prison walls allow foot access through every rotated door while the
     assert.ok(Math.hypot(blocked.x, blocked.z) < 1.4, `back wall ${rotation}`);
   }
 });
+
+test("opening a prison never lands a wall on a soldier standing at the closed door", async () => {
+  const { openedPrisonWalls } = await import("../src/rescue.mjs");
+  const { moveCircle, resolveOverlap } = await import("../src/rules.mjs");
+  const r = 0.48,
+    bound = { x: 60, minZ: -60, maxZ: 60 };
+  for (const rotation of [0, Math.PI / 2, Math.PI, -Math.PI / 2]) {
+    const box = { x: 3, z: -7, w: 4.2, d: 4.2, rotation },
+      c = Math.cos(rotation),
+      s = Math.sin(rotation),
+      walls = openedPrisonWalls(box);
+    for (let lx = -2.5; lx <= 2.5; lx += 0.25) {
+      // Touching the closed box's front face, anywhere along the door side.
+      const lz = 2.1 + r + 1e-6;
+      const x = box.x + lx * c + lz * s,
+        z = box.z - lx * s + lz * c;
+      const free = resolveOverlap(x, z, r, walls);
+      assert.ok(
+        Math.hypot(free.x - x, free.z - z) < 1e-9,
+        `wall landed on soldier at ${lx} (${rotation})`,
+      );
+      // Sideways movement along the door stays possible.
+      const side = moveCircle(x, z, c * 0.1, -s * 0.1, r, walls, bound);
+      assert.ok(Math.hypot(side.x - x, side.z - z) > 0.05);
+    }
+  }
+});
+
+test("resolveOverlap frees a circle pinned inside or against a box", async () => {
+  const { resolveOverlap } = await import("../src/rules.mjs");
+  const wall = { x: 0, z: 0, w: 2, d: 0.4 };
+  const grazing = resolveOverlap(0.2, 0.5, 0.48, [wall]);
+  assert.ok(grazing.z >= 0.2 + 0.48 - 1e-6);
+  const buried = resolveOverlap(0.9, 0.05, 0.48, [wall]);
+  assert.ok(buried.x >= 1 + 0.48 - 1e-6, JSON.stringify(buried));
+  assert.deepEqual(resolveOverlap(5, 5, 0.48, [wall]), { x: 5, z: 5 });
+});

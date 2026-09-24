@@ -57,6 +57,47 @@ export function segmentCircle(ax, az, bx, bz, x, z, r) {
   const t = (-b - Math.sqrt(disc)) / (2 * a);
   return t >= 0 && t <= 1 ? t : Infinity;
 }
+/**
+ * Push a circle out of any box it already overlaps (nearest exit). moveCircle
+ * rejects steps that end inside a box, so an actor left overlapping one (for
+ * example when collision is swapped under it) would otherwise be pinned.
+ */
+export function resolveOverlap(x, z, r, boxes) {
+  for (let pass = 0; pass < 4; pass++) {
+    let pushed = false;
+    for (const b of boxes) {
+      const minX = b.x - b.w / 2,
+        maxX = b.x + b.w / 2,
+        minZ = b.z - b.d / 2,
+        maxZ = b.z + b.d / 2;
+      const qx = Math.max(minX, Math.min(x, maxX)),
+        qz = Math.max(minZ, Math.min(z, maxZ));
+      const ox = x - qx,
+        oz = z - qz,
+        d2 = ox * ox + oz * oz;
+      if (d2 >= r * r) continue;
+      if (d2 > 1e-12) {
+        const d = Math.sqrt(d2),
+          push = r - d + 1e-4;
+        x += (ox / d) * push;
+        z += (oz / d) * push;
+      } else {
+        // Centre inside the box: leave through the nearest face.
+        const exits = [
+          [x - minX, minX - r - 1e-4, "x"],
+          [maxX - x, maxX + r + 1e-4, "x"],
+          [z - minZ, minZ - r - 1e-4, "z"],
+          [maxZ - z, maxZ + r + 1e-4, "z"],
+        ].sort((a, b) => a[0] - b[0]);
+        if (exits[0][2] === "x") x = exits[0][1];
+        else z = exits[0][1];
+      }
+      pushed = true;
+    }
+    if (!pushed) break;
+  }
+  return { x, z };
+}
 /** @param {number | {x:number,minZ:number,maxZ:number}} bound */
 export function moveCircle(x, z, dx, dz, r, boxes, bound = 29) {
   const limits =

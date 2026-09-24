@@ -2,7 +2,7 @@ import * as T from "three";
 import { repaint, ALLY_MARKS } from "./liveries";
 import { CharacterMotion } from "./animation";
 import { model, type World } from "./world";
-import { moveCircle, routeStep, segmentBox } from "./rules.mjs";
+import { moveCircle, resolveOverlap, routeStep, segmentBox } from "./rules.mjs";
 import { WORLD_BOUNDS } from "./campaign.mjs";
 import { MAX_SQUAD } from "./rescue.mjs";
 import type { Box } from "./missions";
@@ -187,9 +187,10 @@ export class Squad {
             d,
             dt * (Math.hypot(player.x - p.x, player.z - p.z) > 10 ? 8.2 : 6.6),
           );
+          const free = resolveOverlap(p.x, p.z, 0.4, navigation);
           const n = moveCircle(
-            p.x,
-            p.z,
+            free.x,
+            free.z,
             ((a.target.x - p.x) * step) / d,
             ((a.target.z - p.z) * step) / d,
             0.4,

@@ -209,12 +209,14 @@ export function fieldBonuses(m, boxes, patches, occupied = []) {
 export function openedPrisonWalls(box) {
   const c = Math.cos(box.rotation),
     s = Math.sin(box.rotation);
+  // Every wall stays inside the closed prison's 4.2 m footprint, so swapping
+  // collision when the gate opens can never land a wall on a soldier at the door.
   return [
     [-1.92, 0, 0.3, 4.2],
     [1.92, 0, 0.3, 4.2],
     [0, -1.92, 4.2, 0.3],
-    [-1.5, 2.04, 1.2, 0.15],
-    [1.5, 2.04, 1.2, 0.15],
+    [-1.5, 2.025, 1.2, 0.15],
+    [1.5, 2.025, 1.2, 0.15],
   ].map(([x, z, w, d]) => ({
     x: box.x + x * c + z * s,
     z: box.z - x * s + z * c,

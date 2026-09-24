@@ -68,6 +68,19 @@ Size and cost: the 44 GLBs now total about 4.2 MB, against 9.2 MB before. Soldie
 
 `src/debrief.mjs` (unit-tested) grades each level with up to three stars: complete it, beat a par time derived from the route length (75 s + 0.9 s per metre, +90 s for finales), and finish above 50% health. The debrief tallies banknotes ×10, gold ×25, diamonds ×75 and 10 credits per star, counts the banked total up and saves each level's best stars; stage cards show ★ n/9. The quartermaster shop presents Field Kit ranks and one-mission weapon supply drops as icon cards with a credit wallet. `art/build_ui_icons.py` renders the stars, coin, treasure, upgrade emblems and weapon icons in Blender from the same kit and GLBs.
 
+## Sound
+
+`src/audio.ts` synthesizes every cue with Web Audio, using noise bursts, filtered tones and a small brass-and-drums sequencer:
+- **Levels:** loudness trims come from offline renders. Player guns peak about -16 to -26 dBFS, enemy fire about -30, explosions and the tank cannon about -7 to -10, and stingers about -7 to -10, all through a bus compressor.
+- **Position:** world-positioned cues fade over 46 m and pan by screen side.
+- **Performance:** each cue has a minimum repeat spacing and there's a cap of 36 voices, so a 260-cue burst schedules in milliseconds and every voice is released.
+- **Music:** stingers are one-shot and 2.1 s or less, with no loops (unit-tested). Effects duck briefly under them.
+- **Settings:** separate Sound effects and Music switches; switching both off suspends the audio context.
+
+## Rescue door fix
+
+When a prisoner was freed from beside the door, the gate's front stub walls could land 1.5 cm inside a soldier standing there. `moveCircle` then rejected every step except backing away. The stubs now stay inside the closed prison's footprint, and `resolveOverlap()` pushes the player and allies out of any collision that changes around them. Unit and browser tests replay the case.
+
 ## Logic fixes
 
 1. **Stage picker.** The picker silently wiped credits, the "permanent" Field Kit and the squad. Re-picking the current stage now keeps the saved level. Deploy is labelled *DEPLOY TO STAGE N* and explains what carries over. Switching stage or replaying keeps credits, Field Kit, squad and best score.

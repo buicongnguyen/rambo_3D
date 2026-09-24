@@ -9,6 +9,7 @@ import {
 import { routeLength } from "./routes.mjs";
 import { WEAPONS } from "./arsenal";
 import { FeedbackUI } from "./feedback-ui";
+import { GameAudio } from "./audio";
 import { guidePoint } from "./guidance.mjs";
 import { InteractionHint } from "./environment.mjs";
 import {
@@ -41,6 +42,11 @@ let save = validateSave(read("nightfall-campaign", freshSave()));
 const rawPrefs = read("nightfall-prefs", {}) as Record<string, unknown>;
 const prefs = {
   sound: rawPrefs.sound !== false,
+  // Music stingers follow an older "sound off" preference until set on their own.
+  music:
+    typeof rawPrefs.music === "boolean"
+      ? rawPrefs.music
+      : rawPrefs.sound !== false,
   low:
     typeof rawPrefs.low === "boolean"
       ? rawPrefs.low
@@ -57,10 +63,7 @@ let difficulty = ["easy", "normal", "hard", "crazy"].includes(
     : "normal",
   mode: "menu" | "playing" | "paused" | "result" = "menu",
   ready = false,
-  radioUntil = 0,
-  audio: AudioContext | undefined,
-  lastShotSound = 0,
-  lastHitSound = 0;
+  radioUntil = 0;
 const app = $("#app");
 app.innerHTML = `
 <canvas id="scene" aria-label="Three-dimensional mission battlefield"></canvas>
@@ -158,106 +161,18 @@ function clearInput() {
   input.turbo = false;
   input.blast = false;
 }
-let noiseBuffer: AudioBuffer | undefined, master: AudioNode | undefined;
-function sound(type: string) {
-  if (!prefs.sound) return;
-  try {
-    audio ??= new AudioContext();
-    if (audio.state === "suspended") void audio.resume();
-    const ctx = audio,
-      now = ctx.currentTime;
-    if (type === "shot" && now - lastShotSound < 0.08) return;
-    if (type === "shot") lastShotSound = now;
-    if (["hit", "armor"].includes(type)) {
-      if (now - lastHitSound < 0.07) return;
-      lastHitSound = now;
-    }
-    if (!master) {
-      // A gentle bus compressor keeps stacked explosions from clipping.
-      const bus = ctx.createDynamicsCompressor();
-      bus.threshold.value = -16;
-      bus.ratio.value = 6;
-      bus.connect(ctx.destination);
-      master = bus;
-    }
-    if (!noiseBuffer) {
-      noiseBuffer = ctx.createBuffer(1, ctx.sampleRate, ctx.sampleRate);
-      const data = noiseBuffer.getChannelData(0);
-      for (let i = 0; i < data.length; i++) data[i] = Math.random() * 2 - 1;
-    }
-    const tone = (
-      wave: OscillatorType,
-      from: number,
-      to: number,
-      duration: number,
-      volume: number,
-      delay = 0,
-    ) => {
-      const o = ctx.createOscillator(),
-        g = ctx.createGain(),
-        t = now + delay;
-      o.type = wave;
-      o.frequency.setValueAtTime(from, t);
-      o.frequency.exponentialRampToValueAtTime(to, t + duration);
-      g.gain.setValueAtTime(volume, t);
-      g.gain.exponentialRampToValueAtTime(0.001, t + duration);
-      o.connect(g).connect(master!);
-      o.start(t);
-      o.stop(t + duration + 0.02);
-    };
-    const noise = (
-      filter: BiquadFilterType,
-      from: number,
-      to: number,
-      duration: number,
-      volume: number,
-    ) => {
-      const src = ctx.createBufferSource(),
-        f = ctx.createBiquadFilter(),
-        g = ctx.createGain();
-      src.buffer = noiseBuffer!;
-      src.playbackRate.value = 0.8 + Math.random() * 0.4;
-      f.type = filter;
-      f.frequency.setValueAtTime(from, now);
-      f.frequency.exponentialRampToValueAtTime(to, now + duration);
-      g.gain.setValueAtTime(volume, now);
-      g.gain.exponentialRampToValueAtTime(0.001, now + duration);
-      src.connect(f).connect(g).connect(master!);
-      src.start(now, Math.random() * 0.5, duration + 0.05);
-    };
-    // Layered noise + tone recipes: a crack for guns, a thump and rumble for blasts.
-    if (type === "shot") {
-      noise("highpass", 2400, 900, 0.06, 0.05);
-      tone("triangle", 150, 50, 0.07, 0.03);
-    } else if (type === "explosion") {
-      noise("lowpass", 1600, 90, 0.9, 0.22);
-      tone("sine", 95, 28, 0.55, 0.22);
-    } else if (type === "hit") {
-      noise("bandpass", 3200, 1400, 0.035, 0.05);
-      tone("triangle", 300, 90, 0.05, 0.035);
-    } else if (type === "armor") {
-      tone("square", 1450, 520, 0.05, 0.025);
-      noise("highpass", 5000, 3000, 0.04, 0.03);
-    } else if (type === "damage") {
-      noise("lowpass", 700, 120, 0.18, 0.12);
-      tone("sine", 120, 45, 0.16, 0.08);
-    } else if (type === "streak") {
-      tone("triangle", 660, 990, 0.1, 0.05);
-      tone("triangle", 990, 1320, 0.14, 0.05, 0.08);
-    } else if (type === "objective") {
-      tone("sine", 480, 960, 0.3, 0.07);
-      tone("sine", 720, 1440, 0.3, 0.035, 0.06);
-    } else {
-      const notes: Record<string, [number, number, number]> = {
-        throw: [180, 80, 0.12],
-        reload: [230, 320, 0.09],
-        dash: [380, 70, 0.16],
-      };
-      const [a, b, d] = notes[type] ?? [260, 70, 0.06];
-      tone("triangle", a, b, d, 0.07);
-      if (type === "dash") noise("bandpass", 900, 300, 0.14, 0.04);
-    }
-  } catch {}
+const audio = new GameAudio();
+/** Play a cue; world-positioned cues fade with distance and pan left/right. */
+function sound(type: string, at?: { x: number; z: number }) {
+  if (!(GameAudio.isMusic(type) ? prefs.music : prefs.sound)) return;
+  if (!at || !game) return audio.play(type);
+  const dx = at.x - game.pos.x,
+    dz = at.z - game.pos.z,
+    distance = Math.hypot(dx, dz);
+  audio.play(type, {
+    gain: Math.max(0, 1 - distance / 46) ** 1.4,
+    pan: dx / 18,
+  });
 }
 function radio(text: string) {
   $("#radio p").textContent = text;
@@ -265,12 +180,15 @@ function radio(text: string) {
   $("#radio").classList.add("visible");
 }
 function syncSound() {
-  $("#sound").textContent = prefs.sound ? "SOUND ON" : "SOUND OFF";
-  $("#sound").setAttribute("aria-pressed", String(prefs.sound));
+  const any = prefs.sound || prefs.music;
+  $("#sound").textContent = any ? "SOUND ON" : "SOUND OFF";
+  $("#sound").setAttribute("aria-pressed", String(any));
+  audio.configure(prefs.sound, prefs.music);
   write("nightfall-prefs", { ...prefs, difficulty });
 }
+// The briefing button is a master switch for effects and music together.
 $("#sound").onclick = () => {
-  prefs.sound = !prefs.sound;
+  prefs.sound = prefs.music = !(prefs.sound || prefs.music);
   syncSound();
 };
 syncSound();
@@ -461,7 +379,7 @@ function start() {
   $("#overlay").hidden = true;
   document.body.classList.add("in-game");
   radio(MISSIONS[save.mission].radio);
-  sound("objective");
+  sound("start");
   canvas.focus();
 }
 function showOverlay(html: string, variant = "") {
@@ -475,13 +393,17 @@ function pause() {
   mode = "paused";
   clearInput();
   showOverlay(
-    `<span class="eyebrow">SIGNAL ON HOLD</span><h2>Take a breath.</h2><p>The battlefield will wait.</p><button id="resume" class="primary">RESUME OPERATION <span>↗</span></button><div class="settings"><label><span>Sound effects</span><input id="setting-sound" type="checkbox" ${prefs.sound ? "checked" : ""}></label><label><span>Graphics detail</span><select id="setting-low" aria-label="Graphics detail"><option value="low" ${prefs.low ? "selected" : ""}>Low · Mobile / battery saver</option><option value="high" ${!prefs.low ? "selected" : ""}>High · PC / detailed visuals</option></select></label><label><span>Reduce camera motion</span><input id="setting-motion" type="checkbox" ${prefs.reduced ? "checked" : ""}></label></div><div class="modal-actions"><button id="restart">RESTART MISSION</button><button id="to-menu">MISSION BRIEFING</button></div><p class="small-note">WASD / arrows move · Mouse aims · Click / Space fires<br>R reload · Q switch · B target explosives · E interact · Shift dodge · Esc pause</p>`,
+    `<span class="eyebrow">SIGNAL ON HOLD</span><h2>Take a breath.</h2><p>The battlefield will wait.</p><button id="resume" class="primary">RESUME OPERATION <span>↗</span></button><div class="settings"><label><span>Sound effects</span><input id="setting-sound" type="checkbox" ${prefs.sound ? "checked" : ""}></label><label><span>Music</span><input id="setting-music" type="checkbox" ${prefs.music ? "checked" : ""}></label><label><span>Graphics detail</span><select id="setting-low" aria-label="Graphics detail"><option value="low" ${prefs.low ? "selected" : ""}>Low · Mobile / battery saver</option><option value="high" ${!prefs.low ? "selected" : ""}>High · PC / detailed visuals</option></select></label><label><span>Reduce camera motion</span><input id="setting-motion" type="checkbox" ${prefs.reduced ? "checked" : ""}></label></div><div class="modal-actions"><button id="restart">RESTART MISSION</button><button id="to-menu">MISSION BRIEFING</button></div><p class="small-note">WASD / arrows move · Mouse aims · Click / Space fires<br>R reload · Q switch · B target explosives · E interact · Shift dodge · Esc pause</p>`,
   );
   $("#resume").onclick = resume;
   $("#restart").onclick = start;
   $("#to-menu").onclick = menu;
   $<HTMLInputElement>("#setting-sound").onchange = (e) => {
     prefs.sound = (e.target as HTMLInputElement).checked;
+    syncSound();
+  };
+  $<HTMLInputElement>("#setting-music").onchange = (e) => {
+    prefs.music = (e.target as HTMLInputElement).checked;
     syncSound();
   };
   $<HTMLSelectElement>("#setting-low").onchange = (e) => {
@@ -544,6 +466,7 @@ function end(win: boolean) {
   if (mode === "result") return;
   mode = "result";
   clearInput();
+  sound(win ? "win" : "lose");
   const m = MISSIONS[game.index],
     final = win && game.index === LEVEL_COUNT - 1;
   // Bank once at extraction, even if the browser closes before the upgrade choice.

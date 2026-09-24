@@ -55,7 +55,13 @@ import * as T from "three";
 import { CharacterMotion, FallenBody, VehicleMotion } from "./animation";
 import { World, model } from "./world";
 import { MISSIONS, COVER, SPAWNS, PATCHES, type Box } from "./missions";
-import { moveCircle, segmentBox, segmentCircle, routeStep } from "./rules.mjs";
+import {
+  moveCircle,
+  resolveOverlap,
+  segmentBox,
+  segmentCircle,
+  routeStep,
+} from "./rules.mjs";
 export type Input = {
   x: number;
   z: number;
@@ -460,7 +466,8 @@ export class Game {
   /** Presentation-only feedback (shake, hit-stop, streaks, hit numbers). */
   readonly feel = new Feel();
   onRadio: (text: string) => void = () => {};
-  onSound: (type: string) => void = () => {};
+  /** Sound cue, optionally at a world position for distance and panning. */
+  onSound: (type: string, at?: { x: number; z: number }) => void = () => {};
   onEnd: (win: boolean) => void = () => {};
   private rescueMarkerGeo = new T.RingGeometry(1.05, 1.22, 32);
   private rescueMarkerMat = new T.MeshBasicMaterial({
@@ -811,7 +818,7 @@ export class Game {
           joined ? "ALLY RESCUED · SQUAD +1" : "PRISONER EVACUATED",
           2,
         );
-        this.onSound("objective");
+        this.onSound("rescue");
       }
       if (prison.freed) {
         prison.open = Math.min(1, prison.open + dt * 1.6);
@@ -845,7 +852,7 @@ export class Game {
           `${kind.toUpperCase()} +${TREASURE[kind]} · EXTRACT TO BANK`,
           1.2,
         );
-        this.onSound("objective");
+        this.onSound("coin");
       }
     }
   }
@@ -1176,7 +1183,7 @@ export class Game {
       spec.splash,
       true,
     );
-    this.onSound("explosion");
+    this.onSound("explosion", { x, z });
     this.feel.blast(Math.hypot(this.pos.x - x, this.pos.z - z), spec.splash);
     for (const enemy of this.enemies) {
       const d = Math.hypot(enemy.x - x, enemy.z - z);
@@ -1304,7 +1311,11 @@ export class Game {
       }
     if (!mounted) this.playerMotion.kick();
     this.onSound(
-      spec.id === "throwBomb" ? "throw" : spec.splash ? "explosion" : "shot",
+      spec.visual === "grenade" || spec.visual === "gas"
+        ? "throw"
+        : mounted && this.riding?.kind === "tank" && !this.riding.personalWeapon
+          ? "cannon"
+          : "fire:" + spec.id,
     );
   }
   spark(x: number, z: number, big = false) {
@@ -1352,7 +1363,7 @@ export class Game {
           velocity: new T.Vector3(0.25, 1.1 + Math.random(), 0.15),
         });
       }
-    this.onSound(big ? "explosion" : "hit");
+    this.onSound(big ? "explosion" : "hit", { x, z });
   }
   shoot(
     x: number,
@@ -1365,6 +1376,8 @@ export class Game {
     originY = 0.95,
     flashOffset = 0.7,
   ) {
+    if (enemy)
+      this.onSound(spec?.splash ? "enemyCannon" : "enemyShot", { x, z });
     if (spec?.visual !== "knife") {
       const flash = new T.Mesh(this.effectGeo, this.effectMat.clone());
       flash.position.set(
@@ -1499,7 +1512,7 @@ export class Game {
               ? 1.05
               : 0.85,
         );
-      this.onSound(armor < 1 ? "armor" : "hit");
+      this.onSound(armor < 1 ? "armor" : "hit", e);
     } else this.spark(e.x, e.z);
     if (e.hp <= 0) {
       this.kills++;
@@ -1510,7 +1523,12 @@ export class Game {
       )
         this.allClear = true;
       this.feel.kill(this.elapsed, e.boss ? 1 : e.armored ? 0.5 : 0);
-      if (this.feel.banner?.time === this.elapsed) this.onSound("streak");
+      this.onSound("kill", e);
+      // Music stingers mark big moments: bosses and every fourth chained kill.
+      if (e.boss) this.onSound("bossDown");
+      else if (this.feel.streak >= 4 && this.feel.streak % 4 === 0)
+        this.onSound("rampage");
+      else if (this.feel.banner?.time === this.elapsed) this.onSound("streak");
       this.score += e.boss ? 1500 : e.armored ? 350 : 100;
       if (rear) {
         this.score += 50;
@@ -1741,7 +1759,7 @@ export class Game {
     const { radius } = ENV_BLAST;
     const beforeKills = this.kills;
     const rootBlast = this.blastDepth++ === 0;
-    this.onSound("explosion");
+    this.onSound("explosion", { x, z });
     this.feel.blast(Math.hypot(this.pos.x - x, this.pos.z - z), 5);
     // Walls and buildings contain a blast; soft foliage and other explosive stores do not.
     const solid = COVER.filter(
@@ -1873,6 +1891,7 @@ export class Game {
       this.onRadio(
         "ROCKFALL! Clear the orange impact rings. Falling rock can hit either side.",
       );
+      this.onSound("warn");
     }
   }
   rockfall(x: number, z: number) {
@@ -2091,7 +2110,7 @@ export class Game {
           e.beam = undefined;
           e.laserAim = undefined;
           e.cool = BOSS_ATTACKS.laserTank.interval;
-          this.onSound("shot");
+          this.onSound("fire:laser", e);
         }
       }
     } else if (e.cool <= 0) {
@@ -2228,7 +2247,7 @@ export class Game {
       this.shoot(p.x, p.z, aim, true, damage, speed, undefined, p.y, 0);
     }
     e.motion?.kick();
-    this.onSound("shot");
+    this.onSound("enemyShot", e);
   }
   private updateSecondaryGun(e: Actor, dt: number, sight: boolean) {
     if (!e.muzzles?.has("MuzzleAux") && e.bossKind !== "rocketMech") return;
@@ -2289,6 +2308,7 @@ export class Game {
     // Movement states overwrite e.state every tick; keep the warning readable
     // until the blast zones resolve.
     e.salvoUntil = this.elapsed + profile.warning + 0.4;
+    this.onSound("warn", e);
     this.onRadio(
       "Heavy salvo! Leave the orange blast zones or get behind concrete.",
     );
@@ -2498,15 +2518,20 @@ export class Game {
     const parked = this.rides
       .filter((v) => v.hp > 0 && v !== this.riding)
       .map((v) => v.box);
+    const obstacles = [...COVER, ...parked];
+    // Never let the soldier stay pinned inside collision that changed around them.
+    const free = this.riding
+      ? this.pos
+      : resolveOverlap(this.pos.x, this.pos.z, 0.48, obstacles);
     const moved = this.riding
       ? { x: this.pos.x, z: this.pos.z }
       : moveCircle(
-          this.pos.x,
-          this.pos.z,
+          free.x,
+          free.z,
           speedX * dt,
           speedZ * dt,
           0.48,
-          [...COVER, ...parked],
+          obstacles,
           WORLD_BOUNDS,
         );
     this.pos.x = moved.x;
@@ -2801,8 +2826,10 @@ export class Game {
       firing,
       angle,
       navigationCover,
-      (x, z, direction) =>
-        this.shoot(x, z, direction, false, 12, WEAPONS[0].speed, WEAPONS[0]),
+      (x, z, direction) => {
+        this.onSound("allyShot", { x, z });
+        this.shoot(x, z, direction, false, 12, WEAPONS[0].speed, WEAPONS[0]);
+      },
     );
     const limits = pressureLimits(this.difficulty);
     const pressure = { melee: 0, thrower: 0, rocket: 0 };
@@ -3436,7 +3463,7 @@ export class Game {
         );
         this.world.actors.remove(p);
         this.pickups.splice(i, 1);
-        this.onSound("objective");
+        this.onSound("pickup");
       }
     }
     this.checkExtraction();
