@@ -1,4 +1,13 @@
-import { buyFieldKit, fieldKitCost } from "./economy.mjs";
+import { buyFieldKit, buySupply, fieldKitCost, SUPPLIES } from "./economy.mjs";
+import {
+  STAR_BONUS,
+  missionGrade,
+  missionPar,
+  recordStars,
+  rewardBreakdown,
+} from "./debrief.mjs";
+import { routeLength } from "./routes.mjs";
+import { WEAPONS } from "./arsenal";
 import { FeedbackUI } from "./feedback-ui";
 import { guidePoint } from "./guidance.mjs";
 import { InteractionHint } from "./environment.mjs";
@@ -265,6 +274,10 @@ $("#sound").onclick = () => {
   syncSound();
 };
 syncSound();
+/** Blender-rendered UI icons live in public/ui. */
+const uiIcon = (name: string) => `${import.meta.env.BASE_URL}ui/${name}.png`;
+const stageStars = (stage: number) =>
+  [0, 1, 2].reduce((n, level) => n + (save.stars[stage * 3 + level] ?? 0), 0);
 function menu() {
   mode = "menu";
   clearInput();
@@ -294,12 +307,12 @@ function menu() {
   $("#brief-copy").textContent = m.brief;
   $("#mission-cards").innerHTML = STAGES.map(
     (stage, i) =>
-      `<article class="mission-card ${i === m.stage ? "active" : ""}"><div class="card-num">${i + 1}</div><div><span class="card-tag">THREE LEVELS / BOSS FINALE</span><h3>${stage.name}</h3><p>${stage.tip}</p></div></article>`,
+      `<article class="mission-card ${i === m.stage ? "active" : ""}"><div class="card-num">${i + 1}</div><div><span class="card-tag">THREE LEVELS / BOSS FINALE · <i class="card-stars">★ ${stageStars(i)}/9</i></span><h3>${stage.name}</h3><p>${stage.tip}</p></div></article>`,
   ).join("");
   const picker = $<HTMLSelectElement>("#stage-select");
   picker.innerHTML = STAGES.map(
     (stage, i) =>
-      `<option value="${i}" ${i === m.stage ? "selected" : ""}>${i + 1}. ${stage.name}</option>`,
+      `<option value="${i}" ${i === m.stage ? "selected" : ""}>${i + 1}. ${stage.name} · ★${stageStars(i)}</option>`,
   ).join("");
   picker.onchange = () => {
     const pick = Number(picker.value) * 3;
@@ -332,23 +345,64 @@ function menu() {
   const price = fieldKitCost(save);
   $("#launch-area").insertAdjacentHTML(
     "beforeend",
-    `<button class="text-button field-shop" id="field-shop">FIELD KIT ${save.fieldKit}/3 · ${save.credits} CREDITS · ${save.squad} ALLIES</button>`,
+    `<button class="text-button field-shop" id="field-shop">QUARTERMASTER · FIELD KIT ${save.fieldKit}/3 · ${save.credits} CREDITS · ${save.squad} ALLIES${save.loadout.length ? ` · ${save.loadout.length} SUPPLY DROP${save.loadout.length > 1 ? "S" : ""}` : ""}</button>`,
   );
   $("#field-shop").onclick = () => {
-    const available =
-      previewMission === undefined &&
-      !save.completed &&
-      price !== null &&
-      save.credits >= price;
+    const kitReady = price !== null && save.credits >= price;
+    const card = (
+      icon: string,
+      title: string,
+      detail: string,
+      cost: string,
+      button: string,
+      state = "",
+    ) =>
+      `<article class="shop-card ${state}"><img src="${uiIcon(icon)}" alt=""><div><b>${title}</b><span>${detail}</span></div><div class="shop-buy">${button}<small>${cost}</small></div></article>`;
+    const supplies = SUPPLIES.map((item) => {
+      const owned = save.loadout.includes(item.id),
+        affordable = save.credits >= item.price,
+        name = WEAPONS[item.weapon].name;
+      return card(
+        "weapon-" + item.id,
+        name,
+        owned
+          ? "Packed: dropped with you at every deployment until you complete a mission."
+          : "Supply drop: starts your next deployment with this weapon and reserve magazines.",
+        owned ? "PACKED" : `${item.price} CREDITS`,
+        `<button data-buy="${item.id}" ${owned || !affordable ? "disabled" : ""} aria-label="Buy ${name} for ${item.price} credits">${owned ? "✓" : "BUY"}</button>`,
+        owned ? "owned" : affordable ? "" : "locked",
+      );
+    }).join("");
     showOverlay(
-      `<span class="eyebrow">RECOVERED TREASURE / ${save.credits} CREDITS</span><h2>Bring a better field kit.</h2><p>Banknotes: 10 · Gold: 25 · Diamond: 75 credits. Extract to bank mission treasure and keep rescued allies. Your rifle always has unlimited reloads.</p><p>Permanent Field Kit rank ${save.fieldKit}/3: each rank adds 10 starting shield and one extra frag grenade to every mission, including retries. This is separate from your free mission upgrade.</p><button class="primary" id="buy-kit" ${available ? "" : "disabled"}>${price === null ? "FIELD KIT MAXED" : `UPGRADE · ${price} CREDITS`}</button>${previewMission !== undefined ? "<p>Deploy to your selected stage before upgrading its new campaign.</p>" : price !== null && save.credits < price ? `<p>Recover ${price - save.credits} more credits and extract.</p>` : ""}<button class="text-button" id="close-shop">RETURN TO BRIEFING</button>`,
+      `<span class="eyebrow">QUARTERMASTER</span><h2>Gear up for the next drop.</h2><div class="wallet"><img src="${uiIcon("coin")}" alt=""><b>${save.credits}</b><span>CREDITS</span><em>Banknote 10 · Gold 25 · Diamond 75 · ${STAR_BONUS} per star</em></div><div class="shop-grid">${card(
+        "field-kit",
+        `FIELD KIT RANK ${save.fieldKit}/3`,
+        "Permanent: +10 starting shield and one extra frag grenade every mission, including retries.",
+        price === null ? "MAXED" : `${price} CREDITS`,
+        `<button class="primary" id="buy-kit" ${kitReady ? "" : "disabled"}>${price === null ? "MAXED" : "UPGRADE"}</button>`,
+        price === null ? "owned" : kitReady ? "featured" : "featured locked",
+      )}${supplies}</div><button class="text-button" id="close-shop">RETURN TO BRIEFING</button>`,
+      "shop-modal",
     );
-    $("#buy-kit").onclick = () => {
-      if (!available || mode !== "menu") return;
-      save = buyFieldKit(save);
+    $("#close-shop").focus();
+    const reopen = () => {
       write("nightfall-campaign", save);
       menu();
+      $("#field-shop").click();
     };
+    $("#buy-kit").onclick = () => {
+      if (!kitReady || mode !== "menu") return;
+      save = buyFieldKit(save);
+      reopen();
+    };
+    for (const button of document.querySelectorAll<HTMLButtonElement>(
+      "[data-buy]",
+    ))
+      button.onclick = () => {
+        if (mode !== "menu") return;
+        save = buySupply(save, button.dataset.buy!);
+        reopen();
+      };
     $("#close-shop").onclick = () => {
       $("#overlay").hidden = true;
       $("#field-shop").focus();
@@ -364,6 +418,8 @@ function menu() {
       credits: save.credits,
       fieldKit: save.fieldKit,
       squad: save.squad,
+      stars: save.stars,
+      loadout: save.loadout,
     });
     if (previewMission !== undefined) {
       save = carried(previewMission);
@@ -408,9 +464,9 @@ function start() {
   sound("objective");
   canvas.focus();
 }
-function showOverlay(html: string) {
+function showOverlay(html: string, variant = "") {
   const overlay = $("#overlay");
-  overlay.innerHTML = `<section class="modal" role="dialog" aria-modal="true" aria-label="Mission panel">${html}</section>`;
+  overlay.innerHTML = `<section class="modal ${variant}" role="dialog" aria-modal="true" aria-label="Mission panel">${html}</section>`;
   overlay.hidden = false;
   overlay.querySelector<HTMLButtonElement>("button:not(:disabled)")?.focus();
 }
@@ -492,16 +548,77 @@ function end(win: boolean) {
     final = win && game.index === LEVEL_COUNT - 1;
   // Bank once at extraction, even if the browser closes before the upgrade choice.
   // Armor is the saved default; choosing another advantage replaces that one rank.
+  const par = missionPar(routeLength(m.route), m.finale);
+  const grade = missionGrade({
+    win,
+    elapsed: game.elapsed,
+    par,
+    hpRatio: game.hp / game.maxHp,
+  });
+  const tally = rewardBreakdown(game.loot, grade.stars);
+  const banked = win ? game.credits + grade.stars * STAR_BONUS : 0;
   if (win) {
     save = advanceCampaign(save, "armor", game.score, {
-      credits: game.credits,
+      credits: banked,
       squad: game.squad.allies.length,
     });
+    save.stars = recordStars(save.stars, game.index, grade.stars);
+    save.loadout = []; // Supply drops are spent once a mission is won.
     write("nightfall-campaign", save);
   }
+  const stars = [0, 1, 2]
+    .map(
+      (i) =>
+        `<img class="grade-star ${i < grade.stars ? "earned" : ""}" style="--i:${i}" src="${uiIcon(i < grade.stars ? "star" : "star-empty")}" alt="">`,
+    )
+    .join("");
+  const criteria = grade.criteria
+    .map(
+      (c) =>
+        `<li class="${c.met ? "met" : ""}">${c.met ? "✓" : "✗"} ${c.label}${c.id === "par" ? ` · ${formatTime(game.elapsed)} / ${formatTime(par)}` : c.id === "health" ? ` · ${Math.round((100 * game.hp) / game.maxHp)}%` : ""}</li>`,
+    )
+    .join("");
+  const rows = tally.rows
+    .map(
+      (r) =>
+        `<div class="tally-row ${r.count ? "" : "empty"}"><img src="${uiIcon(r.id)}" alt=""><span>${r.label}</span><em>${r.count} × ${r.each}</em><b>+${r.value}</b></div>`,
+    )
+    .join("");
+  const upgrades = [
+    ["armor", "01 / FIELD ARMOR", "+35 maximum health"],
+    [
+      "power",
+      "02 / TUNED WEAPONS",
+      "+20% base damage · +0.4s Turbo (max 5s) · vehicle auxiliary gun; rank 3 adds a third gun",
+    ],
+    [
+      "mobility",
+      "03 / LIGHT KIT",
+      "−0.55s dodge cooldown · −0.75s Turbo cooldown (min 8s)",
+    ],
+  ]
+    .map(
+      ([id, title, detail]) =>
+        `<button data-upgrade="${id}"><img src="${uiIcon("upgrade-" + id)}" alt=""><b>${title}</b><span>${detail}</span></button>`,
+    )
+    .join("");
+  const debrief = `<div class="debrief"><div class="grade" aria-label="${grade.stars} of 3 stars"><div class="grade-stars">${stars}</div><ul>${criteria}</ul></div><div class="tally">${rows}<div class="tally-total"><img src="${uiIcon("coin")}" alt=""><span>BANKED</span><b id="banked" data-total="${banked}">+${banked}</b><em>BALANCE ${save.credits} CREDITS</em></div></div></div>`;
   showOverlay(
-    `<span class="eyebrow">${win ? "TRANSMISSION RECEIVED" : "SIGNAL LOST"} / 0${game.index + 1}</span><h2>${final ? "Everyone comes home." : win ? "Mission accomplished." : "Not your last stand."}</h2><p>${win ? m.success : "Use cover to break enemy sightlines. Dodge when orange rings appear, and collect green health drops. Your completed campaign progress is safe."}</p><p class="rescue-result">${win ? `${game.rescued} rescued · ${game.squad.allies.length} allies returning · ${game.credits} credits recovered` : "Unbanked mission treasure is lost. Your saved squad and field kit return on retry."}</p><div class="result-stats"><div><b>${game.score.toLocaleString()}</b><span>MISSION SCORE</span></div><div><b>${game.kills}</b><span>TARGETS DOWN</span></div><div><b>${formatTime(game.elapsed)}</b><span>FIELD TIME</span></div></div>${win && !final ? '<span class="eyebrow">CHOOSE YOUR NEXT ADVANTAGE · ARMOR SAVED BY DEFAULT</span><div class="upgrades"><button data-upgrade="armor"><b>01 / FIELD ARMOR</b><span>+35 maximum health</span></button><button data-upgrade="power"><b>02 / TUNED WEAPONS</b><span>+20% base damage · +0.4s Turbo (max 5s) · vehicle auxiliary gun; rank 3 adds a third gun</span></button><button data-upgrade="mobility"><b>03 / LIGHT KIT</b><span>−0.55s dodge cooldown · −0.75s Turbo cooldown (min 8s)</span></button></div>' : `<button id="result-primary" class="primary">${win ? "RETURN TO BRIEFING" : "RETRY MISSION"} <span>↗</span></button>`}${!win ? '<button id="result-menu" class="text-button">MISSION BRIEFING</button>' : ""}`,
+    `<span class="eyebrow">${win ? "TRANSMISSION RECEIVED" : "SIGNAL LOST"} / 0${game.index + 1}</span><h2>${final ? "Everyone comes home." : win ? "Mission accomplished." : "Not your last stand."}</h2>${win ? debrief : "<p>Use cover to break enemy sightlines. Dodge when orange rings appear, and collect green health drops. Your completed campaign progress is safe.</p>"}<p class="rescue-result">${win ? `${game.rescued} rescued · ${game.squad.allies.length} allies returning · ${game.credits} credits recovered` : "Unbanked mission treasure is lost. Your saved squad and field kit return on retry."}</p><div class="result-stats"><div><b>${game.score.toLocaleString()}</b><span>MISSION SCORE</span></div><div><b>${game.kills}</b><span>TARGETS DOWN</span></div><div><b>${formatTime(game.elapsed)}</b><span>FIELD TIME</span></div></div>${win && !final ? `<span class="eyebrow">CHOOSE YOUR NEXT ADVANTAGE · ARMOR SAVED BY DEFAULT</span><div class="upgrades">${upgrades}</div>` : `<button id="result-primary" class="primary">${win ? "RETURN TO BRIEFING" : "RETRY MISSION"} <span>↗</span></button>`}${!win ? '<button id="result-menu" class="text-button">MISSION BRIEFING</button>' : ""}`,
+    win ? "debrief-modal" : "",
   );
+  const total = document.querySelector<HTMLElement>("#banked");
+  if (total && !prefs.reduced) {
+    // Count the banked credits up while the stars pop in.
+    const started = performance.now(),
+      target = Number(total.dataset.total);
+    const tick = (now: number) => {
+      const t = Math.min(1, (now - started - 700) / 900);
+      total.textContent = `+${Math.round(target * Math.max(0, t) ** 0.6)}`;
+      if (t < 1 && total.isConnected) requestAnimationFrame(tick);
+    };
+    requestAnimationFrame(tick);
+  }
   for (const b of document.querySelectorAll<HTMLButtonElement>(
     "[data-upgrade]",
   ))
@@ -657,8 +774,8 @@ function updateHud() {
       ? game.turboTime > 0
         ? "Weapon switching resumes after Turbo"
         : "Exit the vehicle to switch personal weapons"
-      : ride?.kind === "tank"
-        ? "Cycle cannon and collected weapons (Q on keyboard)"
+      : ride && ride.kind !== "motorcycle"
+        ? `Cycle ${ride.kind === "tank" ? "cannon" : "mounted gun"} and collected weapons (Q on keyboard)`
         : "Cycle collected weapons (Q on keyboard)";
   }
   $("#weapon-swap").textContent = mountedGun

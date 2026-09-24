@@ -58,6 +58,16 @@ Size and cost: the 44 GLBs now total about 4.2 MB, against 9.2 MB before. Soldie
 - **Identity ring.** The cyan ring is depth-tested and placed at the local ground height, so the soldier stands on it instead of being painted over. It widens to sit around an occupied vehicle.
 - **Guide arrow.** `src/guidance.mjs` (unit-tested) picks the next goal: the relay, then the nearest living relay guard or command boss, then extraction. For the relay and extraction the arrow points 10 m ahead along the mission road the player is on, so it follows zigzag, O, U and S routes instead of pointing through buildings. A chevron around the ring shows the heading, colour-coded by goal, and hides within 4.5 m of the goal. The current objective line shows the remaining distance in metres.
 
+## Vehicles, finishing and the volcano
+
+- **Vehicle loadouts.** Jeeps and tanks add their mounted gun (jeep shotgun, 16-shell tank cannon, up from 6) to your collected weapons instead of locking you to it. Boarding, pickups and empty magazines always select the strongest weapon that still has ammunition. An empty mounted gun falls back to a carried one.
+- **All clear.** When a kill leaves no hostile alive and none still to come (finales need their command bosses spawned and dead), the mission ends immediately, as if you had reached extraction.
+- **Cinderfall rockfall.** One rock on the player and one on the nearest enemy every 9 s, down from three every 5 s. The warning is 3 s instead of 1.8 s, and the rock descends visibly over the whole warning.
+
+## Debrief and quartermaster
+
+`src/debrief.mjs` (unit-tested) grades each level with up to three stars: complete it, beat a par time derived from the route length (75 s + 0.9 s per metre, +90 s for finales), and finish above 50% health. The debrief tallies banknotes ×10, gold ×25, diamonds ×75 and 10 credits per star, counts the banked total up and saves each level's best stars; stage cards show ★ n/9. The quartermaster shop presents Field Kit ranks and one-mission weapon supply drops as icon cards with a credit wallet. `art/build_ui_icons.py` renders the stars, coin, treasure, upgrade emblems and weapon icons in Blender from the same kit and GLBs.
+
 ## Logic fixes
 
 1. **Stage picker.** The picker silently wiped credits, the "permanent" Field Kit and the squad. Re-picking the current stage now keeps the saved level. Deploy is labelled *DEPLOY TO STAGE N* and explains what carries over. Switching stage or replaying keeps credits, Field Kit, squad and best score.

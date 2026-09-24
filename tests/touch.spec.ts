@@ -160,6 +160,16 @@ test("PC Q shortcut and visible swap button both cycle the loadout", async ({
     g.pos.copy(g.rides[1].mesh.position);
     g.useRide();
   });
-  await expect(swap).toBeDisabled();
-  await expect(swap).toContainText("EXIT TO SWAP");
+  // The jeep's mounted gun joins the loadout, so Q still cycles weapons.
+  await expect(swap).toBeEnabled();
+  await expect(swap).toContainText("Q - SWAP WEAPON");
+  // Q cycles carried weapons and the mounted gun: press until it is up.
+  const name = page.locator("#weapon-name");
+  for (let i = 0; i < 3; i++) {
+    const shown = (await name.textContent())!;
+    if (shown.includes("MOUNTED")) break;
+    await swap.click();
+    await expect(name).not.toHaveText(shown);
+  }
+  await expect(name).toHaveText("JEEP / MOUNTED SHOTGUN");
 });

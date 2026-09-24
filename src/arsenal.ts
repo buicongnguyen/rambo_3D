@@ -228,7 +228,7 @@ export const VEHICLES = {
     radius: 2.3,
     hp: 1680,
     scale: 0.72,
-    ammo: 6,
+    ammo: 16,
     weapon: 7,
   },
 } as const;

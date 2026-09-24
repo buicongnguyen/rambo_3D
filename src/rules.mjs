@@ -92,8 +92,17 @@ export function freshSave() {
     credits: 0,
     squad: 0,
     fieldKit: 0,
+    stars: [],
+    loadout: [],
   };
 }
+export const SUPPLY_IDS = [
+  "shotgun",
+  "machineGun",
+  "launcher",
+  "missile",
+  "laser",
+];
 export function validateSave(raw) {
   const fallback = freshSave();
   if (raw?.version === 1)
@@ -130,6 +139,17 @@ export function validateSave(raw) {
     credits: raw.credits ?? 0,
     squad: raw.squad ?? 0,
     fieldKit: raw.fieldKit ?? 0,
+    // Optional fields are sanitised rather than rejecting an otherwise good save.
+    stars: Array.isArray(raw.stars)
+      ? raw.stars
+          .slice(0, LEVEL_COUNT)
+          .map((n) =>
+            Number.isSafeInteger(n) ? Math.min(3, Math.max(0, n)) : 0,
+          )
+      : [],
+    loadout: Array.isArray(raw.loadout)
+      ? [...new Set(raw.loadout.filter((id) => SUPPLY_IDS.includes(id)))]
+      : [],
     mission: raw.mission,
     armor: raw.armor,
     power: raw.power,

@@ -131,7 +131,7 @@ test("auto-equip selects strongest usable weapons without downgrades, ammo dupli
     v.mesh.position.copy(g.pos);
     g.useRide();
     take(4);
-    const tankBest = !v.personalWeapon && v.ammo === 6;
+    const tankBest = !v.personalWeapon && v.ammo === v.spec.ammo;
     v.ammo = 0;
     v.cool = 0;
     g.shotTime = 0;

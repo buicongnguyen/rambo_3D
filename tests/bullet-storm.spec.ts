@@ -223,6 +223,8 @@ test("upgraded bike jeep and tank support extra weapons without duplicating cann
       g.magazines[3] = 6;
       g.magazines[8] = 8;
       v.ammo = v.spec.ammo;
+      // Jeeps and tanks can also fire carried weapons; exercise the mounted gun.
+      if (kind !== "motorcycle") v.personalWeapon = false;
       v.cool = 0;
       g.shotTime = 0;
       const activated = g.activateTurbo();

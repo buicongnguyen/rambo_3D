@@ -114,6 +114,6 @@ test("M249 delivers 30-round-per-second reduced-damage fire on foot, in vehicles
     after: 1260,
     health: 150,
     riding: true,
-    shells: 6,
+    shells: 16,
   });
 });

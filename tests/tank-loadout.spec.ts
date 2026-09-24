@@ -135,7 +135,7 @@ test("tank and jeep crush moving infantry contacts once, respect cover and bosse
   }
 });
 
-test("tank six-shell bank survives swaps, reload cancellation and dismount; empty cannon falls back", async ({
+test("tank sixteen-shell bank survives swaps, reload cancellation and dismount; empty cannon falls back", async ({
   page,
 }) => {
   await ready(page);
@@ -165,29 +165,28 @@ test("tank six-shell bank survives swaps, reload cancellation and dismount; empt
       projectile: g.bullets.some((b: any) => b.spec?.visual === "rocket"),
     };
     step(1, { swap: true, fire: true });
-    const switchLocked = g.ammo === 24 && v.ammo === 5;
+    const switchLocked = g.ammo === 24 && v.ammo === 15;
     step(65);
     step(1, { fire: true });
-    const rifleShot = g.ammo === 23 && v.ammo === 5;
+    const rifleShot = g.ammo === 23 && v.ammo === 15;
     step(1, { reload: true });
     const reloading = g.reloadTime > 0;
     step(1, { swap: true });
     step(1, { swap: true }); // Back to cannon.
     const cancelled = !v.personalWeapon && g.reloadTime === 0;
     step(150, { reload: true });
-    const shellsNotReloaded = v.ammo === 5 && g.reloadTime === 0;
+    const shellsNotReloaded = v.ammo === 15 && g.reloadTime === 0;
     step(1, { swap: true });
     const magazinePreserved = g.weapon === 0 && g.ammo === 23;
     g.useRide();
     const exited = !g.riding && g.ammo === 23;
     g.pos.copy(v.mesh.position);
     g.useRide();
+    // Boarding picks the strongest loaded option: the cannon outranks the rifle.
     const reboarded =
-      g.riding === v && v.personalWeapon && v.ammo === 5 && g.ammo === 23;
-    step(1, { swap: true });
-    step(1, { swap: true });
+      g.riding === v && !v.personalWeapon && v.ammo === 15 && g.ammo === 23;
     step(65);
-    for (let i = 0; i < 5; i++) {
+    for (let i = 0; i < 15; i++) {
       step(1, { fire: true });
       step(65);
     }
@@ -219,9 +218,9 @@ test("tank six-shell bank survives swaps, reload cancellation and dismount; empt
       fallback,
     };
   });
-  expect(result.initial).toBe(6);
+  expect(result.initial).toBe(16);
   expect(result.firstShot).toEqual({
-    shells: 5,
+    shells: 15,
     personal: 24,
     projectile: true,
   });
@@ -305,12 +304,12 @@ test("tank picks up and fires all eleven personal weapons with their own ammo an
     inventory: 11,
     ammo: 2,
     reserve: 0,
-    shells: 6,
+    shells: 16,
   });
   for (const h of result.hits) {
     expect(h.selected && h.spent, JSON.stringify(h)).toBe(true);
     expect(h.damage, h.id).toBeGreaterThan(0);
-    expect(h.shells).toBe(6);
+    expect(h.shells).toBe(16);
   }
 });
 
@@ -320,7 +319,7 @@ test("PC tank Q and visible swap button expose cannon and personal ammo", async 
   await ready(page);
   await boardTank(page);
   await expect(page.locator("#weapon-name")).toHaveText("TANK / CANNON");
-  await expect(page.locator("#ammo")).toHaveText("06");
+  await expect(page.locator("#ammo")).toHaveText("16");
   await expect(page.locator("#ammo-reserve")).toHaveText("/ SHELLS");
   await expect(page.locator("#weapon-swap")).toBeEnabled();
   await page.keyboard.press("KeyQ");
@@ -332,7 +331,7 @@ test("PC tank Q and visible swap button expose cannon and personal ammo", async 
   );
   await page.locator("#weapon-swap").click();
   await expect(page.locator("#weapon-name")).toHaveText("TANK / CANNON");
-  await expect(page.locator("#ammo")).toHaveText("06");
+  await expect(page.locator("#ammo")).toHaveText("16");
   await page.screenshot({ path: test.info().outputPath("tank-cannon-pc.png") });
 });
 
@@ -384,7 +383,7 @@ test("mobile tank SWAP and FIRE use the selected weapon in portrait and landscap
     );
     await swap.tap();
     await expect(page.locator("#weapon-name")).toHaveText("TANK / CANNON");
-    await expect(page.locator("#ammo")).toHaveText("06");
+    await expect(page.locator("#ammo")).toHaveText("16");
     const usable = await swap.evaluate((button) => {
       const r = button.getBoundingClientRect();
       return (

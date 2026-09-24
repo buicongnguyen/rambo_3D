@@ -48,6 +48,8 @@ import { tracerGeometry } from "./tracers";
 import { SpatialGrid, knockbackDistance, turboStats } from "./combat.mjs";
 import { Feel, hurtAngle } from "./feel.mjs";
 import { nextGoal } from "./guidance.mjs";
+/** Cinderfall rockfalls: one on the player and one on the nearest enemy. */
+const ROCKFALL = { interval: 9, warning: 3 };
 import { repaint, HOSTILE_ARMOR } from "./liveries";
 import * as T from "three";
 import { CharacterMotion, FallenBody, VehicleMotion } from "./animation";
@@ -110,6 +112,8 @@ type Hazard = {
   z: number;
   time: number;
   rock?: T.Group;
+  /** Rock descent speed (m/s), so it lands exactly when the warning ends. */
+  fall?: number;
   bothSides?: boolean;
   radius?: number;
   damage?: number;
@@ -352,8 +356,14 @@ export class Game {
     return (
       !this.riding ||
       this.riding.kind === "motorcycle" ||
-      (this.riding.kind === "tank" && this.riding.personalWeapon)
+      this.riding.personalWeapon
     );
+  }
+  /** The occupied jeep or tank, whose mounted gun joins the loadout. */
+  private get mountedRide() {
+    return this.riding && this.riding.kind !== "motorcycle"
+      ? this.riding
+      : undefined;
   }
   get activeWeaponSpec() {
     return this.usesPersonalWeapon
@@ -361,7 +371,7 @@ export class Game {
       : WEAPONS[this.riding!.spec.weapon];
   }
   get canSwapWeapon() {
-    return this.riding?.kind !== "jeep" && this.turboTime === 0;
+    return this.turboTime === 0;
   }
   private selectStrongestWeapon() {
     if (this.turboTime > 0) {
@@ -380,19 +390,21 @@ export class Game {
     const best = (guns.length ? guns : usable).sort(
       (a, b) => WEAPONS[b].priority - WEAPONS[a].priority,
     )[0];
-    const tank = this.riding?.kind === "tank" ? this.riding : undefined;
-    const cannon =
-      !!tank &&
-      tank.ammo > 0 &&
+    // Always fire the strongest weapon that still has ammunition, whether it is
+    // the vehicle's mounted gun (jeep shotgun, tank cannon) or a carried one.
+    const ride = this.mountedRide;
+    const mounted =
+      !!ride &&
+      ride.ammo > 0 &&
       (best === undefined ||
-        WEAPONS[tank.spec.weapon].priority >= WEAPONS[best].priority);
-    if (best === undefined && !cannon) return;
+        WEAPONS[ride.spec.weapon].priority >= WEAPONS[best].priority);
+    if (best === undefined && !mounted) return;
     const selected = best ?? this.weapon;
     const changed =
-      this.weapon !== selected || (!!tank && tank.personalWeapon === cannon);
+      this.weapon !== selected || (!!ride && ride.personalWeapon === mounted);
     this.weapon = selected;
     this.ammo = this.magazines[selected];
-    if (tank) tank.personalWeapon = !cannon;
+    if (ride) ride.personalWeapon = !mounted;
     if (changed) {
       this.reloadTime = 0;
       this.shotTime = Math.max(this.shotTime, 0.25);
@@ -427,6 +439,10 @@ export class Game {
   score = 0;
   objective = false;
   bossSpawned = false;
+  /** Treasure pieces recovered this mission, for the debrief tally. */
+  loot = { money: 0, gold: 0, diamond: 0 };
+  /** Set when a kill leaves no hostile alive or still to come. */
+  allClear = false;
   bossDead = false;
   phase: "playing" | "dying" | "won" | "lost" = "playing";
   power = 0;
@@ -545,6 +561,8 @@ export class Game {
       mobility: number;
       squad?: number;
       fieldKit?: number;
+      /** Purchased weapon supply drops (arsenal ids) delivered at deployment. */
+      loadout?: string[];
     },
     difficulty: string,
   ) {
@@ -594,8 +612,15 @@ export class Game {
     this.reserves = WEAPONS.map((w, i) => (i < 2 ? Infinity : w.mag * 3));
     this.reserves[9] += Math.min(3, Math.max(0, save.fieldKit ?? 0));
     this.inventory = [0, 9];
+    for (const id of save.loadout ?? []) {
+      const index = WEAPONS.findIndex((w) => w.id === id);
+      if (index > 0 && !this.inventory.includes(index))
+        this.inventory.push(index);
+    }
+    this.loot = { money: 0, gold: 0, diamond: 0 };
     this.shownWeapon = -1;
     this.weapon = 0;
+    if (save.loadout?.length) this.selectStrongestWeapon();
     this.reloadTime = 0;
     this.shotTime = 0;
     this.dashTime = 0;
@@ -607,6 +632,7 @@ export class Game {
     this.score = 0;
     this.objective = false;
     this.bossSpawned = false;
+    this.allClear = false;
     this.bossDead = false;
     this.phase = "playing";
     const pacing = missionPacing(mission.stage, mission.level);
@@ -810,6 +836,7 @@ export class Game {
       t.rotation.y += dt * 0.6;
       if (this.canCollect(t.position, 1.4)) {
         const kind = t.userData.kind as keyof typeof TREASURE;
+        this.loot[kind]++;
         this.credits += TREASURE[kind];
         this.score += TREASURE[kind];
         t.removeFromParent();
@@ -1096,12 +1123,14 @@ export class Game {
     this.dashTime = 0;
     this.reloadTime = 0;
     this.pos.copy(v.mesh.position);
+    this.selectStrongestWeapon();
+    this.showWeapon();
     this.onRadio(
       v.spec.name +
-        " boarded. Move to drive, FIRE to shoot, USE to exit." +
-        (v.kind === "tank"
-          ? " Q / SWAP cycles cannon and collected weapons."
-          : ""),
+        " boarded. Move to drive, FIRE to shoot, USE to exit. " +
+        (v.kind === "motorcycle"
+          ? "Your weapons stay ready."
+          : `Q / SWAP cycles the ${v.kind === "tank" ? "cannon" : "mounted gun"} and your weapons; the strongest loaded one is used.`),
     );
   }
   private damageHealth(damage: number) {
@@ -1474,6 +1503,12 @@ export class Game {
     } else this.spark(e.x, e.z);
     if (e.hp <= 0) {
       this.kills++;
+      if (
+        !this.enemies.some((o) => o.hp > 0) &&
+        this.pendingGuards === 0 &&
+        (!MISSIONS[this.index].finale || this.bossSpawned)
+      )
+        this.allClear = true;
       this.feel.kill(this.elapsed, e.boss ? 1 : e.armored ? 0.5 : 0);
       if (this.feel.banner?.time === this.elapsed) this.onSound("streak");
       this.score += e.boss ? 1500 : e.armored ? 350 : 100;
@@ -1797,7 +1832,7 @@ export class Game {
     if (biome !== "quake" && biome !== "volcano") return;
     this.eventClock -= dt;
     if (this.eventClock > 0) return;
-    this.eventClock = biome === "quake" ? 10 : 5;
+    this.eventClock = biome === "quake" ? 10 : ROCKFALL.interval;
     if (biome === "quake") {
       this.quakeTime = 1 + (this.quakeCount++ % 2);
       this.onRadio(
@@ -1833,7 +1868,6 @@ export class Game {
       for (const point of [
         { x: this.pos.x, z: this.pos.z },
         ...(nearest ? [nearest] : []),
-        { x: this.pos.x + 5, z: this.pos.z - 7 },
       ])
         this.rockfall(point.x, point.z);
       this.onRadio(
@@ -1856,7 +1890,15 @@ export class Game {
     const rock = model("rock", x, z, 0.6);
     rock.position.y = 21.6;
     this.world.actors.add(mesh, rock);
-    this.hazards.push({ mesh, rock, x, z, time: 1.8, bothSides: true });
+    this.hazards.push({
+      mesh,
+      rock,
+      x,
+      z,
+      time: ROCKFALL.warning,
+      fall: 21.6 / ROCKFALL.warning,
+      bothSides: true,
+    });
   }
   private updateBoss(e: Actor, dt: number) {
     const beforeX = e.x,
@@ -2354,13 +2396,14 @@ export class Game {
     if (input.swap && this.canSwapWeapon) {
       this.magazines[this.weapon] = this.ammo;
       const next = this.inventory.indexOf(this.weapon) + 1;
-      if (this.riding?.kind === "tank") {
-        // Cannon -> collected weapons in inventory order -> cannon.
-        if (!this.riding.personalWeapon) {
-          this.riding.personalWeapon = true;
+      const mounted = this.mountedRide;
+      if (mounted) {
+        // Mounted gun -> collected weapons in inventory order -> mounted gun.
+        if (!mounted.personalWeapon) {
+          mounted.personalWeapon = true;
           this.weapon = this.inventory[0];
         } else if (next >= this.inventory.length) {
-          this.riding.personalWeapon = false;
+          mounted.personalWeapon = false;
         } else this.weapon = this.inventory[next];
       } else this.weapon = this.inventory[next % this.inventory.length];
       this.ammo = this.magazines[this.weapon];
@@ -2651,14 +2694,15 @@ export class Game {
           this.reloadTime = this.weaponSpec.reload;
           this.onSound("reload");
         } else if (
-          v.kind === "tank" &&
+          v.kind !== "motorcycle" &&
           !v.personalWeapon &&
           this.turboTime === 0
         ) {
           this.selectStrongestWeapon();
           this.shotTime = Math.max(this.shotTime, 0.25);
           this.onRadio(
-            "Cannon empty. Strongest usable personal weapon selected. Q / SWAP cycles your loadout.",
+            (v.kind === "tank" ? "Cannon" : "Mounted gun") +
+              " empty. Strongest usable personal weapon selected. Q / SWAP cycles your loadout.",
           );
         }
       }
@@ -3298,7 +3342,8 @@ export class Game {
             .add(new T.Vector3(0, Math.sin(u * Math.PI) * 8, 0));
         h.rock.position.copy(position(t));
         h.rock.lookAt(position(Math.min(1.001, t + 0.01)));
-      } else if (h.rock) h.rock.position.y = Math.max(0, h.time * 12);
+      } else if (h.rock)
+        h.rock.position.y = Math.max(0, h.time * (h.fall ?? 12));
       h.mesh.material.opacity = 0.4 + Math.abs(Math.sin(h.time * 10)) * 0.5;
       if (h.time <= 0) {
         this.spark(h.x, h.z, true);
@@ -3364,13 +3409,8 @@ export class Game {
               (this.riding && this.riding.hp < this.riding.spec.hp))
       ) {
         if (isAmmo) {
-          // Respect a manual weapon choice unless the held weapon is dry.
-          const dry =
-            this.usesPersonalWeapon &&
-            this.ammo === 0 &&
-            this.reserves[this.weapon] === 0;
           this.reserves[reward!.index] += reward!.amount;
-          if (dry) this.selectStrongestWeapon();
+          this.selectStrongestWeapon();
           this.showWeapon();
         } else if (isShield)
           this.shield = Math.min(
@@ -3404,13 +3444,16 @@ export class Game {
     if (this.hp <= 0) {
       this.beginDefeat();
     } else if (
-      this.bossDead &&
-      !this.riding &&
-      Math.hypot(
-        this.pos.x - mission.extract.x,
-        this.pos.z - mission.extract.z,
-      ) < 2.5
+      this.allClear ||
+      (this.bossDead &&
+        !this.riding &&
+        Math.hypot(
+          this.pos.x - mission.extract.x,
+          this.pos.z - mission.extract.z,
+        ) < 2.5)
     ) {
+      if (this.allClear)
+        this.onRadio("Every hostile is down. Vale is lifting you out now.");
       this.endTurbo();
       this.phase = "won";
       this.score +=

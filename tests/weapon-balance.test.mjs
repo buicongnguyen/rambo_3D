@@ -31,5 +31,5 @@ test("machine gun retains dense fire but has a lower sustained damage budget", (
   assert.ok((m.mag * m.damage) / (4 + m.reload) / ((120 * 15) / 6.4) < 0.64);
   assert.equal(m.reload, 2.8);
   assert.equal(VEHICLES.tank.hp, 420 * 4);
-  assert.equal(VEHICLES.tank.ammo, 6);
+  assert.equal(VEHICLES.tank.ammo, 16);
 });

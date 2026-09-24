@@ -58,6 +58,13 @@ for (const mobile of [false, true])
         e.mesh.position.set(e.x, 0, e.z);
         e.mesh.visible = true;
       }
+      // A distant, unaware sentry survives, so the chain blast is not a full clear.
+      const sentry = g.enemies[3];
+      sentry.hp = 65;
+      sentry.x = 26;
+      sentry.z = -60;
+      sentry.cool = 1e6;
+      sentry.mesh.position.set(sentry.x, 0, sentry.z);
       g.rides.forEach((v: any, i: number) =>
         v.mesh.position.set(-35 + i * 8, 0, -30),
       );

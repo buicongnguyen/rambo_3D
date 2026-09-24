@@ -38,9 +38,11 @@ test("all three vehicles board, move with wheels, fire, retain ammo and eject sa
       for (let i = 0; i < 90; i++) g.update(1 / 60, { ...cmd, x: 0, z: 1 });
       const moved = v.mesh.position.distanceTo(initial),
         wheel = v.wheels.some((w: any) => Math.abs(w.rotation.x) > 0.01);
-      const ammo = index === 0 ? g.ammo : v.ammo;
+      // Vehicles fire whichever loaded weapon is strongest: mounted or carried.
+      const active = () => (g.usesPersonalWeapon ? g.ammo : v.ammo);
+      const ammo = active();
       g.update(1 / 60, { ...cmd, fire: true });
-      const fired = (index === 0 ? g.ammo : v.ammo) < ammo;
+      const fired = active() < ammo;
       const hp = g.hp;
       g.takeDamage(10);
       const protectedPlayer = g.hp === hp && v.hp === v.spec.hp - 10;

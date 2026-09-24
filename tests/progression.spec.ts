@@ -277,6 +277,7 @@ test("mobile starter swap throws a grenade and enemy loot is bounded, collectabl
     } finally {
       Math.random = random;
     }
+    g.allClear = false; // Fixture kills, not a cleared mission.
     const count = g.pickups.length;
     g.hp = 100;
     g.pos.copy(g.pickups.at(-1).position);

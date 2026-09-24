@@ -254,12 +254,18 @@ test("extraction banks rescue rewards once; shop and retry preserve purchased ki
   await expect(page.locator(".rescue-result")).toContainText(
     "100 credits recovered",
   );
+  // The debrief banks recovered treasure plus 10 credits per star earned.
+  const banked = Number(
+    await page.locator("#banked").getAttribute("data-total"),
+  );
+  expect((banked - 100) % 10).toBe(0);
+  expect(banked).toBeGreaterThanOrEqual(110);
   const atExtraction = await page.evaluate(() =>
     JSON.parse(localStorage.getItem("nightfall-campaign")!),
   );
   expect(atExtraction).toMatchObject({
     mission: 1,
-    credits: 100,
+    credits: banked,
     squad: 1,
     armor: 1,
   });
@@ -274,7 +280,7 @@ test("extraction banks rescue rewards once; shop and retry preserve purchased ki
     mission: 1,
     armor: 0,
     power: 1,
-    credits: 0,
+    credits: banked - 100,
     squad: 1,
     fieldKit: 1,
   });
@@ -311,7 +317,7 @@ test("extraction banks rescue rewards once; shop and retry preserve purchased ki
     credits: 0,
     allies: 1,
     shield: 10,
-    save: { credits: 0, squad: 1, fieldKit: 1 },
+    save: { credits: banked - 100, squad: 1, fieldKit: 1 },
   });
 });
 test("support bullets damage enemies, stop at cover, and never use the player magazine", async ({
@@ -476,14 +482,23 @@ test("refreshing the result retains rescued allies and treasure without replayin
   await expect(page.locator(".rescue-result")).toContainText(
     "75 credits recovered",
   );
+  const banked = Number(
+    await page.locator("#banked").getAttribute("data-total"),
+  );
   await page.reload();
   await expect(page.locator("#deploy")).toBeEnabled();
   const saved = await page.evaluate(() =>
     JSON.parse(localStorage.getItem("nightfall-campaign")!),
   );
-  expect(saved).toMatchObject({ mission: 1, credits: 75, squad: 1, armor: 1 });
+  expect(saved).toMatchObject({
+    mission: 1,
+    credits: banked,
+    squad: 1,
+    armor: 1,
+  });
   await page.locator("#field-shop").click();
-  await expect(page.locator("#buy-kit")).toBeDisabled();
+  if (banked < 100) await expect(page.locator("#buy-kit")).toBeDisabled();
+  else await expect(page.locator("#buy-kit")).toBeEnabled();
   await expect(page.locator("#close-shop")).toBeFocused();
   await page.locator("#close-shop").click();
 });
