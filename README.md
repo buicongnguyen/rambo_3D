@@ -66,6 +66,8 @@ See [the implementation and improvement plan](docs/BULLET_STORM.md) for scope, u
 
 Kills land with a brief hit-stop, blasts and heavy hits shake the camera, and floating damage numbers show the damage actually dealt: amber for rear hits, grey for armour deflections, gold for kills. The crosshair flashes on hits and kills. A red arc around your soldier points toward each damage source, and a pulse warns below 30% health. Chained kills call out DOUBLE KILL through ONE-MAN ARMY. Enemy tanks wear desert paint and rescued allies wear cyan bandanas, so neither is mistaken for your own. Enable *Reduce camera motion* to turn off shake and animated banners. On portrait phones the camera pulls back so riflemen and rocket troops stay on screen.
 
+A guide arrow circles your soldier and points to the next goal: yellow to the relay, orange to the nearest guard, red to a command boss, green to extraction. For the relay and extraction it follows the mission road, and the current objective shows the remaining distance. Radio messages, tactical hints, interaction prompts and the boss bar share one feed at the top of the screen, so nothing covers your soldier. The cyan identity ring is drawn on the ground under the avatar, widening around an occupied vehicle.
+
 ![Before and after the stylized pass](docs/aaa-gameplay.png)
 
 ## Run and build

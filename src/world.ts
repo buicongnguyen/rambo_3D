@@ -202,6 +202,18 @@ export class World {
   })();
   /** Camera trauma (0..1) from Feel; zero with reduced motion. */
   shake = 0;
+  /** Player ring scale: 1 on foot, larger around an occupied vehicle. */
+  indicatorScale = 1;
+  /** Guide arrow target: `point` is where to head now, `goal` the objective. */
+  guide: {
+    point: { x: number; z: number };
+    goal: { x: number; z: number };
+    kind: string;
+  } | null = null;
+  goalArrow = new T.Group();
+  private arrowParts: T.Mesh<T.ShapeGeometry, T.MeshBasicMaterial>[] = [];
+  private arrowAngle = 0;
+  private arrowKind = "";
   private soilMap = surface("soil");
   private groundTexture?: T.Texture;
   private roadMap = surface("road");
@@ -295,19 +307,54 @@ export class World {
     ]) {
       const ring = new T.Mesh(
         new T.RingGeometry(inner, outer, 40),
+        // Depth-tested so the soldier (or vehicle) stands on the ring, not under it.
+        new T.MeshBasicMaterial({
+          color,
+          side: T.DoubleSide,
+          depthWrite: false,
+          transparent: true,
+          opacity: 0.95,
+          polygonOffset: true,
+          polygonOffsetFactor: -2,
+          polygonOffsetUnits: -2,
+        }),
+      );
+      ring.rotation.x = -Math.PI / 2;
+      ring.renderOrder = color === 0x38ecff ? 2 : 1;
+      this.playerIndicator.add(ring);
+    }
+    // A chevron orbiting the player ring points toward the next goal.
+    const chevron = new T.Shape();
+    chevron.moveTo(0, 0.5);
+    chevron.lineTo(0.46, -0.3);
+    chevron.lineTo(0, -0.08);
+    chevron.lineTo(-0.46, -0.3);
+    chevron.closePath();
+    for (const [scale, color, order] of [
+      [1.95, 0x10232c, 3],
+      [1.5, 0xffd84a, 4],
+    ] as const) {
+      const arrow = new T.Mesh(
+        new T.ShapeGeometry(chevron),
         new T.MeshBasicMaterial({
           color,
           side: T.DoubleSide,
           depthTest: false,
           depthWrite: false,
           transparent: true,
-          opacity: 0.95,
+          opacity: 0.96,
+          toneMapped: false,
         }),
       );
-      ring.rotation.x = -Math.PI / 2;
-      ring.renderOrder = color === 0x38ecff ? 102 : 101;
-      this.playerIndicator.add(ring);
+      arrow.rotation.x = -Math.PI / 2;
+      arrow.scale.setScalar(scale);
+      arrow.renderOrder = order;
+      this.arrowParts.push(arrow);
+      this.goalArrow.add(arrow);
     }
+    this.goalArrow.name = "goal-guide-arrow";
+    this.goalArrow.visible = false;
+    this.scene.add(this.goalArrow);
     this.playerIndicator.name = "player-identity-ring";
     this.playerIndicator.visible = false;
     this.scene.add(this.playerIndicator);
@@ -923,7 +970,54 @@ export class World {
       : this.followTarget;
     this.sun.position.set(target.x - 20, 35, target.z + 12);
     this.sun.target.position.copy(target);
-    this.playerIndicator.position.set(focus.x, 0.12, focus.z);
+    this.playerIndicator.position.set(
+      focus.x,
+      this.groundHeight(focus.x, focus.z) + 0.07,
+      focus.z,
+    );
+    this.playerIndicator.scale.setScalar(this.indicatorScale);
+    const guide = this.guide;
+    this.goalArrow.visible =
+      !menu &&
+      alive &&
+      !!guide &&
+      Math.hypot(guide.goal.x - focus.x, guide.goal.z - focus.z) > 4.5;
+    if (guide && this.goalArrow.visible) {
+      const target = Math.atan2(
+        -(guide.point.x - focus.x),
+        -(guide.point.z - focus.z),
+      );
+      // Ease the heading so road look-ahead switches never snap the arrow.
+      const turn = Math.atan2(
+        Math.sin(target - this.arrowAngle),
+        Math.cos(target - this.arrowAngle),
+      );
+      this.arrowAngle +=
+        this.arrowKind === guide.kind ? turn * (1 - Math.exp(-dt * 10)) : turn;
+      if (this.arrowKind !== guide.kind) {
+        this.arrowKind = guide.kind;
+        this.arrowParts[1].material.color.setHex(
+          guide.kind === "extract"
+            ? 0x5df29a
+            : guide.kind === "boss"
+              ? 0xff4a3a
+              : guide.kind === "guard"
+                ? 0xff8a2f
+                : 0xffd84a,
+        );
+      }
+      const radius =
+        1.13 * this.indicatorScale +
+        1.15 +
+        (reduced ? 0 : Math.sin(time * 5) * 0.12);
+      this.goalArrow.position.set(
+        focus.x,
+        this.groundHeight(focus.x, focus.z) + 0.09,
+        focus.z,
+      );
+      this.goalArrow.rotation.y = this.arrowAngle;
+      for (const part of this.arrowParts) part.position.z = -radius;
+    }
     this.playerIndicator.visible = !menu && alive;
     this.sun.target.updateMatrixWorld();
     this.marker.rotation.z = time * 0.6;

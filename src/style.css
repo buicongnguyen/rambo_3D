@@ -2003,3 +2003,74 @@ input {
     animation: none;
   }
 }
+
+/* Situation text (boss bar, notices, prompts, radio) lives in one top feed so
+   nothing covers the soldier at screen centre. */
+#hud-feed {
+  position: absolute;
+  top: 24px;
+  left: max(392px, calc(50vw - 270px));
+  right: max(176px, calc(50vw - 270px));
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 8px;
+  pointer-events: none;
+}
+#hud #hud-feed > * {
+  position: static;
+  inset: auto;
+  transform: none;
+  max-width: 100%;
+  margin: 0;
+}
+#hud #hud-feed > #radio {
+  width: 100%;
+  opacity: 1;
+  transition: none;
+}
+#hud #hud-feed > #radio:not(.visible) {
+  display: none;
+}
+#hud #hud-feed > #radio.visible {
+  animation: feed-in 0.3s ease-out;
+}
+#hud #hud-feed > #interact-prompt,
+#hud #hud-feed > #combat-notice {
+  white-space: normal;
+  text-align: center;
+}
+@keyframes feed-in {
+  from {
+    opacity: 0;
+    transform: translateY(-6px);
+  }
+}
+#streak-banner {
+  top: 30%;
+}
+@media (pointer: coarse) {
+  #hud-feed {
+    top: calc(128px + env(safe-area-inset-top));
+    left: calc(12px + env(safe-area-inset-left));
+    right: calc(12px + env(safe-area-inset-right));
+    gap: 5px;
+  }
+}
+@media (pointer: coarse) and (orientation: landscape) {
+  #hud-feed {
+    top: calc(10px + env(safe-area-inset-top));
+    left: calc(246px + env(safe-area-inset-left));
+    right: calc(100px + env(safe-area-inset-right));
+  }
+}
+@media (max-width: 700px) {
+  #streak-banner {
+    top: 34%;
+  }
+}
+@media (prefers-reduced-motion: reduce) {
+  #hud #hud-feed > #radio.visible {
+    animation: none;
+  }
+}

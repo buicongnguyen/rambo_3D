@@ -153,27 +153,27 @@
       "low": true,
       "population": 660,
       "allies": 3,
-      "active": 148,
-      "meanUpdateMs": 2.2475000003973644,
-      "p95UpdateMs": 3.199999988079071,
-      "maxBullets": 30,
-      "drawCalls": 42,
-      "triangles": 141096,
+      "active": 149,
+      "meanUpdateMs": 2.2391666660706204,
+      "p95UpdateMs": 3.200000047683716,
+      "maxBullets": 26,
+      "drawCalls": 50,
+      "triangles": 141236,
       "fragments": 64,
-      "corpses": 17
+      "corpses": 16
     },
     {
       "low": false,
       "population": 660,
       "allies": 3,
-      "active": 147,
-      "meanUpdateMs": 2.3400000000993413,
-      "p95UpdateMs": 4.199999988079071,
+      "active": 146,
+      "meanUpdateMs": 2.0450000002980233,
+      "p95UpdateMs": 3.800000011920929,
       "maxBullets": 24,
-      "drawCalls": 58,
-      "triangles": 185928,
-      "fragments": 126,
-      "corpses": 18
+      "drawCalls": 44,
+      "triangles": 185776,
+      "fragments": 119,
+      "corpses": 17
     }
   ],
   "renderer": "WebKit WebGL"

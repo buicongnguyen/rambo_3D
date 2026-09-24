@@ -34,7 +34,7 @@ Contracts kept: file names, joint names and pivots with identity rest rotation, 
 | Scenery | Serrated V-folded palm fronds on a stacked-shingle trunk. Tiered pines with snow caps. Faceted rocks. A framed ammo crate with stencils. A tent, a watchtower with sandbags and a red roof, a stucco city house with awnings, a glossy fuel drum and a patrol boat. |
 | Kits | The relay barracks (sand plaster, crimson roof trim), prison and treasure, and ruin wall use the new palette with unchanged geometry. |
 
-Size and cost: the 44 GLBs now total about 3.9 MB, against 9.2 MB before. Soldiers dropped from 12.9K to about 5.7K triangles and the tank from 22K to about 12K. Palms stay at about 1.3K. `tests/assets.test.mjs` now enforces a 5.5 MB total, per-model triangle budgets for instanced crowds and scenery, and the recolour material names.
+Size and cost: the 44 GLBs now total about 4.2 MB, against 9.2 MB before. Soldiers dropped from 12.9K to about 5.7K triangles and the tank from 22K to about 12K. Palms stay at about 1.3K. `tests/assets.test.mjs` now enforces a 5.5 MB total, per-model triangle budgets for instanced crowds and scenery, and the recolour material names.
 
 ## Engine look
 
@@ -51,6 +51,12 @@ Size and cost: the 44 GLBs now total about 3.9 MB, against 9.2 MB before. Soldie
 - **Hit markers.** Floating damage numbers show the damage actually dealt, never overkill, and are coloured for rear hits, armour deflection and kills. The crosshair flashes on hits and kills.
 - **Damage and streaks.** A red arc around the player points at each damage source, and a low-health pulse appears under 30% HP. Kill-streak banners run DOUBLE KILL → RAMPAGE → ONE-MAN ARMY, plus COMMANDER DOWN for bosses.
 - **Audio.** Sounds are layered noise and tone recipes through a bus compressor: gun crack, blast thump and rumble, armour ping, a streak chime.
+
+## HUD and guidance
+
+- **Top message feed.** The boss bar, combat notices and hints, interaction prompts and Vale's radio stack in one feed at the top centre. On desktop it sits between the objective panel and the minimap, on portrait phones just below them, and on landscape phones in the top gap. Previously the radio, hints and prompts sat around screen centre, over the player.
+- **Identity ring.** The cyan ring is depth-tested and placed at the local ground height, so the soldier stands on it instead of being painted over. It widens to sit around an occupied vehicle.
+- **Guide arrow.** `src/guidance.mjs` (unit-tested) picks the next goal: the relay, then the nearest living relay guard or command boss, then extraction. For the relay and extraction the arrow points 10 m ahead along the mission road the player is on, so it follows zigzag, O, U and S routes instead of pointing through buildings. A chevron around the ring shows the heading, colour-coded by goal, and hides within 4.5 m of the goal. The current objective line shows the remaining distance in metres.
 
 ## Logic fixes
 

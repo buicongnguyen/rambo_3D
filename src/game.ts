@@ -47,6 +47,7 @@ import { DestructionEffects } from "./destruction";
 import { tracerGeometry } from "./tracers";
 import { SpatialGrid, knockbackDistance, turboStats } from "./combat.mjs";
 import { Feel, hurtAngle } from "./feel.mjs";
+import { nextGoal } from "./guidance.mjs";
 import { repaint, HOSTILE_ARMOR } from "./liveries";
 import * as T from "three";
 import { CharacterMotion, FallenBody, VehicleMotion } from "./animation";
@@ -517,6 +518,21 @@ export class Game {
   }
   get pos() {
     return this.player.position;
+  }
+  /** The next mission goal for the guide arrow and HUD (presentation only). */
+  get goal() {
+    const m = MISSIONS[this.index];
+    return nextGoal({
+      from: this.pos,
+      relaySecured: this.objective,
+      cleared: this.bossDead,
+      finale: m.finale,
+      relay: m.objective,
+      extract: m.extract,
+      hostiles: m.finale
+        ? this.enemies.filter((e) => e.boss && e.hp > 0)
+        : [...this.guardIds].filter((e) => e.hp > 0),
+    });
   }
   get boss() {
     return this.enemies.find((e) => e.boss && e.hp > 0);
