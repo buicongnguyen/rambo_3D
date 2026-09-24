@@ -77,6 +77,22 @@ Size and cost: the 44 GLBs now total about 4.2 MB, against 9.2 MB before. Soldie
 - **Music:** stingers are one-shot and 2.1 s or less, with no loops (unit-tested). Effects duck briefly under them.
 - **Settings:** separate Sound effects and Music switches; switching both off suspends the audio context.
 
+## Background music
+
+`src/music.mjs` (unit-tested) composes one original heroic theme as note data: a 16-bar melody over i–VI–III–VII–iv–VI–V–i, with a B section that answers an octave higher. Each stage arranges it in its own key, tempo, lead colour and percussion style. The final stage is in major, and each finale has a boss variant about 10% faster with taiko and brass stabs. `src/music-render.ts` synthesizes a theme once through an `OfflineAudioContext` with brass, string pad, bell, pluck, flute, bass, timpani, taiko, snare and cymbal voices, plus a small hall reverb.
+
+The loop is made seamless by folding the release tail into the start and adding a 3 ms edge fade. Every theme is normalised to the same peak. Measured in Chromium:
+
+| | |
+| --- | --- |
+| Main-thread cost | 9–22 ms, once per theme |
+| Render time | 1.6–2.9 s on the audio thread |
+| Loop length | 28–40 s |
+| Memory | about 4–5 MB per cached loop (at most three kept) |
+| Loop seam | 0 |
+
+Playback is a single looping buffer source. The briefing pre-renders the next stage theme, and finales pre-render the boss version. The theme dips under stingers and while paused, stops at the result screen, and follows the Music switch.
+
 ## Rescue door fix
 
 When a prisoner was freed from beside the door, the gate's front stub walls could land 1.5 cm inside a soldier standing there. `moveCircle` then rejected every step except backing away. The stubs now stay inside the closed prison's footprint, and `resolveOverlap()` pushes the player and allies out of any collision that changes around them. Unit and browser tests replay the case.

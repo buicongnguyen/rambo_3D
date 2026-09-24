@@ -10,6 +10,7 @@ import { routeLength } from "./routes.mjs";
 import { WEAPONS } from "./arsenal";
 import { FeedbackUI } from "./feedback-ui";
 import { GameAudio } from "./audio";
+import { themeFor } from "./music.mjs";
 import { guidePoint } from "./guidance.mjs";
 import { InteractionHint } from "./environment.mjs";
 import {
@@ -187,6 +188,9 @@ function syncSound() {
   write("nightfall-prefs", { ...prefs, difficulty });
 }
 // The briefing button is a master switch for effects and music together.
+// Browsers allow audio only after a gesture; the first one starts the music.
+for (const event of ["pointerdown", "keydown"])
+  window.addEventListener(event, () => audio.unlock(), { once: true });
 $("#sound").onclick = () => {
   prefs.sound = prefs.music = !(prefs.sound || prefs.music);
   syncSound();
@@ -199,6 +203,8 @@ const stageStars = (stage: number) =>
 function menu() {
   mode = "menu";
   clearInput();
+  audio.setThemeLevel(1);
+  audio.playTheme("title");
   $("#menu").hidden = false;
   $("#brand").hidden = false;
   $("#hud").hidden = true;
@@ -207,6 +213,8 @@ function menu() {
   document.body.classList.remove("in-game");
   const index = previewMission ?? (save.completed ? 0 : save.mission),
     m = MISSIONS[index];
+  // Render the next stage theme while the briefing is open.
+  audio.prefetch(themeFor(m.biome));
   if (ready) {
     game.cleanup();
     world.build(index);
@@ -380,6 +388,11 @@ function start() {
   document.body.classList.add("in-game");
   radio(MISSIONS[save.mission].radio);
   sound("start");
+  // The stage theme fades in under the deploy fanfare; finales pre-render the
+  // boss version so it can take over the moment the bosses arrive.
+  const mission = MISSIONS[save.mission];
+  audio.playTheme(themeFor(mission.biome), false, 1.2);
+  if (mission.finale) audio.prefetch(themeFor(mission.biome), true);
   canvas.focus();
 }
 function showOverlay(html: string, variant = "") {
@@ -392,6 +405,7 @@ function pause() {
   if (mode !== "playing") return;
   mode = "paused";
   clearInput();
+  audio.setThemeLevel(0.35);
   showOverlay(
     `<span class="eyebrow">SIGNAL ON HOLD</span><h2>Take a breath.</h2><p>The battlefield will wait.</p><button id="resume" class="primary">RESUME OPERATION <span>↗</span></button><div class="settings"><label><span>Sound effects</span><input id="setting-sound" type="checkbox" ${prefs.sound ? "checked" : ""}></label><label><span>Music</span><input id="setting-music" type="checkbox" ${prefs.music ? "checked" : ""}></label><label><span>Graphics detail</span><select id="setting-low" aria-label="Graphics detail"><option value="low" ${prefs.low ? "selected" : ""}>Low · Mobile / battery saver</option><option value="high" ${!prefs.low ? "selected" : ""}>High · PC / detailed visuals</option></select></label><label><span>Reduce camera motion</span><input id="setting-motion" type="checkbox" ${prefs.reduced ? "checked" : ""}></label></div><div class="modal-actions"><button id="restart">RESTART MISSION</button><button id="to-menu">MISSION BRIEFING</button></div><p class="small-note">WASD / arrows move · Mouse aims · Click / Space fires<br>R reload · Q switch · B target explosives · E interact · Shift dodge · Esc pause</p>`,
   );
@@ -419,6 +433,7 @@ function pause() {
 function resume() {
   if (mode !== "paused") return;
   clearInput();
+  audio.setThemeLevel(1);
   mode = "playing";
   $("#overlay").hidden = true;
 }
@@ -466,6 +481,7 @@ function end(win: boolean) {
   if (mode === "result") return;
   mode = "result";
   clearInput();
+  audio.playTheme("");
   sound(win ? "win" : "lose");
   const m = MISSIONS[game.index],
     final = win && game.index === LEVEL_COUNT - 1;
@@ -1010,6 +1026,12 @@ function frame(now: number) {
     if (now - lastHud > 90) {
       updateHud();
       lastHud = now;
+      // Command bosses bring the faster, drum-heavy version of the stage theme.
+      const mission = MISSIONS[game.index];
+      audio.playTheme(
+        themeFor(mission.biome),
+        mission.finale && game.bossSpawned,
+      );
     }
   } else {
     acc = 0;
@@ -1071,6 +1093,7 @@ async function init() {
         },
         start,
         world,
+        audio,
       };
   } catch (error) {
     showOverlay(

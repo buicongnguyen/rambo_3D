@@ -128,6 +128,8 @@ export function stingerSeconds(type: string) {
 }
 
 const MAX_VOICES = 36;
+/** Background themes sit well under effects (normalised loops peak at 0.5). */
+const THEME_GAIN = 0.5;
 /**
  * Loudness trims (dB) measured from offline renders: guns stay small (about
  * 15 dB under explosions), hostile fire sits under the player's, and stingers
@@ -178,6 +180,13 @@ export class GameAudio {
   private voices = 0;
   private effectsOn = true;
   private musicOn = true;
+  // Background theme: one looping pre-rendered buffer at a time.
+  private unlocked = false;
+  private themeKey = "";
+  private themeSource?: AudioBufferSourceNode;
+  private themeGain?: GainNode;
+  private themeLevel = 1;
+  private themes = new Map<string, Promise<AudioBuffer>>();
 
   static isMusic(type: string) {
     return STINGERS.has(type);
@@ -190,7 +199,98 @@ export class GameAudio {
     this.music!.gain.value = music ? 0.6 : 0;
     this.sfx!.gain.cancelScheduledValues(this.ctx.currentTime);
     this.sfx!.gain.value = effects ? 1 : 0;
+    if (!music) this.stopTheme(0.2);
+    else if (this.themeKey && !this.themeSource) this.startTheme(0);
     if (!effects && !music) void this.ctx.suspend();
+  }
+
+  /** Browsers only allow audio after a user gesture: start any pending theme. */
+  unlock() {
+    if (this.unlocked) return;
+    this.unlocked = true;
+    if (this.themeKey && (this.effectsOn || this.musicOn)) this.startTheme(0);
+  }
+
+  /**
+   * Loop a background theme ("" stops it). Each theme is rendered once, off the
+   * main thread, and replayed from a single looping buffer: no per-frame work.
+   */
+  playTheme(name: string, boss = false, delay = 0) {
+    const key = name ? `${name}${boss ? ":boss" : ""}` : "";
+    if (key === this.themeKey) return;
+    this.themeKey = key;
+    this.stopTheme(key ? 0.9 : 0.5);
+    if (key && this.musicOn && this.unlocked) this.startTheme(delay);
+  }
+
+  /** Render a theme ahead of time so it starts the moment it is needed. */
+  prefetch(name: string, boss = false) {
+    if (this.musicOn) void this.theme(`${name}${boss ? ":boss" : ""}`);
+  }
+
+  /** Lower the theme (e.g. while paused) without restarting it. */
+  setThemeLevel(level: number) {
+    this.themeLevel = level;
+    if (this.themeGain && this.ctx)
+      this.themeGain.gain.setTargetAtTime(
+        THEME_GAIN * level,
+        this.ctx.currentTime,
+        0.25,
+      );
+  }
+
+  private theme(key: string) {
+    let buffer = this.themes.get(key);
+    if (!buffer) {
+      const [name, variant] = key.split(":");
+      // Loaded on demand: the synth code is not needed until music plays.
+      buffer = import("./music-render").then((m) =>
+        m.renderTheme(name, variant === "boss"),
+      );
+      this.themes.set(key, buffer);
+      // Keep at most three rendered loops (about 1.2 MB each at 32 kHz mono).
+      if (this.themes.size > 3)
+        this.themes.delete(this.themes.keys().next().value!);
+    }
+    return buffer;
+  }
+
+  private startTheme(delay: number) {
+    const key = this.themeKey;
+    try {
+      const ctx = this.ensure();
+      void this.theme(key).then((buffer) => {
+        if (key !== this.themeKey || !this.musicOn || this.themeSource) return;
+        const at = ctx.currentTime + delay;
+        const source = ctx.createBufferSource(),
+          gain = ctx.createGain();
+        source.buffer = buffer;
+        source.loop = true;
+        gain.gain.setValueAtTime(0.0001, at);
+        gain.gain.exponentialRampToValueAtTime(
+          THEME_GAIN * this.themeLevel,
+          at + 1.6,
+        );
+        source.connect(gain).connect(this.music!);
+        source.start(at);
+        this.themeSource = source;
+        this.themeGain = gain;
+      });
+    } catch {
+      // Music is optional.
+    }
+  }
+
+  private stopTheme(fade: number) {
+    const source = this.themeSource,
+      gain = this.themeGain;
+    this.themeSource = this.themeGain = undefined;
+    if (!source || !gain || !this.ctx) return;
+    const now = this.ctx.currentTime;
+    gain.gain.cancelScheduledValues(now);
+    gain.gain.setValueAtTime(Math.max(0.0001, gain.gain.value), now);
+    gain.gain.exponentialRampToValueAtTime(0.0001, now + fade);
+    source.stop(now + fade + 0.05);
   }
 
   private ensure() {
@@ -250,8 +350,14 @@ export class GameAudio {
     }
   }
 
-  /** Briefly lower effects so a stinger reads over gunfire. */
+  /** Briefly lower effects and the theme so a stinger reads over gunfire. */
   private duck(now: number, seconds: number) {
+    if (this.themeGain) {
+      const t = this.themeGain.gain;
+      t.cancelScheduledValues(now);
+      t.setTargetAtTime(THEME_GAIN * this.themeLevel * 0.3, now, 0.08);
+      t.setTargetAtTime(THEME_GAIN * this.themeLevel, now + seconds, 0.5);
+    }
     if (!this.effectsOn) return;
     const g = this.sfx!.gain;
     g.cancelScheduledValues(now);

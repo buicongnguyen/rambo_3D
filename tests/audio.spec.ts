@@ -105,3 +105,53 @@ test("sound and music can be switched off in settings, and cues are cheap to sch
     ),
   ).toMatchObject({ sound: true, music: true });
 });
+
+test("stage themes loop under play, switch for bosses, dip on pause and stop at the end", async ({
+  page,
+}) => {
+  await ready(page); // The deploy click is the user gesture that unlocks audio.
+  const audio = () =>
+    page.evaluate(() => {
+      const a = (window as any).__nightfall.audio;
+      return {
+        key: a.themeKey,
+        playing: !!a.themeSource,
+        loop: a.themeSource?.loop ?? false,
+        level: a.themeLevel,
+      };
+    });
+  await expect
+    .poll(async () => (await audio()).playing, { timeout: 20000 })
+    .toBe(true);
+  expect(await audio()).toMatchObject({ key: "ice", loop: true, level: 1 });
+  await page.keyboard.press("Escape");
+  expect((await audio()).level).toBeLessThan(1);
+  await page.locator("#resume").click();
+  // A finale switches to the faster boss arrangement once bosses arrive.
+  await page.evaluate(() => {
+    const g = (window as any).__nightfall.game;
+    g.start(2, { armor: 0, power: 0, mobility: 0 }, "normal");
+    g.bossSpawned = true;
+  });
+  await expect
+    .poll(async () => (await audio()).key, { timeout: 5000 })
+    .toBe("ice:boss");
+  await expect
+    .poll(async () => (await audio()).playing, { timeout: 20000 })
+    .toBe(true);
+  // Turning music off stops the loop; the win screen stops it for good.
+  await page.keyboard.press("Escape");
+  await page.locator("#setting-music").uncheck();
+  expect((await audio()).playing).toBe(false);
+  await page.locator("#setting-music").check();
+  await expect
+    .poll(async () => (await audio()).playing, { timeout: 20000 })
+    .toBe(true);
+  await page.locator("#resume").click();
+  await page.evaluate(() => {
+    const g = (window as any).__nightfall.game;
+    g.phase = "won";
+    g.onEnd(true);
+  });
+  expect(await audio()).toMatchObject({ key: "", playing: false });
+});

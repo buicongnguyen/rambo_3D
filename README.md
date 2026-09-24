@@ -68,7 +68,17 @@ Kills land with a brief hit-stop, blasts and heavy hits shake the camera, and fl
 - **Weapons:** each weapon has its own small voice, and the tank cannon has a heavy one.
 - **Other combatants:** enemy and ally gunfire is quieter, fades with distance and pans left or right.
 - **Cues:** explosions have a layered thump and rumble. Treasure, supplies and rescues each have a chime, and warning beeps sound before rockfalls and boss salvos.
-- **Music:** short stingers of 2 seconds or less play on deploy, victory, defeat, every fourth chained kill and each boss kill. There is no background loop.
+- **Stingers:** short cues of 2 seconds or less play on deploy, victory, defeat, every fourth chained kill and each boss kill.
+- **Background music:** each stage has its own arrangement of one original heroic theme. It climbs, struggles, then resolves on a rising cadence, a brave soldier's march home.
+  - White Horizon is a snare march with bells.
+  - Cinderfall drives on taiko drums.
+  - Dune Lifeline uses desert plucks and frame drums.
+  - Canopy Hold has a jungle flute and bongos.
+  - Citadel Dawn has a city backbeat.
+  - Faultline Zero is built on heavy timpani.
+  - Mire Crossing turns the theme to a triumphant major key.
+  - The briefing plays the title arrangement, and finales switch to a faster, drum-heavy version when the command bosses arrive.
+  - Each 16-bar theme (about 30–40 s) is rendered once, off the main thread, into one looping buffer, so music costs almost nothing per frame.
 
 The pause settings have separate **Sound effects** and **Music** switches, and the briefing's SOUND button turns both on or off. Enable *Reduce camera motion* to turn off shake and animated banners. On portrait phones the camera pulls back so riflemen and rocket troops stay on screen.
 
