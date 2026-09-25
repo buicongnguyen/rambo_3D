@@ -2410,3 +2410,43 @@ input {
 .shop-card small {
   position: static;
 }
+
+/* Boss phases: gold when a weak point is exposed, red once enraged. */
+#boss-panel.enraged {
+  box-shadow:
+    0 0 0 1px #e0262b99,
+    0 0 18px #e0262b55;
+}
+#boss-panel.enraged .boss-track i {
+  background: #ff5a3c;
+}
+#boss-panel.exposed {
+  box-shadow:
+    0 0 0 1px #ffd84aaa,
+    0 0 22px #ffd84a66;
+}
+#boss-panel.exposed #boss-phase {
+  color: #ffe066;
+}
+#fx-layer .dmg.weak {
+  color: #ffd84a;
+  font-size: 20px;
+  text-shadow:
+    0 2px 0 #6a3a06,
+    0 0 10px #ffb22e88;
+}
+/* Defeat screen: retry from the relay checkpoint is primary; a full restart stays available. */
+.secondary-action {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 40px;
+  min-width: 274px;
+  margin-top: 10px;
+  padding: 16px 23px;
+  border: 1px solid var(--lime);
+  color: var(--lime);
+  font-size: 11px;
+  font-weight: 800;
+  letter-spacing: 1.2px;
+}

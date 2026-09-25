@@ -106,6 +106,8 @@ export class Squad {
     angle: number,
     boxes: Box[],
     shoot: (x: number, z: number, angle: number) => void,
+    /** Nearest hostile an ally at (x, z) can see, if any (allies pick targets). */
+    acquire?: (x: number, z: number) => Point | undefined,
   ) {
     if (!this.allies.length) return;
     const last = this.trail.at(-1);
@@ -211,13 +213,18 @@ export class Squad {
         a.reload = Math.max(0, a.reload - dt);
         if (a.reload === 0) a.rounds = 12;
       }
+      // Allies engage the nearest hostile they can see on their own; with none
+      // in sight they cover the player's line of fire.
+      const foe = !a.emerging ? acquire?.(p.x, p.z) : undefined;
+      const aim = foe ? Math.atan2(foe.x - p.x, foe.z - p.z) : angle;
       const engaged =
-        firing &&
-        !a.emerging &&
-        Math.hypot(p.x - player.x, p.z - player.z) < 22;
+        !!foe ||
+        (firing &&
+          !a.emerging &&
+          Math.hypot(p.x - player.x, p.z - player.z) < 22);
       const vx = (p.x - oldX) / dt,
         vz = (p.z - oldZ) / dt;
-      if (engaged) a.mesh.rotation.y = angle;
+      if (engaged) a.mesh.rotation.y = aim;
       else if (Math.hypot(vx, vz) > 0.1) a.mesh.rotation.y = Math.atan2(vx, vz);
       if (
         engaged &&
@@ -228,14 +235,14 @@ export class Squad {
             segmentBox(
               p.x,
               p.z,
-              p.x + Math.sin(angle) * 0.9,
-              p.z + Math.cos(angle) * 0.9,
+              p.x + Math.sin(aim) * 0.9,
+              p.z + Math.cos(aim) * 0.9,
               b,
               0.06,
             ) !== Infinity,
         )
       ) {
-        shoot(p.x, p.z, angle);
+        shoot(p.x, p.z, aim);
         a.motion.kick();
         a.cool = 0.34;
         a.rounds--;

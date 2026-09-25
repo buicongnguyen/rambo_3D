@@ -115,13 +115,13 @@ Performance: `segmentBox`, the innermost collision primitive, no longer allocate
 - `npm run build` and the full Playwright suite (`npm run test:e2e`) run locally.
 - Before/after model renders and in-game captures on all seven biomes, compared at the gameplay camera. `docs/aaa-models.png` and `docs/aaa-gameplay.png` are real Blender and Three.js captures, not concept art.
 
+## Relay checkpoint, boss phases and smarter allies
+
+- **Relay checkpoint.** Securing the relay snapshots the mission: supply seed, health, shield, weapons and ammunition, treasure, score, time, killed patrols, freed prisons, remaining supplies and vehicle state. After a defeat, **RETRY FROM RELAY** rebuilds the identical mission from the same seed, replays that progress and restarts the relay counterattack. **RETRY MISSION** still starts over.
+- **Boss phases.** Command bosses take 1.5× damage in downtime windows: gunship landed, spider resting, quad-mech guns cooling, the laser tank venting for 1.4 s after a beam, and missile bosses reloading for 1.8 s after a salvo. Hits land as gold weak-point numbers. At half health a boss enrages and its attack clocks run 30% faster; the boss bar glows gold or red to match.
+- **Allies.** Each ally engages the nearest enemy it can see within 18 m, checked against cover, even while the player holds fire. With no target in sight, it covers the player's aim.
+
 ## Suggested next steps
 
-These came from the review but are outside this pass:
-
-- a relay checkpoint on longer routes
 - route-progress encounter triggers and difficulty that scales AI, not just head count
-- boss phase changes with vulnerability windows
 - interpolated rendering on 120/144 Hz displays
-- allies that pick their own targets
-- positional audio and intensity music

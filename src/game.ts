@@ -111,6 +111,8 @@ export type Actor = {
   /** Game time until which the HUD shows this boss's heavy-salvo warning. */
   salvoUntil?: number;
   landingCover?: Box;
+  /** Below half health a command boss attacks 30% faster. */
+  enraged?: boolean;
 };
 type Hazard = {
   mesh: T.Mesh<T.RingGeometry, T.MeshBasicMaterial>;
@@ -445,6 +447,38 @@ export class Game {
   score = 0;
   objective = false;
   bossSpawned = false;
+  /** Progress saved when the relay is secured; "retry from relay" replays it. */
+  checkpoint?: {
+    index: number;
+    seed: number;
+    hp: number;
+    shield: number;
+    weapon: number;
+    inventory: number[];
+    magazines: number[];
+    reserves: number[];
+    credits: number;
+    loot: { money: number; gold: number; diamond: number };
+    rescued: number;
+    squad: number;
+    score: number;
+    kills: number;
+    elapsed: number;
+    dead: number[];
+    freed: number[];
+    treasures: { kind: keyof typeof TREASURE; x: number; z: number }[];
+    drops: string[];
+    pickups: string[];
+    rides: {
+      x: number;
+      z: number;
+      heading: number;
+      hp: number;
+      ammo: number;
+    }[];
+  };
+  /** Patrols spawned at mission start (later spawns are guards or bosses). */
+  private patrolCount = 0;
   /** Treasure pieces recovered this mission, for the debrief tally. */
   loot = { money: 0, gold: 0, diamond: 0 };
   /** Set when a kill leaves no hostile alive or still to come. */
@@ -542,6 +576,192 @@ export class Game {
   get pos() {
     return this.player.position;
   }
+  /**
+   * Downtime windows in which a command boss is exposed: landed or resting,
+   * guns cooling, the laser venting after a beam, or launchers reloading after
+   * a salvo.
+   */
+  bossExposed(e: Actor) {
+    if (
+      e.state === "LANDED / REARMING" ||
+      e.state === "RESTING" ||
+      e.state === "GUNS COOLING / RELOAD"
+    )
+      return true;
+    if (e.bossKind === "laserTank")
+      return e.cool > BOSS_ATTACKS.laserTank.interval - 1.4;
+    if (e.salvoUntil !== undefined)
+      return this.elapsed >= e.salvoUntil && this.elapsed < e.salvoUntil + 1.8;
+    return false;
+  }
+  /** Secure the relay and start its counterattack (guards or command bosses). */
+  private secureRelay(capture = true) {
+    const mission = MISSIONS[this.index];
+    this.objective = true;
+    this.world.marker.visible = false;
+    if (capture) this.captureCheckpoint();
+    if (mission.finale) {
+      const count = difficultyConfig(this.difficulty).bosses;
+      for (let n = 0; n < count; n++) {
+        const p = routeFormation(mission.route, 0.9, count)[n];
+        this.spawn(p.x, p.z, true, 100 + n);
+      }
+      this.bossSpawned = true;
+      this.onRadio(
+        `${count} command boss${count > 1 ? "es" : ""} inbound. Defeat them all to open extraction.`,
+      );
+    } else {
+      this.pendingGuards =
+        missionPacing(mission.stage, mission.level).guards *
+        difficultyConfig(this.difficulty).soldiers;
+      this.reinforcementClock = 0.8;
+      this.onRadio(
+        "Relay secured. Guards are leaving the nearby houses. Clear the counterattack to open extraction.",
+      );
+    }
+  }
+  /** Snapshot progress when the relay is secured, for "retry from relay". */
+  private captureCheckpoint() {
+    this.magazines[this.weapon] = this.ammo;
+    const at = (o: T.Object3D) =>
+      `${o.position.x.toFixed(2)},${o.position.z.toFixed(2)}`;
+    this.checkpoint = {
+      index: this.index,
+      seed: this.supplySeed,
+      hp: this.hp,
+      shield: this.shield,
+      weapon: this.weapon,
+      inventory: [...this.inventory],
+      magazines: [...this.magazines],
+      reserves: [...this.reserves],
+      credits: this.credits,
+      loot: { ...this.loot },
+      rescued: this.rescued,
+      squad: this.squad.allies.length,
+      score: this.score,
+      kills: this.kills,
+      elapsed: this.elapsed,
+      dead: this.enemies
+        .slice(0, this.patrolCount)
+        .flatMap((e, i) => (e.hp <= 0 ? [i] : [])),
+      freed: this.prisons.flatMap((p, i) => (p.freed ? [i] : [])),
+      treasures: this.treasures.map((t) => ({
+        kind: t.userData.kind as keyof typeof TREASURE,
+        x: t.position.x,
+        z: t.position.z,
+      })),
+      drops: this.weaponDrops.map((d) => at(d.mesh) + ":" + d.index),
+      pickups: this.pickups
+        .filter((p) => p.userData.expires === undefined)
+        .map((p) => at(p) + ":" + p.userData.kind),
+      rides: this.rides.map((v) => ({
+        x: v.mesh.position.x,
+        z: v.mesh.position.z,
+        heading: v.heading,
+        hp: v.hp,
+        ammo: v.ammo,
+      })),
+    };
+  }
+  /**
+   * Rebuild the same mission (same supply seed) and replay the checkpoint: the
+   * relay is secured again and its counterattack restarts; patrols killed,
+   * prisoners freed, treasure and supplies collected stay that way.
+   */
+  restoreCheckpoint(save: Parameters<Game["start"]>[1], difficulty: string) {
+    const c = this.checkpoint;
+    if (!c) return this.start(this.index, save, difficulty);
+    this.start(c.index, save, difficulty, c.seed);
+    this.checkpoint = c;
+    for (const i of c.dead) {
+      const e = this.enemies[i];
+      if (!e) continue;
+      e.hp = 0;
+      this.world.actors.remove(e.mesh, e.warn);
+    }
+    const at = (o: T.Object3D) =>
+      `${o.position.x.toFixed(2)},${o.position.z.toFixed(2)}`;
+    this.weaponDrops = this.weaponDrops.filter((d) => {
+      const keep = c.drops.includes(at(d.mesh) + ":" + d.index);
+      if (!keep) this.world.actors.remove(d.mesh);
+      return keep;
+    });
+    this.pickups = this.pickups.filter((p) => {
+      const keep = c.pickups.includes(at(p) + ":" + p.userData.kind);
+      if (!keep) this.world.actors.remove(p);
+      return keep;
+    });
+    for (const t of this.treasures) this.world.actors.remove(t);
+    this.treasures = [];
+    for (const t of c.treasures) this.addTreasure(t.kind, t.x, t.z);
+    for (const i of c.freed) {
+      const prison = this.prisons[i];
+      if (!prison) continue;
+      prison.freed = true;
+      prison.open = 1;
+      prison.marker.visible = false;
+      prison.captive.removeFromParent();
+    }
+    this.rides.forEach((v, i) => {
+      const r = c.rides[i];
+      if (!r) return;
+      v.mesh.position.set(r.x, 0, r.z);
+      v.heading = r.heading;
+      v.mesh.rotation.y = r.heading;
+      v.hp = r.hp;
+      v.ammo = r.ammo;
+      if (r.hp <= 0) this.world.actors.remove(v.mesh);
+    });
+    const relay = MISSIONS[c.index].objective;
+    this.pos.set(relay.x, 0, relay.z + 1.5);
+    this.player.position.copy(this.pos);
+    this.world.resetCamera(this.pos);
+    while (this.squad.allies.length < c.squad)
+      if (!this.squad.add(relay.x + 1.5, relay.z + 2.5)) break;
+    Object.assign(this, {
+      hp: c.hp,
+      shield: c.shield,
+      credits: c.credits,
+      loot: { ...c.loot },
+      rescued: c.rescued,
+      score: c.score,
+      kills: c.kills,
+      elapsed: c.elapsed,
+      inventory: [...c.inventory],
+      magazines: [...c.magazines],
+      reserves: [...c.reserves],
+      weapon: c.weapon,
+    });
+    this.ammo = this.magazines[this.weapon];
+    this.shownWeapon = -1;
+    this.invincible = 1.5;
+    this.secureRelay(false);
+    this.onRadio(
+      "Vale: Back at the relay. The counterattack is coming. Hold this position.",
+    );
+  }
+  /** Nearest living, visible hostile within an ally's 18 m engagement range. */
+  private allyTarget(x: number, z: number) {
+    let best: Actor | undefined,
+      nearest = 18;
+    for (const e of this.enemyGrid.near(x, z, 18) as Actor[]) {
+      if (e.hp <= 0 || e.emerging) continue;
+      const d = Math.hypot(e.x - x, e.z - z);
+      if (d >= nearest) continue;
+      const blocked = this.coverGrid
+        .segment(x, z, e.x, e.z, 0.06)
+        .some(
+          (b: Box) =>
+            this.liveCover.has(b) &&
+            segmentBox(x, z, e.x, e.z, b, 0.06) !== Infinity,
+        );
+      if (!blocked) {
+        best = e;
+        nearest = d;
+      }
+    }
+    return best;
+  }
   /** The next mission goal for the guide arrow and HUD (presentation only). */
   get goal() {
     const m = MISSIONS[this.index];
@@ -572,8 +792,11 @@ export class Game {
       loadout?: string[];
     },
     difficulty: string,
+    /** Reuse a supply layout (checkpoint restores rebuild the same mission). */
+    seed?: number,
   ) {
     this.cleanup();
+    this.checkpoint = undefined;
     this.index = index;
     this.eventClock = 7;
     this.quakeTime = 0;
@@ -658,7 +881,7 @@ export class Game {
       return ride;
     });
     for (const v of this.rides) this.world.actors.add(v.mesh);
-    this.supplySeed = crypto.getRandomValues(new Uint32Array(1))[0];
+    this.supplySeed = seed ?? crypto.getRandomValues(new Uint32Array(1))[0];
     const drops = placeSupplies(
       mission.route,
       [...COVER, ...this.rides.map((v) => v.box)],
@@ -782,6 +1005,7 @@ export class Game {
         ];
       this.spawn(p.x, p.z - 3, false, 10000 + i, mission.bossModel, true);
     }
+    this.patrolCount = this.enemies.length;
     this.showWeapon();
   }
   private addTreasure(kind: keyof typeof TREASURE, x: number, z: number) {
@@ -1456,6 +1680,9 @@ export class Game {
         ? Math.max(0.65, armorMultiplier(e, spec))
         : armorMultiplier(e, spec);
     damage *= armor * (rear && !e.armored ? 1.75 : 1);
+    // Command bosses take 1.5x damage while exposed in their downtime windows.
+    const exposed = e.boss && this.bossExposed(e);
+    if (exposed) damage *= 1.5;
     e.alerted = true;
     e.memory = 8;
     // A delayed hit reveals where the shot originated, never the shooter's current hidden position.
@@ -1481,12 +1708,25 @@ export class Game {
         e.mesh.position.y + (e.boss ? 3.2 : e.armored ? 2.2 : 2),
         contact?.z ?? e.z,
         dealt,
-        e.hp <= 0 ? "kill" : armor < 1 ? "armor" : rear ? "rear" : "hit",
+        e.hp <= 0
+          ? "kill"
+          : exposed
+            ? "weak"
+            : armor < 1
+              ? "armor"
+              : rear
+                ? "rear"
+                : "hit",
       );
     if (armor < 1 && e.hp > 0 && !rear)
       this.combatMessage("ARMOR DEFLECTS · USE ROCKETS / LASER");
+    if (exposed && e.hp > 0) this.combatMessage("WEAK POINT · 1.5× DAMAGE", 1);
     if (e.boss && e.hp > 0 && e.hp < e.max * 0.5 && !e.reinforced) {
       e.reinforced = true;
+      e.enraged = true;
+      this.combatMessage("COMMANDER ENRAGED · FASTER ATTACKS", 2.5);
+      this.feel.addTrauma(0.35);
+      this.onSound("warn", e);
       for (let n = 0; n < 2 * difficultyConfig(this.difficulty).soldiers; n++)
         this.spawn(
           e.x + (n % 2 ? 6 : -6),
@@ -2041,7 +2281,7 @@ export class Game {
       aiming: true,
     });
     e.mesh.updateMatrixWorld(true);
-    e.cool -= dt;
+    e.cool -= dt * (e.enraged ? 1.3 : 1);
     const sight = !COVER.some(
       (b) => segmentBox(e.x, e.z, this.pos.x, this.pos.z, b) !== Infinity,
     );
@@ -2251,7 +2491,7 @@ export class Game {
   }
   private updateSecondaryGun(e: Actor, dt: number, sight: boolean) {
     if (!e.muzzles?.has("MuzzleAux") && e.bossKind !== "rocketMech") return;
-    e.auxCool = Math.max(-0.1, (e.auxCool ?? 1.4) - dt);
+    e.auxCool = Math.max(-0.1, (e.auxCool ?? 1.4) - dt * (e.enraged ? 1.3 : 1));
     const resting = e.state === "RESTING" || e.state === "LANDED / REARMING";
     if (resting) {
       e.auxCool = Math.max(e.auxCool, 0.65);
@@ -2791,28 +3031,8 @@ export class Game {
           ) !== Infinity,
       )
     ) {
-      this.objective = true;
       this.score += 500;
-      this.world.marker.visible = false;
-      if (mission.finale) {
-        const count = difficultyConfig(this.difficulty).bosses;
-        for (let n = 0; n < count; n++) {
-          const p = routeFormation(mission.route, 0.9, count)[n];
-          this.spawn(p.x, p.z, true, 100 + n);
-        }
-        this.bossSpawned = true;
-        this.onRadio(
-          `${count} command boss${count > 1 ? "es" : ""} inbound. Defeat them all to open extraction.`,
-        );
-      } else {
-        this.pendingGuards =
-          missionPacing(mission.stage, mission.level).guards *
-          difficultyConfig(this.difficulty).soldiers;
-        this.reinforcementClock = 0.8;
-        this.onRadio(
-          "Relay secured. Guards are leaving the nearby houses. Clear the counterattack to open extraction.",
-        );
-      }
+      this.secureRelay();
       this.onSound("objective");
     }
     this.updateReinforcements(dt);
@@ -2830,6 +3050,7 @@ export class Game {
         this.onSound("allyShot", { x, z });
         this.shoot(x, z, direction, false, 12, WEAPONS[0].speed, WEAPONS[0]);
       },
+      (x, z) => this.allyTarget(x, z),
     );
     const limits = pressureLimits(this.difficulty);
     const pressure = { melee: 0, thrower: 0, rocket: 0 };

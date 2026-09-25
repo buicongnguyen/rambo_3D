@@ -373,20 +373,24 @@ function menu() {
       };
     };
 }
-function start() {
+function start(fromRelay = false) {
   if (!ready) return;
   interactionHint.reset();
   clearInput();
   feedback.clear();
-  game.start(save.mission, save, difficulty);
-  world.marker.visible = true;
+  // Retrying from the relay replays the checkpoint saved when it was secured.
+  if (fromRelay && game.checkpoint) game.restoreCheckpoint(save, difficulty);
+  else {
+    game.start(save.mission, save, difficulty);
+    world.marker.visible = true;
+  }
   mode = "playing";
   $("#menu").hidden = true;
   $("#brand").hidden = true;
   $("#hud").hidden = false;
   $("#overlay").hidden = true;
   document.body.classList.add("in-game");
-  radio(MISSIONS[save.mission].radio);
+  if (!fromRelay) radio(MISSIONS[save.mission].radio);
   sound("start");
   // The stage theme fades in under the deploy fanfare; finales pre-render the
   // boss version so it can take over the moment the bosses arrive.
@@ -410,7 +414,7 @@ function pause() {
     `<span class="eyebrow">SIGNAL ON HOLD</span><h2>Take a breath.</h2><p>The battlefield will wait.</p><button id="resume" class="primary">RESUME OPERATION <span>↗</span></button><div class="settings"><label><span>Sound effects</span><input id="setting-sound" type="checkbox" ${prefs.sound ? "checked" : ""}></label><label><span>Music</span><input id="setting-music" type="checkbox" ${prefs.music ? "checked" : ""}></label><label><span>Graphics detail</span><select id="setting-low" aria-label="Graphics detail"><option value="low" ${prefs.low ? "selected" : ""}>Low · Mobile / battery saver</option><option value="high" ${!prefs.low ? "selected" : ""}>High · PC / detailed visuals</option></select></label><label><span>Reduce camera motion</span><input id="setting-motion" type="checkbox" ${prefs.reduced ? "checked" : ""}></label></div><div class="modal-actions"><button id="restart">RESTART MISSION</button><button id="to-menu">MISSION BRIEFING</button></div><p class="small-note">WASD / arrows move · Mouse aims · Click / Space fires<br>R reload · Q switch · B target explosives · E interact · Shift dodge · Esc pause</p>`,
   );
   $("#resume").onclick = resume;
-  $("#restart").onclick = start;
+  $("#restart").onclick = () => start();
   $("#to-menu").onclick = menu;
   $<HTMLInputElement>("#setting-sound").onchange = (e) => {
     prefs.sound = (e.target as HTMLInputElement).checked;
@@ -543,7 +547,7 @@ function end(win: boolean) {
     .join("");
   const debrief = `<div class="debrief"><div class="grade" aria-label="${grade.stars} of 3 stars"><div class="grade-stars">${stars}</div><ul>${criteria}</ul></div><div class="tally">${rows}<div class="tally-total"><img src="${uiIcon("coin")}" alt=""><span>BANKED</span><b id="banked" data-total="${banked}">+${banked}</b><em>BALANCE ${save.credits} CREDITS</em></div></div></div>`;
   showOverlay(
-    `<span class="eyebrow">${win ? "TRANSMISSION RECEIVED" : "SIGNAL LOST"} / 0${game.index + 1}</span><h2>${final ? "Everyone comes home." : win ? "Mission accomplished." : "Not your last stand."}</h2>${win ? debrief : "<p>Use cover to break enemy sightlines. Dodge when orange rings appear, and collect green health drops. Your completed campaign progress is safe.</p>"}<p class="rescue-result">${win ? `${game.rescued} rescued · ${game.squad.allies.length} allies returning · ${game.credits} credits recovered` : "Unbanked mission treasure is lost. Your saved squad and field kit return on retry."}</p><div class="result-stats"><div><b>${game.score.toLocaleString()}</b><span>MISSION SCORE</span></div><div><b>${game.kills}</b><span>TARGETS DOWN</span></div><div><b>${formatTime(game.elapsed)}</b><span>FIELD TIME</span></div></div>${win && !final ? `<span class="eyebrow">CHOOSE YOUR NEXT ADVANTAGE · ARMOR SAVED BY DEFAULT</span><div class="upgrades">${upgrades}</div>` : `<button id="result-primary" class="primary">${win ? "RETURN TO BRIEFING" : "RETRY MISSION"} <span>↗</span></button>`}${!win ? '<button id="result-menu" class="text-button">MISSION BRIEFING</button>' : ""}`,
+    `<span class="eyebrow">${win ? "TRANSMISSION RECEIVED" : "SIGNAL LOST"} / 0${game.index + 1}</span><h2>${final ? "Everyone comes home." : win ? "Mission accomplished." : "Not your last stand."}</h2>${win ? debrief : "<p>Use cover to break enemy sightlines. Dodge when orange rings appear, and collect green health drops. Your completed campaign progress is safe.</p>"}<p class="rescue-result">${win ? `${game.rescued} rescued · ${game.squad.allies.length} allies returning · ${game.credits} credits recovered` : "Unbanked mission treasure is lost. Your saved squad and field kit return on retry."}</p><div class="result-stats"><div><b>${game.score.toLocaleString()}</b><span>MISSION SCORE</span></div><div><b>${game.kills}</b><span>TARGETS DOWN</span></div><div><b>${formatTime(game.elapsed)}</b><span>FIELD TIME</span></div></div>${win && !final ? `<span class="eyebrow">CHOOSE YOUR NEXT ADVANTAGE · ARMOR SAVED BY DEFAULT</span><div class="upgrades">${upgrades}</div>` : `${!win && game.checkpoint ? '<button id="result-checkpoint" class="primary">RETRY FROM RELAY <span>↗</span></button>' : ""}<button id="result-primary" class="${!win && game.checkpoint ? "secondary-action" : "primary"}">${win ? "RETURN TO BRIEFING" : "RETRY MISSION"} <span>↗</span></button>`}${!win ? '<button id="result-menu" class="text-button">MISSION BRIEFING</button>' : ""}`,
     win ? "debrief-modal" : "",
   );
   const total = document.querySelector<HTMLElement>("#banked");
@@ -574,7 +578,9 @@ function end(win: boolean) {
       menu();
     };
   const primary = document.querySelector<HTMLButtonElement>("#result-primary");
-  if (primary) primary.onclick = win ? menu : start;
+  if (primary) primary.onclick = win ? menu : () => start();
+  const relay = document.querySelector<HTMLButtonElement>("#result-checkpoint");
+  if (relay) relay.onclick = () => start(true);
   const back = document.querySelector<HTMLButtonElement>("#result-menu");
   if (back) back.onclick = menu;
 }
@@ -737,9 +743,13 @@ function updateHud() {
     $("#boss-bar").style.width =
       `${(100 * bosses.reduce((n, e) => n + Math.max(0, e.hp), 0)) / bosses.reduce((n, e) => n + e.max, 0)}%`;
     const salvo = alive.find((e) => (e.salvoUntil ?? 0) > game.elapsed);
+    const exposed = alive.some((e) => game.bossExposed(e)),
+      enraged = alive.some((e) => e.enraged);
     $("#boss-phase").textContent = salvo
       ? "HEAVY SALVO / TAKE COVER"
-      : (boss.state ?? "ARMORED TARGET");
+      : `${exposed ? "WEAK POINT · " : ""}${boss.state ?? "ARMORED TARGET"}${enraged ? " · ENRAGED" : ""}`;
+    $("#boss-panel").classList.toggle("exposed", exposed && !salvo);
+    $("#boss-panel").classList.toggle("enraged", enraged);
   }
   const prompt = $("#interact-prompt");
   const hintKey = game.riding
