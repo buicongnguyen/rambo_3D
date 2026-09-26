@@ -132,6 +132,7 @@ export function freshSave() {
     completed: false,
     credits: 0,
     squad: 0,
+    women: 0,
     fieldKit: 0,
     stars: [],
     loadout: [],
@@ -179,6 +180,11 @@ export function validateSave(raw) {
     version: 2,
     credits: raw.credits ?? 0,
     squad: raw.squad ?? 0,
+    // How many of the saved allies are women (rescued from women's cells).
+    women:
+      Number.isSafeInteger(raw.women) && raw.women > 0
+        ? Math.min(raw.women, raw.squad ?? 0)
+        : 0,
     fieldKit: raw.fieldKit ?? 0,
     // Optional fields are sanitised rather than rejecting an otherwise good save.
     stars: Array.isArray(raw.stars)
@@ -218,6 +224,12 @@ export function advanceCampaign(save, upgrade, score, rewards = {}) {
       : next.squad;
   next.credits = Math.min(1000000, next.credits + credits);
   next.squad = squad;
+  next.women = Math.min(
+    squad,
+    Number.isSafeInteger(rewards.women) && rewards.women >= 0
+      ? rewards.women
+      : next.women,
+  );
   if (next.mission === LEVEL_COUNT - 1) {
     next.completed = true;
     return next;

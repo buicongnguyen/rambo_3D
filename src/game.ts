@@ -4,7 +4,13 @@ import {
   pressureLimits,
   inMeleeSector,
 } from "./enemy-roles.mjs";
-import { equipInfantry, infantryWarnings, type InfantryRole } from "./infantry";
+import {
+  equipInfantry,
+  infantryModel,
+  infantryWarnings,
+  type InfantryRole,
+} from "./infantry";
+import { mergeGeometries } from "three/addons/utils/BufferGeometryUtils.js";
 import { Squad } from "./squad";
 import { fieldBonuses, openedPrisonWalls, TREASURE } from "./rescue.mjs";
 import {
@@ -37,6 +43,8 @@ import {
   QUAD_GUNS,
   ROCKET_GUNS,
   MISSILE_SALVOS,
+  WRAITH,
+  SOVEREIGN,
 } from "./bosses.mjs";
 import { routeFormation } from "./routes.mjs";
 import { difficultyConfig, terrainFactor, WORLD_BOUNDS } from "./campaign.mjs";
@@ -50,11 +58,20 @@ import { Feel, hurtAngle } from "./feel.mjs";
 import { nextGoal } from "./guidance.mjs";
 /** Cinderfall rockfalls: one on the player and one on the nearest enemy. */
 const ROCKFALL = { interval: 9, warning: 3 };
+/** Flying command bosses: they hover over cover and ignore quake freezes. */
+const aircraft = (kind?: string) => kind === "gunship" || kind === "skyWraith";
 import { repaint, HOSTILE_ARMOR } from "./liveries";
 import * as T from "three";
 import { CharacterMotion, FallenBody, VehicleMotion } from "./animation";
 import { World, model } from "./world";
-import { MISSIONS, COVER, SPAWNS, PATCHES, type Box } from "./missions";
+import {
+  MISSIONS,
+  COVER,
+  SPAWNS,
+  PATCHES,
+  BOSS_NAMES,
+  type Box,
+} from "./missions";
 import {
   moveCircle,
   resolveOverlap,
@@ -113,6 +130,16 @@ export type Actor = {
   landingCover?: Box;
   /** Below half health a command boss attacks 30% faster. */
   enraged?: boolean;
+  /** IRON SOVEREIGN: remaining aim-lock time and the locked firing line. */
+  lockTime?: number;
+  lockAim?: number;
+  /** IRON SOVEREIGN: remaining overheat vent (core exposed). */
+  vent?: number;
+  /** SKY WRAITH: attack pattern counter, orbit angle, gun run and low hover. */
+  pattern?: number;
+  orbit?: number;
+  run?: { x0: number; z0: number; x1: number; z1: number; t: number };
+  hover?: number;
 };
 type Hazard = {
   mesh: T.Mesh<T.RingGeometry, T.MeshBasicMaterial>;
@@ -178,6 +205,8 @@ export class Game {
     freed: boolean;
     open: number;
     collisionOpen: boolean;
+    /** A woman prisoner; she joins as a commandoWoman ally. */
+    woman: boolean;
   }[] = [];
   treasures: T.Group[] = [];
   credits = 0;
@@ -461,6 +490,7 @@ export class Game {
     loot: { money: number; gold: number; diamond: number };
     rescued: number;
     squad: number;
+    women: number;
     score: number;
     kills: number;
     elapsed: number;
@@ -557,6 +587,14 @@ export class Game {
     side: T.DoubleSide,
   });
   private warnGeo = new T.RingGeometry(0.65, 0.74, 24);
+  /** IRON SOVEREIGN aim lock: three 30 m lines, one per cannon (local -Y). */
+  private fanGeo = mergeGeometries(
+    [-SOVEREIGN.spread, 0, SOVEREIGN.spread].map((a) =>
+      new T.PlaneGeometry(0.32, SOVEREIGN.range)
+        .translate(0, -SOVEREIGN.range / 2, 0)
+        .rotateZ(a),
+    ),
+  );
   private warnMat = new T.MeshBasicMaterial({
     color: 0xf2a56e,
     side: T.DoubleSide,
@@ -585,7 +623,9 @@ export class Game {
     if (
       e.state === "LANDED / REARMING" ||
       e.state === "RESTING" ||
-      e.state === "GUNS COOLING / RELOAD"
+      e.state === "GUNS COOLING / RELOAD" ||
+      e.state === "LOW HOVER / REARMING" ||
+      e.state === "VENTING / CORE EXPOSED"
     )
       return true;
     if (e.bossKind === "laserTank")
@@ -601,14 +641,23 @@ export class Game {
     this.world.marker.visible = false;
     if (capture) this.captureCheckpoint();
     if (mission.finale) {
-      const count = difficultyConfig(this.difficulty).bosses;
+      // Late stages add an escort boss (never on Easy); kinds alternate.
+      const kinds = [mission.bossModel];
+      if (mission.bossEscort && this.difficulty !== "easy")
+        kinds.push(mission.bossEscort);
+      const count = Math.max(
+        kinds.length,
+        difficultyConfig(this.difficulty).bosses,
+      );
       for (let n = 0; n < count; n++) {
         const p = routeFormation(mission.route, 0.9, count)[n];
-        this.spawn(p.x, p.z, true, 100 + n);
+        this.spawn(p.x, p.z, true, 100 + n, kinds[n % kinds.length]);
       }
       this.bossSpawned = true;
       this.onRadio(
-        `${count} command boss${count > 1 ? "es" : ""} inbound. Defeat them all to open extraction.`,
+        kinds.length > 1
+          ? `${kinds.map((k) => BOSS_NAMES[k]).join(" and ")} inbound. Defeat every command boss to open extraction.`
+          : `${count} command boss${count > 1 ? "es" : ""} inbound. Defeat them all to open extraction.`,
       );
     } else {
       this.pendingGuards =
@@ -638,6 +687,7 @@ export class Game {
       loot: { ...this.loot },
       rescued: this.rescued,
       squad: this.squad.allies.length,
+      women: this.squad.women,
       score: this.score,
       kills: this.kills,
       elapsed: this.elapsed,
@@ -717,7 +767,15 @@ export class Game {
     this.player.position.copy(this.pos);
     this.world.resetCamera(this.pos);
     while (this.squad.allies.length < c.squad)
-      if (!this.squad.add(relay.x + 1.5, relay.z + 2.5)) break;
+      if (
+        !this.squad.add(
+          relay.x + 1.5,
+          relay.z + 2.5,
+          undefined,
+          this.squad.women < c.women,
+        )
+      )
+        break;
     Object.assign(this, {
       hp: c.hp,
       shield: c.shield,
@@ -787,6 +845,8 @@ export class Game {
       power: number;
       mobility: number;
       squad?: number;
+      /** How many saved allies are women. */
+      women?: number;
       fieldKit?: number;
       /** Purchased weapon supply drops (arsenal ids) delivered at deployment. */
       loadout?: string[];
@@ -903,10 +963,21 @@ export class Game {
       else this.pickups.push(mesh);
     }
     const obstacles = [...COVER, ...this.rides.map((v) => v.box)];
-    this.squad.deploy(save.squad ?? 0, mission.start, obstacles);
+    this.squad.deploy(
+      save.squad ?? 0,
+      mission.start,
+      obstacles,
+      save.women ?? 0,
+    );
     for (const box of COVER.filter((b) => b.kind === "prison")) {
+      // About half the cells hold women prisoners (alternating by mission).
+      const woman = (this.index + this.prisons.length) % 2 === 1;
       const mesh = model("prisonHouse", box.x, box.z),
-        captive = model("captive", box.entrance!.x, box.entrance!.z);
+        captive = model(
+          woman ? "captiveWoman" : "captive",
+          box.entrance!.x,
+          box.entrance!.z,
+        );
       mesh.rotation.y = box.rotation!;
       captive.rotation.y = box.rotation!;
       captive.position.y = this.world.groundHeight(
@@ -933,6 +1004,7 @@ export class Game {
         freed: false,
         open: 0,
         collisionOpen: false,
+        woman,
       });
     }
     for (const p of fieldBonuses(mission, obstacles, PATCHES, drops)) {
@@ -1030,12 +1102,13 @@ export class Game {
           prison.box.entrance!.x,
           prison.box.entrance!.z,
           prison.box,
+          prison.woman,
         );
         this.score += 250;
         this.addTreasure("diamond", exit.x, exit.z);
         this.onRadio(
           joined
-            ? "Prisoner freed! Your ally follows and fires in your direction. Recover the diamond, then extract to keep your squad and treasure."
+            ? `Prisoner freed! ${prison.woman ? "She" : "Your ally"} follows and fires on any enemy in sight. Recover the diamond, then extract to keep your squad and treasure.`
             : "Prisoner evacuated. Your three-person support squad is full; recover the rescue diamond.",
         );
         this.combatMessage(
@@ -1089,6 +1162,14 @@ export class Game {
     const root = new T.Group();
     root.position.set(x, 0, z);
     root.userData.kind = kind;
+    if (kind === "ammo") {
+      // A Blender olive ammo can with a brass belt reads as "bullets" at a glance.
+      const can = model("ammoBox", 0, 0, 1.15);
+      can.rotation.y = Math.abs(x * 7.3 + z * 3.1) % Math.PI;
+      root.add(can);
+      this.world.actors.add(root);
+      return root;
+    }
     root.add(model("crate", 0, 0, 0.62));
     const badge = new T.Mesh(this.supplyBadgeGeo, this.supplyMats[kind]);
     badge.position.y = 0.82;
@@ -1105,13 +1186,6 @@ export class Game {
       glyph.position.y = 0.86;
       glyph.rotation.x = -Math.PI / 2;
       root.add(glyph);
-    } else if (kind === "ammo") {
-      for (const offset of [-0.16, 0, 0.16]) {
-        const stripe = new T.Mesh(this.supplyCrossGeo, this.insigniaMat);
-        stripe.scale.set(0.25, 1, 0.7);
-        stripe.position.set(offset, 0.86, 0);
-        root.add(stripe);
-      }
     } else {
       const weapon = model("weapon_" + WEAPONS[index].id, 0, 0, 1.25);
       weapon.position.y = 1.05;
@@ -1238,14 +1312,14 @@ export class Game {
       }
     }
     const mesh = model(
-      boss ? bossKind : armored ? "tank" : "rifleman",
+      boss ? bossKind : armored ? "tank" : infantryModel(role),
       x,
       z,
       boss ? def.scale : armored ? 0.62 : 1,
     );
     if (!boss && !armored) equipInfantry(mesh, role);
     if (armored && !boss) repaint(mesh, HOSTILE_ARMOR, "hostile");
-    if (boss && bossKind === "gunship") mesh.position.y = 4;
+    if (boss && aircraft(bossKind)) mesh.position.y = 4;
     if (!boss) mesh.rotation.y = ((index % 4) * Math.PI) / 2;
     mesh.userData.lowRange = 48;
     mesh.userData.batchActor = !boss;
@@ -1257,7 +1331,9 @@ export class Game {
     const warn = new T.Mesh(
       !boss && !armored && role !== "rifleman"
         ? infantryWarnings[role]
-        : this.warnGeo,
+        : boss && bossKind === "walker"
+          ? this.fanGeo
+          : this.warnGeo,
       this.warnMat,
     );
     warn.visible = false;
@@ -1280,7 +1356,11 @@ export class Game {
         boss || armored
           ? new VehicleMotion(
               mesh,
-              armored || bossKind === "laserTank" ? "tank" : bossKind,
+              armored || bossKind === "laserTank"
+                ? "tank"
+                : aircraft(bossKind)
+                  ? "gunship"
+                  : bossKind,
             )
           : undefined,
       x,
@@ -1788,7 +1868,13 @@ export class Game {
           new FallenBody(
             e.mesh,
             e.motion,
-            e.boss ? e.bossKind : e.armored ? "tank" : "human",
+            e.boss
+              ? aircraft(e.bossKind)
+                ? "gunship"
+                : e.bossKind
+              : e.armored
+                ? "tank"
+                : "human",
             !e.boss && !e.armored
               ? {
                   x: dx,
@@ -2258,14 +2344,27 @@ export class Game {
         e.z = m.z;
       }
     }
-    if (kind === "quadMech" || kind === "rocketMech" || kind === "missileTruck")
+    if (kind === "skyWraith") this.moveWraith(e, dt);
+    if (
+      kind === "quadMech" ||
+      kind === "rocketMech" ||
+      kind === "missileTruck" ||
+      kind === "walker"
+    )
       this.moveCommandBoss(e, dt, aim);
     e.x = T.MathUtils.clamp(e.x, -WORLD_BOUNDS.x + 3, WORLD_BOUNDS.x - 3);
     e.z = T.MathUtils.clamp(e.z, WORLD_BOUNDS.minZ + 3, WORLD_BOUNDS.maxZ - 3);
     e.mesh.position.x = e.x;
     e.mesh.position.z = e.z;
     // Keep the weapon aimed along the locked warning while the laser charges.
-    const facing = kind === "laserTank" ? (e.laserAim ?? aim) : aim;
+    const facing =
+      kind === "laserTank"
+        ? (e.laserAim ?? aim)
+        : kind === "walker"
+          ? (e.lockAim ?? aim)
+          : e.run
+            ? Math.atan2(e.run.x1, e.run.z1)
+            : aim;
     e.mesh.rotation.y = facing;
     e.vehicleMotion?.update(
       dt,
@@ -2289,6 +2388,14 @@ export class Game {
     e.warn.position.set(e.x, 0.08, e.z);
     e.warn.scale.setScalar(3);
     this.updateSecondaryGun(e, dt, sight);
+    if (kind === "walker") {
+      this.walkerAttack(e, dt, sight, beforeX, beforeZ);
+      return;
+    }
+    if (kind === "skyWraith") {
+      this.wraithAttack(e);
+      return;
+    }
     if (
       kind === "quadMech" ||
       kind === "rocketMech" ||
@@ -2377,24 +2484,32 @@ export class Game {
     }
   }
   private moveCommandBoss(e: Actor, dt: number, aim: number) {
-    const truck = e.bossKind === "missileTruck";
+    const truck = e.bossKind === "missileTruck",
+      walker = e.bossKind === "walker";
+    const venting = walker && (e.vent ?? 0) > 0;
     const reloading =
-      e.bossKind === "quadMech" &&
-      !!e.volleys &&
-      e.volleys % QUAD_GUNS.volleys === 0 &&
-      e.cool > QUAD_GUNS.interval;
+      venting ||
+      (e.bossKind === "quadMech" &&
+        !!e.volleys &&
+        e.volleys % QUAD_GUNS.volleys === 0 &&
+        e.cool > QUAD_GUNS.interval);
     const targetVisible =
       Math.hypot(this.pos.x - e.x, this.pos.z - e.z) <= 36 &&
       !COVER.some(
         (b) => segmentBox(e.x, e.z, this.pos.x, this.pos.z, b) !== Infinity,
       );
-    const charging =
-      e.bossKind !== "quadMech" && e.cool <= 1.3 && targetVisible;
-    e.state = reloading
-      ? "GUNS COOLING / RELOAD"
-      : charging
-        ? "MISSILES LOCKING"
-        : "TRACKING / ADVANCING";
+    const charging = walker
+      ? e.lockTime !== undefined
+      : e.bossKind !== "quadMech" && e.cool <= 1.3 && targetVisible;
+    e.state = venting
+      ? "VENTING / CORE EXPOSED"
+      : reloading
+        ? "GUNS COOLING / RELOAD"
+        : charging
+          ? walker
+            ? "CANNONS LOCKING"
+            : "MISSILES LOCKING"
+          : "TRACKING / ADVANCING";
     e.mesh.position.y = this.world.groundHeight(e.x, e.z);
     if (reloading || charging) return;
     const obstacles = [
@@ -2430,7 +2545,7 @@ export class Game {
         vz = dz / d;
       }
     } else {
-      const desired = truck ? 18 : 12;
+      const desired = truck ? 18 : walker ? 14 : 12;
       const advance =
         distance > desired ? 1 : distance < desired * 0.6 ? -0.6 : 0;
       const strafe = truck ? 0 : Math.sin(this.elapsed * 0.6 + e.index) * 0.3;
@@ -2451,7 +2566,7 @@ export class Game {
         vz += (dz / d) * 0.8;
       }
     }
-    const speed = truck ? 1.5 : 2.2;
+    const speed = truck ? 1.5 : walker ? 2.4 : 2.2;
     const move = moveCircle(
       e.x,
       e.z,
@@ -2492,7 +2607,11 @@ export class Game {
   private updateSecondaryGun(e: Actor, dt: number, sight: boolean) {
     if (!e.muzzles?.has("MuzzleAux") && e.bossKind !== "rocketMech") return;
     e.auxCool = Math.max(-0.1, (e.auxCool ?? 1.4) - dt * (e.enraged ? 1.3 : 1));
-    const resting = e.state === "RESTING" || e.state === "LANDED / REARMING";
+    const resting =
+      e.state === "RESTING" ||
+      e.state === "LANDED / REARMING" ||
+      e.state === "LOW HOVER / REARMING" ||
+      !!e.run;
     if (resting) {
       e.auxCool = Math.max(e.auxCool, 0.65);
       return;
@@ -2542,6 +2661,192 @@ export class Game {
       );
       e.cool = profile.interval;
     }
+  }
+  /** SKY WRAITH flight: circle the player, strafe a gun run, or hover low. */
+  private moveWraith(e: Actor, dt: number) {
+    let height = 4.5;
+    if (e.run) {
+      const run = WRAITH.run,
+        r = e.run;
+      r.t += dt;
+      // Fly along the line two metres behind the impacts it is firing.
+      const along = (Math.max(0, r.t) / run.step) * run.spacing - 2;
+      const tx = r.x0 + r.x1 * along,
+        tz = r.z0 + r.z1 * along;
+      const d = Math.hypot(tx - e.x, tz - e.z),
+        step = Math.min(d, dt * (r.t < 0 ? 9 : 24));
+      if (d > 0.01) {
+        e.x += ((tx - e.x) / d) * step;
+        e.z += ((tz - e.z) / d) * step;
+      }
+      height = 3.2;
+      e.state = "GUN RUN / MOVE OFF THE LINE";
+      if (r.t > run.count * run.step + 0.3) {
+        e.run = undefined;
+        e.hover = WRAITH.hover;
+      }
+    } else if ((e.hover ?? 0) > 0) {
+      e.hover! -= dt;
+      height = 1.3;
+      e.state = "LOW HOVER / REARMING";
+    } else {
+      e.orbit =
+        (e.orbit ?? Math.atan2(e.x - this.pos.x, e.z - this.pos.z)) +
+        dt * 0.42 * (e.index % 2 ? -1 : 1);
+      const tx = this.pos.x + Math.sin(e.orbit) * WRAITH.orbit,
+        tz = this.pos.z + Math.cos(e.orbit) * WRAITH.orbit;
+      const d = Math.hypot(tx - e.x, tz - e.z),
+        step = Math.min(d, dt * WRAITH.speed);
+      if (d > 0.01) {
+        e.x += ((tx - e.x) / d) * step;
+        e.z += ((tz - e.z) / d) * step;
+      }
+      e.state = "AIRBORNE / CIRCLING";
+    }
+    e.mesh.position.y = T.MathUtils.damp(e.mesh.position.y, height, 3, dt);
+  }
+  /** SKY WRAITH attacks alternate ROCKET RAIN and a GUN RUN. */
+  private wraithAttack(e: Actor) {
+    if (e.cool > 0 || e.run || (e.hover ?? 0) > 0) return;
+    if (Math.hypot(this.pos.x - e.x, this.pos.z - e.z) > 34) {
+      e.cool = 0.4;
+      return;
+    }
+    const aim = Math.atan2(this.pos.x - e.x, this.pos.z - e.z);
+    e.pattern = (e.pattern ?? 0) + 1;
+    if (e.pattern % 2 === 1) {
+      this.bossSalvo(e, aim, WRAITH.rain);
+      e.cool = WRAITH.rain.interval;
+      return;
+    }
+    const run = WRAITH.run,
+      dx = Math.sin(aim),
+      dz = Math.cos(aim);
+    const half = ((run.count - 1) / 2) * run.spacing;
+    const x0 = this.pos.x - dx * half,
+      z0 = this.pos.z - dz * half;
+    for (let k = 0; k < run.count; k++) {
+      const x = T.MathUtils.clamp(
+        x0 + dx * k * run.spacing,
+        -WORLD_BOUNDS.x + run.radius,
+        WORLD_BOUNDS.x - run.radius,
+      );
+      const z = T.MathUtils.clamp(
+        z0 + dz * k * run.spacing,
+        WORLD_BOUNDS.minZ + run.radius,
+        WORLD_BOUNDS.maxZ - run.radius,
+      );
+      const mesh = new T.Mesh(
+        new T.RingGeometry(run.radius - 0.12, run.radius, 32),
+        new T.MeshBasicMaterial({
+          color: 0xff7646,
+          side: T.DoubleSide,
+          transparent: true,
+        }),
+      );
+      mesh.position.set(x, 0.09, z);
+      mesh.rotation.x = -Math.PI / 2;
+      this.world.actors.add(mesh);
+      this.hazards.push({
+        mesh,
+        x,
+        z,
+        time: run.warning + k * run.step,
+        radius: run.radius,
+        damage: run.damage,
+        owner: e,
+      });
+    }
+    e.run = { x0, z0, x1: dx, z1: dz, t: -run.warning };
+    e.cool = run.warning + run.count * run.step + WRAITH.hover + 1.6;
+    this.onSound("warn", e);
+    this.onRadio("Gun run! Step sideways off the line of orange rings.");
+  }
+  /**
+   * IRON SOVEREIGN: walk on six legs, lock three firing lines for 0.9 s, fire
+   * one shell down each, and vent (core exposed) after every third volley.
+   */
+  private walkerAttack(
+    e: Actor,
+    dt: number,
+    sight: boolean,
+    beforeX: number,
+    beforeZ: number,
+  ) {
+    const moving = Math.min(
+      1,
+      Math.hypot(e.x - beforeX, e.z - beforeZ) / Math.max(dt, 1e-3) / 2,
+    );
+    // Tripod gait: legs 0/2/4 swing against 1/3/5. Joints rest at identity.
+    for (let i = 0; i < 6; i++) {
+      const leg = e.muzzles?.get("Leg" + i);
+      if (!leg) continue;
+      const phase = this.elapsed * 6 + (i % 2 ? Math.PI : 0);
+      leg.rotation.y = Math.sin(phase) * 0.2 * moving;
+      leg.rotation.z =
+        (i < 3 ? -1 : 1) * Math.max(0, Math.cos(phase)) * 0.14 * moving;
+    }
+    if ((e.vent ?? 0) > 0) e.vent! -= dt;
+    for (const [key, side] of [
+      ["Vent0", 1],
+      ["Vent1", -1],
+    ] as const) {
+      const vent = e.muzzles?.get(key);
+      if (vent)
+        vent.rotation.z = T.MathUtils.damp(
+          vent.rotation.z,
+          (e.vent ?? 0) > 0 ? side * 1.05 : 0,
+          8,
+          dt,
+        );
+    }
+    if (e.lockTime !== undefined) {
+      e.lockTime -= dt;
+      e.warn.visible = true;
+      e.warn.position.set(e.x, 0.08, e.z);
+      e.warn.rotation.set(-Math.PI / 2, 0, e.lockAim!);
+      e.warn.scale.setScalar(1);
+      if (e.lockTime > 0) return;
+      e.mesh.updateMatrixWorld(true);
+      for (let i = 0; i < 3; i++) {
+        const mount = e.muzzles?.get("Muzzle" + i);
+        const p = mount
+          ? mount.getWorldPosition(new T.Vector3())
+          : new T.Vector3(e.x, 1.6, e.z);
+        this.shoot(
+          p.x,
+          p.z,
+          e.lockAim! + (i - 1) * SOVEREIGN.spread,
+          true,
+          SOVEREIGN.damage,
+          SOVEREIGN.speed,
+          undefined,
+          p.y,
+          0,
+        );
+      }
+      e.lockTime = e.lockAim = undefined;
+      e.warn.visible = false;
+      e.volleys = (e.volleys ?? 0) + 1;
+      if (e.volleys % SOVEREIGN.volleys === 0) {
+        e.vent = SOVEREIGN.vent;
+        e.cool = SOVEREIGN.vent + SOVEREIGN.interval * 0.5;
+        this.combatMessage("IRON SOVEREIGN OVERHEATED · HIT THE CORE", 1.6);
+      } else e.cool = SOVEREIGN.interval;
+      return;
+    }
+    e.warn.visible = false;
+    if (e.cool > 0 || (e.vent ?? 0) > 0) return;
+    if (
+      !sight ||
+      Math.hypot(this.pos.x - e.x, this.pos.z - e.z) > SOVEREIGN.range
+    ) {
+      e.cool = 0.3;
+      return;
+    }
+    e.lockAim = Math.atan2(this.pos.x - e.x, this.pos.z - e.z);
+    e.lockTime = SOVEREIGN.lock;
+    this.onSound("warn", e);
   }
   private bossSalvo(e: Actor, aim: number, profile = BOSS_ATTACKS.heavy) {
     e.state = "HEAVY SALVO / TAKE COVER";
@@ -3069,7 +3374,7 @@ export class Game {
       if (e.hp <= 0) continue;
       if (
         this.quakeTime > 0 &&
-        !(e.bossKind === "gunship" && e.mesh.position.y > 2)
+        !(aircraft(e.bossKind) && e.mesh.position.y > 2)
       ) {
         if (Math.hypot(e.x - this.pos.x, e.z - this.pos.z) < 30)
           e.motion?.update(dt, { vx: 0, vz: 0 });
@@ -3206,6 +3511,7 @@ export class Game {
               swordsman: "SWORD SWEEP · LEAVE THE ORANGE ARC",
               thrower: "KNIFE THROWER · SIDESTEP OR USE COVER",
               rocketeer: "ROCKET AIMING · MOVE OFF THE ORANGE LINE",
+              ninja: "NINJA · FAST BLADE · SHOOT FIRST OR DODGE THE ARC",
               rifleman: "",
             };
             this.combatMessage(hints[role], 2.2);
@@ -3266,10 +3572,16 @@ export class Game {
               : distance < desired * 0.55
                 ? -0.7
                 : 0;
-          const strafe = profile.melee
-            ? 0
-            : Math.sin(this.elapsed * 1.2 + e.index * 2.4) *
-              (role === "thrower" ? 0.75 : 0.45);
+          // Ninjas zig-zag in, so they are harder to track than a straight rush.
+          const strafe =
+            role === "ninja"
+              ? advance > 0
+                ? Math.sin(this.elapsed * 4.2 + e.index * 1.7) * 0.85
+                : 0
+              : profile.melee
+                ? 0
+                : Math.sin(this.elapsed * 1.2 + e.index * 2.4) *
+                  (role === "thrower" ? 0.75 : 0.45);
           const speed = specialist ? profile.speed : 1.9;
           vx = (Math.sin(a) * advance + Math.cos(a) * strafe) * dt * speed;
           vz = (Math.cos(a) * advance - Math.sin(a) * strafe) * dt * speed;
@@ -3647,17 +3959,24 @@ export class Game {
             this.difficulty,
           )
         : null;
+      // Ammo boxes also restock a boarded jeep's shotgun or the tank's shells.
+      const ride = this.riding;
+      const restock =
+        isAmmo && ride && ride.spec.ammo > 0
+          ? Math.min(ride.spec.ammo - ride.ammo, ride.kind === "tank" ? 4 : 10)
+          : 0;
       if (
         this.canCollect(p.position, 1.1) &&
         (isAmmo
-          ? reward !== null
+          ? reward !== null || restock > 0
           : isShield
             ? this.shield < this.maxShield
             : this.hp < this.maxHp ||
               (this.riding && this.riding.hp < this.riding.spec.hp))
       ) {
         if (isAmmo) {
-          this.reserves[reward!.index] += reward!.amount;
+          if (reward) this.reserves[reward.index] += reward.amount;
+          if (restock > 0) ride!.ammo += restock;
           this.selectStrongestWeapon();
           this.showWeapon();
         } else if (isShield)
@@ -3675,7 +3994,16 @@ export class Game {
         }
         this.onRadio(
           isAmmo
-            ? `Ammunition recovered: +${reward!.amount} ${WEAPONS[reward!.index].name} rounds.`
+            ? [
+                reward
+                  ? `Ammunition recovered: +${reward.amount} ${WEAPONS[reward.index].name} rounds.`
+                  : "",
+                restock > 0
+                  ? `${ride!.spec.name} restocked: +${restock} ${ride!.kind === "tank" ? "shells" : "rounds"}.`
+                  : "",
+              ]
+                .filter(Boolean)
+                .join(" ")
             : isShield
               ? `Shield charged: +${isLoot ? 20 : 40} protection.`
               : this.riding

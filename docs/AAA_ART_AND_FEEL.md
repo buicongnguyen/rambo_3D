@@ -121,6 +121,39 @@ Performance: `segmentBox`, the innermost collision primitive, no longer allocate
 - **Boss phases.** Command bosses take 1.5× damage in downtime windows: gunship landed, spider resting, quad-mech guns cooling, the laser tank venting for 1.4 s after a beam, and missile bosses reloading for 1.8 s after a salvo. Hits land as gold weak-point numbers. At half health a boss enrages and its attack clocks run 30% faster; the boss bar glows gold or red to match.
 - **Allies.** Each ally engages the nearest enemy it can see within 18 m, checked against cover, even while the player holds fire. With no target in sight, it covers the player's aim.
 
+## Late-stage reinforcements
+
+![Women prisoner and ally, ninja and ammo box](reinforcements-cast.png)
+
+![SKY WRAITH and IRON SOVEREIGN](reinforcements-bosses.png)
+
+`art/build_cast.py` builds the new cast in the shared kit and saves the editable `art/cast.blend`. Before export, `merge_static()` joins each joint's static parts into one mesh, with one primitive per material. Joints and silhouettes are unchanged, and draw calls drop by about 60%. The walker goes from 103 meshes to 38 primitives, the Sky Wraith from 84 to 22 and the ammo box from 47 to 9. The seven GLBs add 0.97 MB, leaving the library at 5.38 MB, under the 5.5 MB budget.
+
+| Asset | Design |
+| --- | --- |
+| `captiveWoman` | Ivory tunic with a torn hem, a rope belt and bound wrists, an auburn braid and a cyan headband. The face has lash lines with a flick, catch-lit eyes, a smile and blush. |
+| `commandoWoman` | Fitted tank top, cargo trousers, a jacket knotted round the hips, dog tags, a thigh holster and a high ponytail. The bandana uses the "Hero bandana" material, so allies turn it cyan. |
+| `ninja` | Deep indigo gi, not flat black, so the painted light still shapes it. Crimson sash and headband with long tails, a hood and mask with an eye slit, bandage wraps with steel bracers, tabi and a lacquered scabbard. Holds `weapon_katana`, a curved blade with a gold tsuba and a crimson silk wrap. |
+| `ammoBox` | Olive M2-style can with a yellow stencil band and a linked belt of brass rounds draped over the lid. It replaces the striped ammo crate. |
+| `skyWraith` | Teal tandem-seat attack helicopter with orange trim, a sensor turret, a chin chain gun (`AuxGun`/`MuzzleAux`), rocket pods (`Pod0/1`, `Launch0/1`), a `Rotor` and a `TailRotor`. |
+| `walker` | Six armoured mech legs (`Leg0`–`Leg5`) in a tripod gait. It has a triple-cannon head (`Muzzle0`–`Muzzle2`) and hinged `Vent0`/`Vent1` plates that open over a teal core when it overheats. |
+
+Character rigs keep the commando joint hierarchy, so `CharacterMotion` animates them unchanged. One pitfall: `limb()` bevels every edge sharper than 30°, so limbs must keep 12 sides. With 10 sides the triangle count rises by about a third.
+
+**Stage schedule.**
+
+- Stages 1–2 are unchanged.
+- From stage 3, sword soldiers make up 20% of patrols.
+- Ninjas appear from stage 5 (15%) and rise to 20% in stages 6–7.
+- The IRON SOVEREIGN escort joins the stage 6 and 7 finales on Normal and above. Kinds alternate, so Crazy fields two of each.
+- Stage 7's boss is now the SKY WRAITH, replacing the repeated spider.
+
+**Tuning against Steel Front.**
+
+- Steel Front's helicopter rockets deal 70 against a 240 HP tank; here they deal 30 against a 150 HP commando.
+- Walker shells drop from 33 to 16 damage.
+- The gun run uses an odd number of rings, so one is always centred on the player. Moving along the line never escapes it; stepping sideways does.
+
 ## Suggested next steps
 
 - route-progress encounter triggers and difficulty that scales AI, not just head count

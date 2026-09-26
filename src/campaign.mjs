@@ -43,6 +43,7 @@ export const STAGES = [
     name: "Faultline Zero",
     biome: "quake",
     boss: "rocketMech",
+    escort: "walker",
     ground: 0xb5936a,
     fog: 0xd9bd93,
     tip: "Dust plumes warn of tremors. Soldiers and ground bosses freeze for 1–2 seconds.",
@@ -50,7 +51,8 @@ export const STAGES = [
   {
     name: "Mire Crossing",
     biome: "mud",
-    boss: "spider",
+    boss: "skyWraith",
+    escort: "walker",
     ground: 0x5f6d3b,
     fog: 0xa2b184,
     tip: "Dark water holes pull you down. Keep moving to escape the mud.",

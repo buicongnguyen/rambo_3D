@@ -46,6 +46,8 @@ export type Mission = {
   action: string;
   boss: string;
   bossModel: string;
+  /** A second command boss that joins the finale (late stages, not on Easy). */
+  bossEscort?: string;
   color: number;
   ground: number;
   fog: number;
@@ -57,13 +59,15 @@ export type Mission = {
   extract: { x: number; z: number };
   bossPos: { x: number; z: number };
 };
-const bossNames: Record<string, string> = {
+export const BOSS_NAMES: Record<string, string> = {
   gunship: "COBRA FANG",
   spider: "IRON WIDOW",
   laserTank: "PRISM MAMMOTH",
   quadMech: "FOURFOLD TITAN",
   rocketMech: "SIEGE COLOSSUS",
   missileTruck: "TWIN TEMPEST",
+  skyWraith: "SKY WRAITH",
+  walker: "IRON SOVEREIGN",
 };
 export const MISSIONS: Mission[] = STAGES.flatMap((s, stage) =>
   Array.from({ length: LEVELS_PER_STAGE }, (_, level) => {
@@ -89,8 +93,11 @@ export const MISSIONS: Mission[] = STAGES.flatMap((s, stage) =>
           : `${s.name}. ${s.tip} Follow the ${plan.direction.toLowerCase()}. ${plan.shape === "O" ? "Both sides of the loop lead to the relay. Choose your approach. " : ""}Patrols hold vehicles and weapon caches ahead. Shoot small trees to open firing lanes. Approach the yellow relay to secure it automatically; response guards leave nearby houses.`,
       success: story.success,
       action: story.action,
-      boss: bossNames[s.boss],
+      boss:
+        BOSS_NAMES[s.boss] +
+        ("escort" in s && s.escort ? " + " + BOSS_NAMES[s.escort] : ""),
       bossModel: s.boss,
+      bossEscort: "escort" in s ? s.escort : undefined,
       color: 0xe1ed98,
       ground: s.ground,
       fog: s.fog,

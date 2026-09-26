@@ -130,7 +130,7 @@ export class CharacterMotion {
       const wind = Math.min(1, progress),
         strike = Math.min(1, Math.max(0, progress - 1) * 5);
       this.state = progress < 1 ? "windup" : "strike";
-      if (kind === "rusher" || kind === "swordsman") {
+      if (kind === "rusher" || kind === "swordsman" || kind === "ninja") {
         this.pose(
           "Spine",
           -0.1 * wind + 0.2 * strike,
@@ -328,6 +328,7 @@ export class VehicleMotion {
   private turret?: T.Object3D;
   private turretRest?: T.Quaternion;
   private rotorRest?: T.Quaternion;
+  private tailRotor?: T.Object3D;
   private spin = 0;
   private wheels: Joint[] = [];
   private pods: Joint[] = [];
@@ -353,6 +354,7 @@ export class VehicleMotion {
         this.rotor = o;
         this.rotorRest = o.quaternion.clone();
       }
+      if (o.userData.joint === "TailRotor") this.tailRotor = o;
       if (o.userData.joint === "Turret") {
         this.turret = o;
         this.turretRest = o.quaternion.clone();
@@ -405,6 +407,8 @@ export class VehicleMotion {
           ),
         );
     }
+    // Tail rotors have identity rest rotation (Blender joint contract).
+    if (this.tailRotor) this.tailRotor.rotation.x = this.spin * 1.3;
     if (this.kind === "tank" && this.turret) {
       if (steerHull && Math.abs(vx) > 0.05)
         this.root.rotation.y = T.MathUtils.damp(

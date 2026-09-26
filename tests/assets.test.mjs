@@ -2,11 +2,15 @@ import fs from "node:fs";
 import path from "node:path";
 import { test } from "node:test";
 import assert from "node:assert/strict";
-test("all forty-four Blender GLBs are valid glTF 2, contain real geometry, and meet asset budget", () => {
+test("all fifty-one Blender GLBs are valid glTF 2, contain real geometry, and meet asset budget", () => {
   const names = [
     "commando",
+    "commandoWoman",
     "rifleman",
+    "ninja",
     "captive",
+    "captiveWoman",
+    "ammoBox",
     "palm",
     "rock",
     "crate",
@@ -31,6 +35,8 @@ test("all forty-four Blender GLBs are valid glTF 2, contain real geometry, and m
     "quadMech",
     "rocketMech",
     "missileTruck",
+    "skyWraith",
+    "walker",
     ...[
       "rifle",
       "shotgun",
@@ -49,8 +55,10 @@ test("all forty-four Blender GLBs are valid glTF 2, contain real geometry, and m
     "projectile_grenade",
     "weapon_knife",
     "weapon_sword",
+    "weapon_katana",
     "projectile_knife",
   ];
+  assert.equal(names.length, 51);
   let bytes = 0;
   for (const name of names) {
     const buffer = fs.readFileSync(path.join("public/models", name + ".glb"));
@@ -69,13 +77,17 @@ test("all forty-four Blender GLBs are valid glTF 2, contain real geometry, and m
   // per-material noise textures; keep the library well under the old 9.65 MB.
   assert.ok(bytes < 5_500_000, `${bytes} bytes`);
   assert.ok(fs.statSync("art/nightfall.blend").size > 100_000);
+  assert.ok(fs.statSync("art/cast.blend").size > 100_000);
 });
 
 test("character exports contain hip, knee, shoulder and elbow hierarchies", () => {
   for (const name of [
     "commando",
+    "commandoWoman",
     "rifleman",
+    "ninja",
     "captive",
+    "captiveWoman",
     "quadMech",
     "rocketMech",
   ]) {
@@ -113,6 +125,20 @@ test("all boss weapons expose real articulated muzzle and launcher mounts", () =
     gunship: ["AuxGun", "MuzzleAux"],
     spider: ["AuxGun", "MuzzleAux"],
     laserTank: ["AuxGun", "MuzzleAux"],
+    skyWraith: [
+      "Rotor",
+      "TailRotor",
+      "AuxGun",
+      "MuzzleAux",
+      "Launch0",
+      "Launch1",
+    ],
+    walker: [
+      ...["Leg0", "Leg1", "Leg2", "Leg3", "Leg4", "Leg5"],
+      ...["Vent0", "Vent1", "Muzzle0", "Muzzle1", "Muzzle2"],
+    ],
+    commandoWoman: ["Weapon"],
+    ninja: ["Weapon"],
   };
   for (const [name, keys] of Object.entries(expected)) {
     const b = fs.readFileSync(`public/models/${name}.glb`);
@@ -170,6 +196,8 @@ test("runtime recolour contracts keep their named Blender materials", () => {
   const names = (n) => gltf(n).materials.map((m) => m.name);
   assert.ok(names("rifleman").includes("Sand canvas"));
   assert.ok(names("commando").includes("Hero bandana"));
+  // Women allies share the ally repaint contract with the commando.
+  assert.ok(names("commandoWoman").includes("Hero bandana"));
   for (const n of ["Vehicle paint", "Vehicle trim"])
     assert.ok(names("tank").includes(n), n);
   // Tintable materials carry their colour as a factor over a neutral ramp.
@@ -184,6 +212,10 @@ test("instanced crowds and scenery stay within triangle budgets", () => {
     ["rifleman", 7000],
     ["commando", 7000],
     ["captive", 7000],
+    ["captiveWoman", 7000],
+    ["commandoWoman", 7000],
+    ["ninja", 7000],
+    ["ammoBox", 2500],
     ["palm", 2000],
     ["snowPine", 2000],
     ["tank", 16000],

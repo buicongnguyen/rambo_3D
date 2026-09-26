@@ -240,10 +240,14 @@ test("every finale includes four correctly fitted command bosses in Crazy mode",
         return {
           kind: m.bossModel,
           count: bosses.length,
-          matches: bosses.every((e: any) => e.bossKind === m.bossModel),
+          matches: bosses.every((e: any) =>
+            [m.bossModel, m.bossEscort].includes(e.bossKind),
+          ),
+          escorts: bosses.filter((e: any) => e.bossKind === m.bossEscort)
+            .length,
           clear: bosses.every(
             (e: any) =>
-              ["spider", "gunship"].includes(e.bossKind) ||
+              ["spider", "gunship", "skyWraith"].includes(e.bossKind) ||
               COVER.every(
                 (b: any) =>
                   segmentBox(e.x, e.z, e.x, e.z, b, e.radius) === Infinity,
@@ -252,11 +256,13 @@ test("every finale includes four correctly fitted command bosses in Crazy mode",
         };
       });
   });
-  expect(new Set(rows.map((r) => r.kind)).size).toBe(6);
-  for (const row of rows)
+  // Seven stage bosses; the last two finales alternate with the walker escort.
+  expect(new Set(rows.map((r) => r.kind)).size).toBe(7);
+  for (const [i, row] of rows.entries())
     expect(row, JSON.stringify(row)).toMatchObject({
       count: 4,
       matches: true,
+      escorts: i >= 5 ? 2 : 0,
       clear: true,
     });
 });

@@ -19,6 +19,8 @@ export type Ally = {
   passenger: boolean;
   wait: number;
   emerging?: Box;
+  /** Rescued from a women's cell; uses commandoWoman.glb. */
+  woman: boolean;
 };
 /** Protected arcade support. Friends never obstruct the player or turn rescue into an escort failure. */
 export class Squad {
@@ -37,9 +39,12 @@ export class Squad {
     this.allies = [];
     this.trail = [];
   }
-  add(x: number, z: number, emerging?: Box) {
+  get women() {
+    return this.allies.filter((a) => a.woman).length;
+  }
+  add(x: number, z: number, emerging?: Box, woman = false) {
     if (this.allies.length >= MAX_SQUAD) return false;
-    const mesh = model("commando", x, z),
+    const mesh = model(woman ? "commandoWoman" : "commando", x, z),
       motion = new CharacterMotion(mesh);
     repaint(mesh, ALLY_MARKS, "ally");
     const grip = motion.joints.get("Weapon")?.node;
@@ -66,6 +71,7 @@ export class Squad {
       passenger: false,
       wait: emerging ? 0.55 : 0,
       emerging,
+      woman,
     });
     return true;
   }
@@ -91,10 +97,10 @@ export class Squad {
       }
     return null;
   }
-  deploy(count: number, origin: Point, boxes: Box[]) {
+  deploy(count: number, origin: Point, boxes: Box[], women = 0) {
     for (let i = 0; i < Math.min(MAX_SQUAD, count); i++) {
       const p = this.freePoint(origin, boxes, i);
-      if (p) this.add(p.x, p.z);
+      if (p) this.add(p.x, p.z, undefined, i < women);
     }
     this.trail = [{ x: origin.x, z: origin.z }];
   }

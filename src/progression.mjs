@@ -142,10 +142,12 @@ export function tacticalCover(m, boxes) {
   }
 }
 
-// Independent chance per defeat, including bosses. A package contains one reward, not three.
+// Independent chance per defeat, including bosses. A package contains one reward,
+// not three. Soldiers mostly carry ammunition: half of all drops are ammo boxes,
+// a third shields and a sixth medical kits.
 export function enemyLoot(chance = Math.random(), reward = Math.random()) {
   if (chance >= 1 / 3) return null;
-  return reward < 1 / 3 ? "health" : reward < 2 / 3 ? "shield" : "ammo";
+  return reward < 1 / 6 ? "health" : reward < 1 / 2 ? "shield" : "ammo";
 }
 export function angleDelta(a, b) {
   return Math.atan2(Math.sin(b - a), Math.cos(b - a));

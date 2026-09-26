@@ -50,7 +50,22 @@ export const INFANTRY = {
     arc: 0.22,
     melee: false,
   },
+  // Late-stage blade specialist: about 2.7x rifleman speed, a zig-zag approach
+  // and the shortest swing warning, but fragile and light-hitting.
+  ninja: {
+    hp: 58,
+    speed: 5.1,
+    reach: 1.7,
+    warning: 0.42,
+    recovery: 1.05,
+    damage: 12,
+    arc: 0.75,
+    melee: true,
+  },
 };
+/** Stages (0-based) where the roster escalates: more swordsmen, then ninjas. */
+export const SWORD_STAGE = 2;
+export const NINJA_STAGE = 4;
 const roster = [
   "rifleman",
   "rifleman",
@@ -75,7 +90,13 @@ const roster = [
 ];
 export function infantryRole(mission, slot) {
   if (mission === 0) return slot % 6 === 4 ? "rusher" : "rifleman";
-  const role = roster[((slot % roster.length) + roster.length) % roster.length];
+  const i = ((slot % roster.length) + roster.length) % roster.length;
+  const stage = Math.floor(mission / 3);
+  // The first two stages stay gentle; later stages trade riflemen for blades.
+  if (stage >= NINJA_STAGE && [2, 11, 17].includes(i)) return "ninja";
+  if (stage >= NINJA_STAGE + 1 && i === 18) return "ninja";
+  if (stage >= SWORD_STAGE && [5, 12].includes(i)) return "swordsman";
+  const role = roster[i];
   return mission === 1 && role === "rocketeer" ? "rifleman" : role;
 }
 export function pressureLimits(difficulty) {

@@ -13,8 +13,12 @@ import { COVER, MISSIONS, PATCHES, buildLayout, type Box } from "./missions";
 const templates = new Map<string, T.Group>();
 const names = [
   "commando",
+  "commandoWoman",
   "rifleman",
+  "ninja",
   "captive",
+  "captiveWoman",
+  "ammoBox",
   "palm",
   "rock",
   "crate",
@@ -39,12 +43,15 @@ const names = [
   "quadMech",
   "rocketMech",
   "missileTruck",
+  "skyWraith",
+  "walker",
   ...WEAPONS.map((w) => "weapon_" + w.id),
   "projectile_rocket",
   "projectile_arrow",
   "projectile_grenade",
   "weapon_knife",
   "weapon_sword",
+  "weapon_katana",
   "projectile_knife",
 ];
 export async function loadAssets(progress: (n: number) => void) {

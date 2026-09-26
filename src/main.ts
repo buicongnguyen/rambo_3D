@@ -23,7 +23,7 @@ import * as T from "three";
 import "./style.css";
 import { World, loadAssets, model } from "./world";
 import { Game, type Input } from "./game";
-import { MISSIONS, COVER } from "./missions";
+import { MISSIONS, COVER, BOSS_NAMES } from "./missions";
 import { freshSave, validateSave, advanceCampaign } from "./rules.mjs";
 const $ = <E extends HTMLElement = HTMLElement>(s: string) =>
   document.querySelector<E>(s)!;
@@ -344,6 +344,7 @@ function menu() {
       credits: save.credits,
       fieldKit: save.fieldKit,
       squad: save.squad,
+      women: save.women,
       stars: save.stars,
       loadout: save.loadout,
     });
@@ -455,7 +456,7 @@ $("#controls-open").onclick = () => {
     <details class="manual-section"><summary>Smart moves & rewards</summary><p>Hold B / BLAST to target a visible fuel drum or red EXPLOSIVE crate. Its explosion hurts nearby enemies and you; solid cover shields the blast. Chain kills grant +75 score per additional enemy and up to +15 shield. Rear bullet hits deal 1.75× damage to soldiers; a rear-hit finish adds +50 score and +5 shield. Enemy tank armor is weaker from behind. Bosses have no rear-hit bonus.</p><p>Grenades arc over low cover. Q / SWAP selects them; mouse aim sets the landing distance, or mobile FIRE targets an enemy. Shoot cracked masonry to open a route through roofless city compounds. Solid houses and perimeter walls remain cover.</p></details>
     <details class="manual-section"><summary>Enemy soldiers & counters</summary><p>Riflemen keep their distance. Rust-red knife rushers are fragile but run fast once alarmed: backstep or dodge their warned stab. Long-sword soldiers have a wider orange sweep; get outside the arc, then attack during recovery. Ochre knife throwers strafe and throw one visible blade at a time; sidestep or use cover. Orange rocket troops carry a launcher and spare tube: their orange aiming line locks before firing, so move sideways or break sight behind solid cover. Blades barely scratch a tank.</p><p>Mission one introduces rushers, mission two adds swords and throwing knives, and rockets arrive at the first finale. There can be only one infantry rocket aiming or flying at once on Easy/Normal, or two on Hard/Crazy. Ordinary gunfire, tanks and bosses keep their own attacks. All specialist attacks stop when their soldier is killed; already airborne projectiles still travel.</p></details>
     <details class="manual-section"><summary>Weapons, vehicles & advanced controls</summary><div class="manual-grid"><span>R / RELOAD</span><b>Reload</b><span>SHIFT / DODGE</span><b>Dodge while moving</b><span>E / USE</span><b>Board or exit a vehicle</b><span>F / TURBO</span><b>Two weapons for 3 seconds</b><span>ESC / PAUSE</span><b>Settings</b></div><p>Bikes and jeeps arrive in mission two; tanks and the full arsenal arrive at the first finale. Tanks start with six ready explosive cannon shells and 1,680 armor. Q / SWAP cycles the cannon and collected weapons. Jeeps carry 20 shotgun rounds. Tanks and jeeps crush soldiers while moving; tanks crush small trees at half speed.</p><p>The M249 fires 30 rounds per second with 10 damage per round, a 120-round belt and a 2.8-second reload. The rifle deals 28 per round. Small arms deal only 20% damage to enemy tank armor; use rockets, explosives or laser. Strongest usable weapons equip automatically; manual switching stays available. Turbo consumes both weapons' ammunition, then cools for 14 seconds. Tuned Weapons unlocks extra vehicle guns and extends Turbo; Light Kit reduces its cooldown.</p></details>
-    <details class="manual-section"><summary>Difficulty, supplies & campaign</summary><p>Rescued allies are protected support, so you never lose a mission because of an escort. Banknotes, gold and rescue diamonds are worth 10, 25 and 75 credits. Only successful extraction saves treasure and your squad. Spend credits at the briefing Field Kit shop for up to three permanent ranks: +10 starting shield and +1 frag per rank. Unrescued prisoners remain optional; extra rescues after three allies evacuate directly.</p><p>Every defeated enemy has an independent one-in-three chance to drop one package: health (+15), shield (+20), or ammunition for one owned special weapon. Easy and Normal give one magazine. Hard gives 20% and Crazy 10%, rounded up to at least one round. The selected eligible weapon gets priority; otherwise the least stocked weapon gets the refill. Packages expire after 45 seconds, with at most 48 on the map.</p><p>Hard doubles soldiers; Crazy quadruples soldiers and has four finale bosses. Longer O, U and S routes arrive after the compact opening. On O routes, either arm reaches the relay. Snow slides, sand slows, mud sinks, and quake dust warns that ground enemies will briefly freeze. Leave orange danger rings before missiles, lasers or volcanic rocks land. Defeat every finale boss and exit your vehicle to extract.</p></details>
+    <details class="manual-section"><summary>Difficulty, supplies & campaign</summary><p>Rescued allies are protected support, so you never lose a mission because of an escort. Banknotes, gold and rescue diamonds are worth 10, 25 and 75 credits. Only successful extraction saves treasure and your squad. Spend credits at the briefing Field Kit shop for up to three permanent ranks: +10 starting shield and +1 frag per rank. Unrescued prisoners remain optional; extra rescues after three allies evacuate directly.</p><p>Every defeated enemy has an independent one-in-three chance to drop one package. Half are olive ammo boxes, a third are shields (+20) and a sixth are medical kits (+15). An ammo box refills one owned special weapon and also restocks a boarded jeep (+10 rounds) or tank (+4 shells). Easy and Normal give one magazine. Hard gives 20% and Crazy 10%, rounded up to at least one round. The selected eligible weapon gets priority; otherwise the least stocked weapon gets the refill. Packages expire after 45 seconds, with at most 48 on the map.</p><p>The first two stages stay gentle. From stage 3, more sword soldiers join the patrols; from stage 5, ninjas sprint in at nearly three times rifleman speed, zig-zagging to dodge fire. Stages 6 and 7 add the IRON SOVEREIGN six-legged walker to the finale (not on Easy), and stage 7 is led by the SKY WRAITH attack helicopter. Hard doubles soldiers; Crazy quadruples soldiers and has four finale bosses. Longer O, U and S routes arrive after the compact opening. On O routes, either arm reaches the relay. Snow slides, sand slows, mud sinks, and quake dust warns that ground enemies will briefly freeze. Leave orange danger rings before missiles, lasers or volcanic rocks land. Defeat every finale boss and exit your vehicle to extract.</p></details>
     <button id="close-manual" class="primary">READY FOR THE FIELD <span>↗</span></button>`,
   );
   $("#close-manual").onclick = () => {
@@ -504,6 +505,7 @@ function end(win: boolean) {
     save = advanceCampaign(save, "armor", game.score, {
       credits: banked,
       squad: game.squad.allies.length,
+      women: game.squad.women,
     });
     save.stars = recordStars(save.stars, game.index, grade.stars);
     save.loadout = []; // Supply drops are spent once a mission is won.
@@ -739,7 +741,8 @@ function updateHud() {
     // Sum every boss (dead ones at 0 hp) so a kill never refills the bar.
     const bosses = game.enemies.filter((e) => e.boss);
     const alive = bosses.filter((e) => e.hp > 0);
-    $("#boss-name").textContent = `${m.boss} / ${alive.length} REMAIN`;
+    $("#boss-name").textContent =
+      `${BOSS_NAMES[boss.bossKind ?? ""] ?? m.boss} / ${alive.length} REMAIN`;
     $("#boss-bar").style.width =
       `${(100 * bosses.reduce((n, e) => n + Math.max(0, e.hp), 0)) / bosses.reduce((n, e) => n + e.max, 0)}%`;
     const salvo = alive.find((e) => (e.salvoUntil ?? 0) > game.elapsed);

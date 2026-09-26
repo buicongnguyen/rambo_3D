@@ -58,13 +58,15 @@ test("opening is compact, equipment unlocks gradually, and seeded rewards remain
     }
   }
 });
-test("loot probability is exactly one third with independent mixed rewards", () => {
+test("loot drops one time in three and favours ammo boxes over medical kits", () => {
   const results = Array.from({ length: 900 }, (_, i) =>
-    enemyLoot((i + 0.5) / 900, ((i % 3) + 0.5) / 3),
+    enemyLoot((i + 0.5) / 900, ((i % 6) + 0.5) / 6),
   );
   assert.equal(results.filter(Boolean).length, 300);
-  for (const kind of ["health", "shield", "ammo"])
-    assert.equal(results.filter((k) => k === kind).length, 100);
+  const count = (kind) => results.filter((k) => k === kind).length;
+  assert.equal(count("health"), 50);
+  assert.equal(count("shield"), 100);
+  assert.equal(count("ammo"), 150);
   assert.equal(enemyLoot(1 / 3, 0), null);
 });
 test("vision requires a forward cone and unbroken sight, and rear hits reward direction", () => {

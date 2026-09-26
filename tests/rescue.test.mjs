@@ -232,3 +232,18 @@ test("resolveOverlap frees a circle pinned inside or against a box", async () =>
   assert.ok(buried.x >= 1 + 0.48 - 1e-6, JSON.stringify(buried));
   assert.deepEqual(resolveOverlap(5, 5, 0.48, [wall]), { x: 5, z: 5 });
 });
+
+test("rescued women allies persist with the saved squad and never outnumber it", () => {
+  let s = advanceCampaign(freshSave(), "armor", 100, { squad: 3, women: 2 });
+  assert.equal(s.squad, 3);
+  assert.equal(s.women, 2);
+  assert.deepEqual(validateSave(JSON.parse(JSON.stringify(s))), s);
+  s = advanceCampaign(s, "armor", 100, { squad: 1, women: 2 });
+  assert.equal(s.women, 1);
+  assert.equal(validateSave({ ...s, women: 9 }).women, 1);
+  assert.equal(validateSave({ ...s, women: -1 }).women, 0);
+  assert.equal(validateSave({ ...s, women: "two" }).women, 0);
+  const { women, ...legacy } = s;
+  assert.equal(women, 1);
+  assert.equal(validateSave(legacy).women, 0);
+});

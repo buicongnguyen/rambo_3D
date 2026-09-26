@@ -5,6 +5,8 @@ import {
   INFANTRY,
   inMeleeSector,
   pressureLimits,
+  SWORD_STAGE,
+  NINJA_STAGE,
 } from "../src/enemy-roles.mjs";
 test("specialists introduce gradually without changing patrol counts or rifle backbone", () => {
   const intro = Array.from({ length: 12 }, (_, i) => infantryRole(0, i));
@@ -14,14 +16,37 @@ test("specialists introduce gradually without changing patrol counts or rifle ba
   assert.ok(second.includes("swordsman") && second.includes("thrower"));
   assert.ok(!second.includes("rocketeer"));
   for (let mission = 2; mission < 21; mission++) {
+    const stage = Math.floor(mission / 3);
     const roles = Array.from({ length: 100 }, (_, i) =>
       infantryRole(mission, i),
     );
+    const count = (role) => roles.filter((r) => r === role).length;
     assert.equal(roles.length, 100);
-    for (const role of Object.keys(INFANTRY)) assert.ok(roles.includes(role));
-    assert.equal(roles.filter((r) => r === "rifleman").length, 55);
-    assert.equal(roles.filter((r) => r === "rocketeer").length, 5);
+    for (const role of ["rifleman", "rusher", "swordsman", "thrower"])
+      assert.ok(roles.includes(role));
+    assert.equal(count("rocketeer"), 5);
+    assert.equal(count("thrower"), 10);
+    // Early stages stay gentle; later ones trade riflemen and rushers for blades.
+    assert.equal(count("swordsman"), stage < SWORD_STAGE ? 10 : 20);
+    assert.equal(
+      count("ninja"),
+      stage < NINJA_STAGE ? 0 : stage === NINJA_STAGE ? 15 : 20,
+    );
+    assert.equal(
+      count("rifleman"),
+      stage < SWORD_STAGE ? 55 : stage <= NINJA_STAGE ? 45 : 40,
+    );
   }
+  assert.equal(SWORD_STAGE, 2);
+  assert.equal(NINJA_STAGE, 4);
+});
+test("ninjas are fast, fragile late-stage blades with a short but readable swing", () => {
+  const n = INFANTRY.ninja,
+    r = INFANTRY.rifleman;
+  assert.ok(n.speed >= r.speed * 2.5 && n.speed <= r.speed * 3);
+  assert.ok(n.hp < r.hp && n.melee);
+  assert.ok(n.warning >= 0.4 && n.warning < INFANTRY.swordsman.warning);
+  assert.ok(n.damage < INFANTRY.swordsman.damage);
 });
 test("melee sectors allow range and flank evasion, including vehicle hull sizes", () => {
   const origin = { x: 0, z: 0 },

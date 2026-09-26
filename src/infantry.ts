@@ -3,12 +3,15 @@ import { model } from "./world";
 import { INFANTRY } from "./enemy-roles.mjs";
 export type InfantryRole = keyof typeof INFANTRY;
 const uniforms = new Map<string, T.Material>();
-const colors = {
+const colors: Partial<Record<InfantryRole, number>> = {
   rusher: 0xad4d32,
   swordsman: 0x70685c,
   thrower: 0xbe903e,
   rocketeer: 0xb8642e,
 };
+/** Roles with their own Blender body; everyone else recolours rifleman.glb. */
+export const infantryModel = (role: InfantryRole) =>
+  role === "ninja" ? "ninja" : "rifleman";
 /** Shared material variants and prefab gear preserve instancing across every patrol. */
 export function equipInfantry(root: T.Group, role: InfantryRole) {
   if (role === "rifleman") return;
@@ -16,6 +19,7 @@ export function equipInfantry(root: T.Group, role: InfantryRole) {
   root.traverse((o) => {
     if (o.userData.joint) joints.set(o.userData.joint, o);
     if (
+      colors[role] !== undefined &&
       o instanceof T.Mesh &&
       !Array.isArray(o.material) &&
       o.material.name === "Sand canvas"
@@ -23,7 +27,7 @@ export function equipInfantry(root: T.Group, role: InfantryRole) {
       const key = role + o.material.uuid;
       if (!uniforms.has(key)) {
         const m = o.material.clone() as T.MeshStandardMaterial;
-        m.color.setHex(colors[role]);
+        m.color.setHex(colors[role]!);
         uniforms.set(key, m);
       }
       o.material = uniforms.get(key)!;
@@ -37,7 +41,9 @@ export function equipInfantry(root: T.Group, role: InfantryRole) {
         ? "weapon_missile"
         : role === "swordsman"
           ? "weapon_sword"
-          : "weapon_knife",
+          : role === "ninja"
+            ? "weapon_katana"
+            : "weapon_knife",
     );
     gear.name = role + "_gear";
     if (role === "rocketeer") gear.scale.setScalar(1.2);
@@ -63,6 +69,7 @@ const sector = (arc: number) =>
 export const infantryWarnings = {
   rusher: sector(INFANTRY.rusher.arc),
   swordsman: sector(INFANTRY.swordsman.arc),
+  ninja: sector(INFANTRY.ninja.arc),
   thrower: new T.RingGeometry(0.65, 0.76, 24),
   rocketeer: new T.PlaneGeometry(0.1, 1).translate(0, -0.5, 0),
 };
