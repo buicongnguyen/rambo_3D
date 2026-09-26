@@ -3,6 +3,9 @@ import {
   infantryRole,
   pressureLimits,
   inMeleeSector,
+  aiProfile,
+  isFlanker,
+  leadAngle,
 } from "./enemy-roles.mjs";
 import {
   equipInfantry,
@@ -36,6 +39,8 @@ import {
   placeSupplies,
   placeVehicles,
   guardedPatrols,
+  ambushPlan,
+  ambushPoints,
 } from "./encounters.mjs";
 import {
   BOSS_DEFS,
@@ -55,7 +60,7 @@ import { DestructionEffects } from "./destruction";
 import { tracerGeometry } from "./tracers";
 import { SpatialGrid, knockbackDistance, turboStats } from "./combat.mjs";
 import { Feel, hurtAngle } from "./feel.mjs";
-import { nextGoal } from "./guidance.mjs";
+import { nextGoal, relayProgress, pointAlong } from "./guidance.mjs";
 /** Cinderfall rockfalls: one on the player and one on the nearest enemy. */
 const ROCKFALL = { interval: 9, warning: 3 };
 /** Flying command bosses: they hover over cover and ignore quake freezes. */
@@ -509,6 +514,13 @@ export class Game {
   };
   /** Patrols spawned at mission start (later spawns are guards or bosses). */
   private patrolCount = 0;
+  /** How this difficulty's soldiers fight (reaction, aim, callouts, flanking). */
+  ai = aiProfile("normal");
+  /** Route-progress ambushes still to trigger on the way to the relay. */
+  ambushes: { at: number; size: number; fired: boolean }[] = [];
+  /** Player ground velocity over the last step, for riflemen that lead shots. */
+  playerVelocity = new T.Vector3();
+  private lastPos = new T.Vector3();
   /** Treasure pieces recovered this mission, for the debrief tally. */
   loot = { money: 0, gold: 0, diamond: 0 };
   /** Set when a kill leaves no hostile alive or still to come. */
@@ -766,6 +778,7 @@ export class Game {
     this.pos.set(relay.x, 0, relay.z + 1.5);
     this.player.position.copy(this.pos);
     this.world.resetCamera(this.pos);
+    this.lastPos.copy(this.pos);
     while (this.squad.allies.length < c.squad)
       if (
         !this.squad.add(
@@ -876,6 +889,7 @@ export class Game {
     this.refreshCoverGrid();
     this.player = model("commando", mission.start.x, mission.start.z);
     this.world.resetCamera(this.player.position);
+    this.lastPos.copy(this.pos);
     this.playerMotion = new CharacterMotion(this.player);
     this.deathClock = 0;
     this.world.actors.add(this.player);
@@ -926,6 +940,12 @@ export class Game {
     this.bossDead = false;
     this.phase = "playing";
     const pacing = missionPacing(mission.stage, mission.level);
+    this.ai = aiProfile(difficulty);
+    this.ambushes = ambushPlan(
+      mission.stage,
+      difficultyConfig(difficulty).soldiers,
+    ).map((a) => ({ ...a, fired: false }));
+    this.playerVelocity.set(0, 0, 0);
     const vehicleBays = placeVehicles(
       mission.route,
       COVER,
@@ -2662,6 +2682,79 @@ export class Game {
       e.cool = profile.interval;
     }
   }
+  /** A soldier who spots you alerts unaware soldiers within the difficulty's callout range. */
+  private callout(spotter: Actor) {
+    const range = this.ai.share;
+    if (range <= 0) return;
+    for (const other of this.enemyGrid.near(
+      spotter.x,
+      spotter.z,
+      range,
+    ) as Actor[]) {
+      if (
+        other === spotter ||
+        other.hp <= 0 ||
+        other.boss ||
+        other.alerted ||
+        other.emerging ||
+        Math.hypot(other.x - spotter.x, other.z - spotter.z) > range
+      )
+        continue;
+      other.alerted = true;
+      other.memory = 4;
+      other.lastSeen = { x: this.pos.x, z: this.pos.z };
+      if (!other.role || other.role === "rifleman")
+        other.cool = Math.max(other.cool, this.ai.reaction + 0.3);
+    }
+  }
+  /** Trigger route-progress ambushes as the player advances toward the relay. */
+  private updateAmbushes() {
+    const mission = MISSIONS[this.index];
+    const progress = relayProgress(
+      mission.roads,
+      mission.objective,
+      this.pos.x,
+      this.pos.z,
+    );
+    for (const ambush of this.ambushes) {
+      if (ambush.fired || progress.fraction < ambush.at) continue;
+      ambush.fired = true;
+      let count = 0;
+      const points = ambushPoints(
+        progress.road,
+        progress.along,
+        ambush.size,
+        pointAlong,
+        this.pos,
+      );
+      for (const p of points) {
+        const slot = this.enemies.length;
+        const e = this.spawn(
+          p.x,
+          p.z,
+          false,
+          slot,
+          undefined,
+          false,
+          undefined,
+          infantryRole(this.index, slot) as InfantryRole,
+        );
+        if (!e) continue;
+        count++;
+        e.alerted = true;
+        e.memory = 10;
+        e.lastSeen = { x: this.pos.x, z: this.pos.z };
+        e.cool = Math.max(e.cool, this.ai.reaction + 0.6);
+        e.mesh.rotation.y = Math.atan2(this.pos.x - e.x, this.pos.z - e.z);
+      }
+      if (!count) continue;
+      this.onRadio(
+        `Vale: Ambush! ${count} hostiles are closing in from the flanks ahead.`,
+      );
+      this.combatMessage(`AMBUSH · ${count} HOSTILES ON THE FLANKS`, 2.2);
+      this.onSound("warn", { x: this.pos.x, z: this.pos.z });
+    }
+  }
   /** SKY WRAITH flight: circle the player, strafe a gun run, or hover low. */
   private moveWraith(e: Actor, dt: number) {
     let height = 4.5;
@@ -2939,6 +3032,14 @@ export class Game {
     }
     this.spotted = false;
     this.elapsed += dt;
+    // Ground velocity over the last step; teleports (tests, restarts) are capped.
+    this.playerVelocity
+      .set(this.pos.x - this.lastPos.x, 0, this.pos.z - this.lastPos.z)
+      .divideScalar(dt)
+      .clampLength(0, 14);
+    this.lastPos.copy(this.pos);
+    if (!this.objective && this.ambushes.some((a) => !a.fired))
+      this.updateAmbushes();
     this.turboCooldown = Math.max(0, this.turboCooldown - dt);
     if (input.turbo) this.activateTurbo();
     input.turbo = false;
@@ -3449,6 +3550,13 @@ export class Game {
       }
       const seen = seesPlayer(e, this.pos, navigationCover, e.mesh.rotation.y);
       if (seen) this.spotted = true;
+      if (seen && !e.alerted) {
+        // First sighting: gunners take a difficulty-scaled reaction before the
+        // first shot (blade and throw windups are their own telegraph), then
+        // call out to nearby soldiers.
+        if (!specialist) e.cool = Math.max(e.cool, this.ai.reaction);
+        this.callout(e);
+      }
       if (seen) {
         e.alerted = true;
         e.memory = 6;
@@ -3573,6 +3681,13 @@ export class Game {
                 ? -0.7
                 : 0;
           // Ninjas zig-zag in, so they are harder to track than a straight rush.
+          // Flanking riflemen (share set by difficulty, from stage 3) circle to
+          // your side instead of holding a firing line.
+          const flanker =
+            !specialist &&
+            !e.armored &&
+            MISSIONS[this.index].stage >= 2 &&
+            isFlanker(e.index, this.ai.flank);
           const strafe =
             role === "ninja"
               ? advance > 0
@@ -3580,8 +3695,10 @@ export class Game {
                 : 0
               : profile.melee
                 ? 0
-                : Math.sin(this.elapsed * 1.2 + e.index * 2.4) *
-                  (role === "thrower" ? 0.75 : 0.45);
+                : flanker
+                  ? (e.index % 2 ? 1 : -1) * 0.9
+                  : Math.sin(this.elapsed * 1.2 + e.index * 2.4) *
+                    (role === "thrower" ? 0.75 : 0.45);
           const speed = specialist ? profile.speed : 1.9;
           vx = (Math.sin(a) * advance + Math.cos(a) * strafe) * dt * speed;
           vz = (Math.cos(a) * advance - Math.sin(a) * strafe) * dt * speed;
@@ -3670,11 +3787,19 @@ export class Game {
           e.motion?.kick();
           if (e.armored)
             this.shoot(e.x, e.z, a, true, ENEMY_TANK.shell, 12, WEAPONS[7]);
-          else
-            for (const spread of [-0.07, 0.07])
-              this.shoot(e.x, e.z, a + spread, true, 6, 9);
+          else {
+            // Hard and Crazy riflemen lead a moving target.
+            const aim =
+              this.ai.lead > 0
+                ? leadAngle(e, this.pos, this.playerVelocity, 9, this.ai.lead)
+                : a;
+            for (const spread of [-this.ai.spread, this.ai.spread])
+              this.shoot(e.x, e.z, aim + spread, true, 6, 9);
+          }
         }
-        e.cool = e.armored ? ENEMY_TANK.interval : 1.6 + (e.index % 8) * 0.06;
+        e.cool = e.armored
+          ? ENEMY_TANK.interval
+          : (1.6 + (e.index % 8) * 0.06) * this.ai.interval;
       }
     }
     for (let i = this.bullets.length - 1; i >= 0; i--) {

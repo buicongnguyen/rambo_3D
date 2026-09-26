@@ -154,7 +154,26 @@ Character rigs keep the commando joint hierarchy, so `CharacterMotion` animates 
 - Walker shells drop from 33 to 16 damage.
 - The gun run uses an odd number of rings, so one is always centred on the player. Moving along the line never escapes it; stepping sideways does.
 
+## Pacing, difficulty AI and smooth motion
+
+- **Route-progress ambushes** (`ambushPlan`, `ambushPoints` in `encounters.mjs`; `relayProgress` in `guidance.mjs`).
+  - Progress is measured along whichever road the player is on, as a share of the road distance to the relay.
+  - Stages 1–2 have none. From stage 3 one squad triggers at 50%; from stage 5 two trigger, at 35% and 70%.
+  - Squads of 3–4 soldiers, times the difficulty soldier multiplier, spawn alerted on alternating flanks. They are placed further down the road and always at least 22 m away in a straight line, so they never pop in beside you where a road doubles back.
+  - Ambushes stop once the relay is secured, so a relay retry never replays them.
+- **Difficulty-scaled AI** (`AI_PROFILES` in `enemy-roles.mjs`).
+  - Each difficulty sets reaction time, rifle spread, re-fire time, shot leading, callout range and the share of riflemen that flank.
+  - A rifleman or tank that first spots you fires only after the profile's reaction delay; blade and throw windups remain their own telegraph. The spotter then alerts unaware soldiers within range.
+  - Flankers (from stage 3) circle to your side instead of holding a line.
+  - Hard and Crazy riflemen aim where you will be. The lead is capped at 6 m, and the 0.6 s warning ring is the floor on every difficulty.
+  - Normal keeps the established rifle numbers.
+- **Interpolated rendering** (`Interpolator` in `interpolation.mjs`).
+  - The main loop captures each actor's transform before every fixed 60 Hz step, draws each frame between the previous and current state at the accumulator fraction, then restores the exact simulation state.
+  - Positions and Euler rotations are restored, not quaternions: a quaternion round trip can turn a 2.5 rad yaw into (π, 0.64, π) and break the AI's facing checks.
+  - Moves over 4 m in one step (spawns, restarts) snap instead of sliding.
+  - Blending a Crazy city map (500+ actors) stays under the 4 ms threshold in `tests/ai-pacing.spec.ts`.
+
 ## Suggested next steps
 
-- route-progress encounter triggers and difficulty that scales AI, not just head count
-- interpolated rendering on 120/144 Hz displays
+- a boss-intro camera beat and a slow-motion final kill
+- adaptive music layers that follow combat intensity

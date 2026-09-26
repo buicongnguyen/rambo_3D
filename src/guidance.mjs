@@ -40,6 +40,27 @@ export function pointAlong(route, along) {
   return { x: route[0].x, z: route[0].z };
 }
 
+/**
+ * How far down the road to the relay the player is (0 at the start, 1 at the
+ * relay), on whichever road they are nearest. Returns the road and distance
+ * along it too, so encounters can be placed further ahead.
+ */
+export function relayProgress(roads, relay, x, z) {
+  let best;
+  for (const road of roads) {
+    if (!road || road.length < 2) continue;
+    const p = projectOnRoute(road, x, z);
+    if (!best || p.offset < best.p.offset) best = { road, p };
+  }
+  if (!best) return { fraction: 0, road: roads[0], along: 0 };
+  const goal = projectOnRoute(best.road, relay.x, relay.z).along;
+  return {
+    fraction: goal > 0 ? best.p.along / goal : 1,
+    road: best.road,
+    along: best.p.along,
+  };
+}
+
 export const ROAD_SNAP = 12;
 export const ROAD_LOOKAHEAD = 10;
 

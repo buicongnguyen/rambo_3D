@@ -24,12 +24,18 @@ The opening has an early M249 cache with 60 bonus rounds. Collect banknotes (10 
 
 Choose a stage from the briefing selector, or continue your saved level. Changing stages starts at that stage's first level when you deploy; credits, Field Kit ranks and rescued allies carry over, while per-level upgrades restart. Re-selecting your current stage keeps your saved level. Each completed level offers an upgrade. Campaign progress saves between levels, not during combat. Old three-mission saves migrate to the expanded campaign start while keeping the best score.
 
-| Difficulty | Base health | Soldiers | Bosses in each stage finale |
-| ---------- | ----------: | -------: | --------------------------: |
-| Easy       |         230 |       1× |                           1 |
-| Normal     |         150 |       1× |                           1 |
-| Hard       |         150 |       2× |                           2 |
-| Crazy      |         150 |       4× |                           4 |
+| Difficulty | Base health | Soldiers | Bosses in each stage finale | How soldiers fight |
+| ---------- | ----------: | -------: | --------------------------: | ------------------ |
+| Easy       |         230 |       1× |                           1 | Slow gunner reactions (1.1 s), loose aim, slower fire, no callouts or flanking |
+| Normal     |         150 |       1× |                           1 | Call out your position within 6 m; 20% of riflemen flank from stage 3 |
+| Hard       |         150 |       2× |                           2 | Lead half your movement, 10 m callouts, 35% flank, faster fire |
+| Crazy      |         150 |       4× |                           4 | Lead three quarters of your movement, 14 m callouts, half flank, fastest fire |
+
+Every shot still shows its 0.6 s warning ring on every difficulty. Leading is capped at 6 m, so changing direction always beats it.
+
+From stage 3, pushing down the road triggers an ambush halfway to the relay. A squad bursts in from both flanks at least 22 m ahead, with a radio warning. From stage 5 there are two ambushes, at about a third and two thirds of the way. Squad size follows the difficulty soldier multiplier.
+
+The simulation runs at a fixed 60 Hz. On 120/144 Hz displays every frame is drawn between the last two simulation steps, so movement stays smooth instead of stepping.
 
 After the opening raid (12 soldiers) and second mission (24 soldiers plus one tank), then the first finale (64 soldiers plus two tanks), patrols contain four times the original infantry population: 96–128 soldiers per normal stage level, with 32 additional soldiers in city levels. Regular enemy tanks add 3–5 more targets. Hard doubles these populations and Crazy quadruples them (640 soldiers plus 20 tanks in the city finale). Infantry fire two-round spreads; regular tanks combine heavy rockets and a light gun. The tactical balance pass gives the rifle 28 damage and M249 10 damage at 30 rounds/s; rockets and laser retain their heavy-target role. Difficulty also scales relay reinforcements. Every finale boss must be destroyed before extraction opens. Command bosses expose weak points during their downtime, taking 1.5× damage while landed or resting, while their guns cool, while the laser vents or while launchers reload. Below half health they enrage and attack 30% faster; the boss bar glows gold when a weak point is exposed and red when enraged.
 

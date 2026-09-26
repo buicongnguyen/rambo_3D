@@ -23,6 +23,7 @@ import * as T from "three";
 import "./style.css";
 import { World, loadAssets, model } from "./world";
 import { Game, type Input } from "./game";
+import { Interpolator } from "./interpolation.mjs";
 import { MISSIONS, COVER, BOSS_NAMES } from "./missions";
 import { freshSave, validateSave, advanceCampaign } from "./rules.mjs";
 const $ = <E extends HTMLElement = HTMLElement>(s: string) =>
@@ -385,6 +386,7 @@ function start(fromRelay = false) {
     game.start(save.mission, save, difficulty);
     world.marker.visible = true;
   }
+  interpolator.reset();
   mode = "playing";
   $("#menu").hidden = true;
   $("#brand").hidden = true;
@@ -472,7 +474,15 @@ for (const button of document.querySelectorAll<HTMLButtonElement>(
     write("nightfall-prefs", { ...prefs, difficulty });
     const config = difficultyConfig(difficulty);
     $("#difficulty-note").textContent =
-      `${difficulty.toUpperCase()}: ${config.health} health / ${config.soldiers}x soldiers / ${config.bosses} boss${config.bosses > 1 ? "es" : ""} per finale. ${difficulty === "easy" || difficulty === "normal" ? "Full special-ammo rewards." : "Smaller special-ammo rewards."}`;
+      `${difficulty.toUpperCase()}: ${config.health} health / ${config.soldiers}x soldiers / ${config.bosses} boss${config.bosses > 1 ? "es" : ""} per finale. ${difficulty === "easy" || difficulty === "normal" ? "Full special-ammo rewards." : "Smaller special-ammo rewards."} ${
+        {
+          easy: "Soldiers react slowly and aim loosely.",
+          normal: "Soldiers call out your position to nearby squadmates.",
+          hard: "Soldiers lead their shots, call out your position and flank.",
+          crazy:
+            "Soldiers lead hard, call out across the street and flank in numbers.",
+        }[difficulty] ?? ""
+      }`;
     document
       .querySelectorAll("[data-difficulty]")
       .forEach((b) =>
@@ -999,7 +1009,11 @@ window.addEventListener("resize", () => {
 });
 let previous = performance.now(),
   acc = 0,
-  lastHud = 0;
+  lastHud = 0,
+  /** Share of a 1/60 s step to draw past the last simulated state. */
+  alpha = 1;
+// Smooth motion on 120/144 Hz displays: draw between the last two 60 Hz steps.
+const interpolator = new Interpolator();
 function frame(now: number) {
   requestAnimationFrame(frame);
   const frameDelta = Math.max(0, (now - previous) / 1000);
@@ -1020,6 +1034,7 @@ function frame(now: number) {
     input.fire = mouseDown || input.assist;
     ray.setFromCamera(pointer, world.camera);
     ray.ray.intersectPlane(ground, input.aim);
+    alpha = 1;
     if (game.phase === "dying") {
       // End-screen presentation follows elapsed time even when rendering is slow.
       acc = 0;
@@ -1030,9 +1045,11 @@ function frame(now: number) {
     } else {
       acc += dt;
       while (acc >= 1 / 60) {
+        interpolator.capture(world.actors);
         game.update(1 / 60, input);
         acc -= 1 / 60;
       }
+      alpha = acc * 60;
     }
     game.feel.decay(dt);
     feedback.update(game, world, $("#crosshair"), prefs.reduced);
@@ -1048,6 +1065,7 @@ function frame(now: number) {
     }
   } else {
     acc = 0;
+    alpha = 1;
     if (mode === "result") game.updatePresentation(frameDelta);
   }
   $("#crosshair").hidden = mode !== "playing" || !pointerSeen || input.assist;
@@ -1070,6 +1088,8 @@ function frame(now: number) {
   world.indicatorScale = game?.riding
     ? Math.max(1, game.riding.spec.radius * 1.2)
     : 1;
+  // game.pos is the player mesh position, so the camera focus is blended too.
+  interpolator.apply(world.actors, alpha);
   world.render(
     now / 1000,
     game.pos,
@@ -1077,6 +1097,7 @@ function frame(now: number) {
     prefs.reduced,
     game.hp > 0,
   );
+  interpolator.restore();
 }
 async function init() {
   try {
@@ -1107,6 +1128,7 @@ async function init() {
         start,
         world,
         audio,
+        interpolator,
       };
   } catch (error) {
     showOverlay(

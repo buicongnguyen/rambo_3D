@@ -99,6 +99,76 @@ export function infantryRole(mission, slot) {
   const role = roster[i];
   return mission === 1 && role === "rocketeer" ? "rifleman" : role;
 }
+/**
+ * Difficulty changes how soldiers fight, not just how many there are.
+ * - reaction: seconds from first sighting to a gunner's first shot. Never
+ *   below the 0.6 s ground warning ring, so every shot stays telegraphed.
+ *   Blade and throw specialists keep their own windup as the telegraph.
+ * - spread: half-angle of the rifle pair (radians).
+ * - interval: multiplier on the rifle re-fire time.
+ * - lead: share of your velocity riflemen aim ahead of you.
+ * - share: metres within which a soldier who spots you alerts nearby soldiers.
+ * - flank: share of riflemen that circle to your side instead of holding a
+ *   firing line (from stage 3; the first two stages stay gentle).
+ */
+export const AI_PROFILES = {
+  easy: {
+    reaction: 1.1,
+    spread: 0.1,
+    interval: 1.25,
+    lead: 0,
+    share: 0,
+    flank: 0,
+  },
+  normal: {
+    reaction: 0.6,
+    spread: 0.07,
+    interval: 1,
+    lead: 0,
+    share: 6,
+    flank: 0.2,
+  },
+  hard: {
+    reaction: 0.6,
+    spread: 0.06,
+    interval: 0.9,
+    lead: 0.5,
+    share: 10,
+    flank: 0.35,
+  },
+  crazy: {
+    reaction: 0.6,
+    spread: 0.05,
+    interval: 0.85,
+    lead: 0.75,
+    share: 14,
+    flank: 0.5,
+  },
+};
+export function aiProfile(difficulty) {
+  return AI_PROFILES[difficulty] ?? AI_PROFILES.normal;
+}
+/** Deterministic, evenly spread subset of patrol indices that flank. */
+export function isFlanker(index, share) {
+  return share > 0 && (((index * 0.6180339887) % 1) + 1) % 1 < share;
+}
+/**
+ * Aim angle that leads a moving target: `lead` 0 aims straight at it, 1 at
+ * where it will be when a `speed` m/s bullet arrives. The lead is capped at
+ * 6 m so a sprinting player is anticipated, never predicted perfectly.
+ */
+export function leadAngle(from, target, velocity, speed, lead) {
+  const d = Math.hypot(target.x - from.x, target.z - from.z);
+  const t = speed > 0 ? d / speed : 0;
+  let ax = velocity.x * t * lead,
+    az = velocity.z * t * lead;
+  const reach = Math.hypot(ax, az);
+  if (reach > 6) {
+    ax *= 6 / reach;
+    az *= 6 / reach;
+  }
+  return Math.atan2(target.x + ax - from.x, target.z + az - from.z);
+}
 export function pressureLimits(difficulty) {
   return {
     melee: difficulty === "easy" ? 2 : difficulty === "crazy" ? 4 : 3,

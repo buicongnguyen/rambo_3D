@@ -36,6 +36,8 @@ test("all stages deploy mixed dense patrols and dense combat stays bounded in bo
       g.start(14, { armor: 0, power: 3, mobility: 3 }, "crazy");
       g.invincible = 10000;
       g.quakeTime = 0;
+      // Measure the deployed patrol density; route ambushes are covered in ai-pacing.
+      g.ambushes.forEach((a: any) => (a.fired = true));
       const e = g.enemies[Math.floor(g.enemies.length * 0.45)];
       g.pos.set(e.x, 0, e.z);
       g.squad.clear();

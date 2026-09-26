@@ -92,6 +92,48 @@ export function placeSupplies(
   }
   return drops;
 }
+/**
+ * Route-progress ambushes: a squad bursts in from the flanks ahead of you when
+ * you are part-way down the road to the relay. `at` is the share of the road
+ * distance to the relay. None in the first two stages; one from stage 3 and
+ * two from stage 5. Size scales with the difficulty soldier multiplier.
+ */
+export function ambushPlan(stage, soldiers = 1) {
+  if (stage < 2) return [];
+  const size = (stage >= 4 ? 4 : 3) * soldiers;
+  return (stage >= 4 ? [0.35, 0.7] : [0.5]).map((at) => ({ at, size }));
+}
+/**
+ * Where an ambush squad appears: further down the road on alternating flanks,
+ * each point at least `minDistance` m from the player in a straight line, so
+ * squads never pop in beside you where a winding road doubles back.
+ */
+export function ambushPoints(
+  road,
+  along,
+  count,
+  pointAt,
+  from,
+  minDistance = 22,
+) {
+  const points = [];
+  for (let d = along + 20; points.length < count && d < along + 90; d += 2.5) {
+    const a = pointAt(road, d),
+      b = pointAt(road, d + 1);
+    const len = Math.hypot(b.x - a.x, b.z - a.z) || 1;
+    const nx = -(b.z - a.z) / len,
+      nz = (b.x - a.x) / len;
+    const offset = 9 + (points.length % 3) * 1.5;
+    for (const side of points.length % 2 ? [1, -1] : [-1, 1]) {
+      const p = { x: a.x + nx * side * offset, z: a.z + nz * side * offset };
+      if (Math.hypot(p.x - from.x, p.z - from.z) < minDistance) continue;
+      if (points.some((q) => Math.hypot(q.x - p.x, q.z - p.z) < 2.2)) continue;
+      points.push(p);
+      break;
+    }
+  }
+  return points;
+}
 export const BOSS_ATTACKS = {
   gunship: { damage: 10, interval: 0.6, count: 3, spread: 0.1, speed: 15 },
   spider: { damage: 12, interval: 0.72, count: 3, spread: 0.12, speed: 13 },
