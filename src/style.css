@@ -2450,3 +2450,80 @@ input {
   font-weight: 800;
   letter-spacing: 1.2px;
 }
+
+/* Director: boss intro letterbox and name card (pointer-transparent). */
+#boss-intro {
+  position: fixed;
+  inset: 0;
+  z-index: 30;
+  pointer-events: none;
+  visibility: hidden;
+}
+#boss-intro.show {
+  visibility: visible;
+}
+#boss-intro .letterbox {
+  position: absolute;
+  left: 0;
+  right: 0;
+  height: 11vh;
+  background: #07090bcc;
+  transform: scaleY(0);
+  transition: transform 0.35s ease-out;
+}
+#boss-intro .letterbox.top {
+  top: 0;
+  transform-origin: top;
+}
+#boss-intro .letterbox.bottom {
+  bottom: 0;
+  transform-origin: bottom;
+}
+#boss-intro.show .letterbox {
+  transform: scaleY(1);
+}
+#boss-intro .boss-card {
+  position: absolute;
+  left: 50%;
+  bottom: calc(11vh + 22px);
+  transform: translate(-50%, 16px);
+  opacity: 0;
+  text-align: center;
+  transition:
+    opacity 0.3s ease-out,
+    transform 0.3s ease-out;
+  max-width: min(640px, 92vw);
+}
+#boss-intro.show .boss-card {
+  opacity: 1;
+  transform: translate(-50%, 0);
+}
+#boss-intro .boss-card span {
+  display: inline-block;
+  padding: 3px 10px;
+  background: #e0262b;
+  color: #fff;
+  font-size: 11px;
+  letter-spacing: 0.22em;
+}
+#boss-intro .boss-card h2 {
+  margin: 8px 0 4px;
+  font-size: clamp(26px, 5vw, 46px);
+  letter-spacing: 0.06em;
+  color: #fff;
+  text-shadow:
+    0 3px 0 #000a,
+    0 0 24px #ff4a3a88;
+}
+#boss-intro .boss-card p {
+  margin: 0;
+  color: #ffe9b0;
+  font-size: 14px;
+  text-shadow: 0 2px 0 #000a;
+}
+@media (prefers-reduced-motion: reduce) {
+  #boss-intro .letterbox,
+  #boss-intro .boss-card {
+    transition: none;
+  }
+}

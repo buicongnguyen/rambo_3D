@@ -1,4 +1,4 @@
-import { composeTheme } from "./music.mjs";
+import { composeTheme, themeStems } from "./music.mjs";
 
 /**
  * Render a composed theme once, offline, into a seamless looping AudioBuffer.
@@ -223,9 +223,10 @@ function play(
   }
 }
 
-/** Render a theme (optionally its boss variant) into a loopable buffer. */
-export async function renderTheme(name: string, boss = false) {
-  const theme = composeTheme(name, boss);
+type Composition = ReturnType<typeof composeTheme>;
+
+/** Render note events into a seamless loop (tail folded in), not yet normalised. */
+async function renderLoop(theme: Composition) {
   const beat = 60 / theme.bpm,
     loop = Math.round(theme.seconds * RATE);
   const ctx = new OfflineAudioContext(1, loop + TAIL * RATE, RATE);
@@ -266,8 +267,7 @@ export async function renderTheme(name: string, boss = false) {
       e.velocity,
     );
   const rendered = await ctx.startRendering();
-  // Fold the release tail into the start so the loop point is seamless, then
-  // normalise every theme to the same peak.
+  // Fold the release tail into the start so the loop point is seamless.
   const out = new AudioBuffer({
     length: loop,
     sampleRate: RATE,
@@ -284,9 +284,37 @@ export async function renderTheme(name: string, boss = false) {
     dst[i] *= i / edge;
     dst[dst.length - 1 - i] *= i / edge;
   }
-  let peak = 0;
-  for (let i = 0; i < dst.length; i++) peak = Math.max(peak, Math.abs(dst[i]));
-  const scale = peak > 0 ? 0.5 / peak : 1;
-  for (let i = 0; i < dst.length; i++) dst[i] *= scale;
   return out;
+}
+
+/** Scale buffers by one factor so their sum peaks at 0.5 (every theme equally loud). */
+function normalise(buffers: AudioBuffer[]) {
+  const channels = buffers.map((b) => b.getChannelData(0));
+  let peak = 0;
+  for (let i = 0; i < channels[0].length; i++) {
+    let sum = 0;
+    for (const c of channels) sum += c[i];
+    peak = Math.max(peak, Math.abs(sum));
+  }
+  const scale = peak > 0 ? 0.5 / peak : 1;
+  for (const c of channels) for (let i = 0; i < c.length; i++) c[i] *= scale;
+  return buffers;
+}
+
+/** Render a theme (optionally its boss variant) into a loopable buffer. */
+export async function renderTheme(name: string, boss = false) {
+  return normalise([await renderLoop(composeTheme(name, boss))])[0];
+}
+
+/**
+ * Render the adaptive stems of a stage theme: [base, combat]. They share one
+ * normalisation, so base + combat at full intensity matches the full mix level.
+ */
+export async function renderStems(name: string) {
+  const stems = themeStems(name);
+  const [base, combat] = await Promise.all([
+    renderLoop(stems.base),
+    renderLoop(stems.combat),
+  ]);
+  return normalise([base, combat]) as [AudioBuffer, AudioBuffer];
 }

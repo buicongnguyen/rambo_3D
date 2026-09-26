@@ -82,7 +82,7 @@ Kills land with a brief hit-stop, blasts and heavy hits shake the camera, and fl
 - **Weapons:** each weapon has its own small voice, and the tank cannon has a heavy one.
 - **Other combatants:** enemy and ally gunfire is quieter, fades with distance and pans left or right.
 - **Cues:** explosions have a layered thump and rumble. Treasure, supplies and rescues each have a chime, and warning beeps sound before rockfalls and boss salvos.
-- **Stingers:** short cues of 2 seconds or less play on deploy, victory, defeat, every fourth chained kill and each boss kill.
+- **Stingers:** short cues of 2 seconds or less play on deploy, victory, defeat, every fourth chained kill, each boss kill and when command bosses arrive.
 - **Background music:** each stage has its own arrangement of one original heroic theme. It climbs, struggles, then resolves on a rising cadence, a brave soldier's march home.
   - White Horizon is a snare march with bells.
   - Cinderfall drives on taiko drums.
@@ -92,9 +92,19 @@ Kills land with a brief hit-stop, blasts and heavy hits shake the camera, and fl
   - Faultline Zero is built on heavy timpani.
   - Mire Crossing turns the theme to a triumphant major key.
   - The briefing plays the title arrangement, and finales switch to a faster, drum-heavy version when the command bosses arrive.
-  - Each 16-bar theme (about 30–40 s) is rendered once, off the main thread, into one looping buffer, so music costs almost nothing per frame.
+  - Each 16-bar theme (about 30–40 s) is rendered once, off the main thread, so music costs almost nothing per frame.
+  - **Adaptive layers:** stage themes play as two stems that loop in sync.
+    - The base stem is melody, strings and bass.
+    - The combat stem is the drums, a driving bass line and brass stabs. It rises within about half a second when alerted enemies close in, shots are fired or you are spotted. It settles over a few seconds once things go quiet.
+  - Below 35% health the music is muffled, as it is during a slow-motion kill.
 
-The pause settings have separate **Sound effects** and **Music** switches, and the briefing's SOUND button turns both on or off. Enable *Reduce camera motion* to turn off shake and animated banners. On portrait phones the camera pulls back so riflemen and rocket troops stay on screen.
+**Cinematic beats.**
+
+- When command bosses arrive, play holds for about 2.6 seconds. Letterbox bars slide in and the camera pans to the bosses while their names and a one-line counter tip appear, then it pans back. Any key or tap skips to the pan back.
+- The final kill of a finale boss fight, or the mission's last hostile, plays at quarter speed for 1.5 seconds while the camera leans toward it. The debrief then appears.
+- A relay retry skips the intro.
+
+The pause settings have separate **Sound effects** and **Music** switches, and the briefing's SOUND button turns both on or off. Enable *Reduce camera motion* to turn off shake, animated banners, the intro camera pan and slow motion (the boss name card still shows). On portrait phones the camera pulls back so riflemen and rocket troops stay on screen.
 
 A guide arrow circles your soldier and points to the next goal: yellow to the relay, orange to the nearest guard, red to a command boss, green to extraction. For the relay and extraction it follows the mission road, and the current objective shows the remaining distance. Radio messages, tactical hints, interaction prompts and the boss bar share one feed at the top of the screen, so nothing covers your soldier. The cyan identity ring is drawn on the ground under the avatar, widening around an occupied vehicle.
 

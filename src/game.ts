@@ -512,6 +512,10 @@ export class Game {
       ammo: number;
     }[];
   };
+  /** Where and when the final kill landed (drives the slow-motion beat). */
+  finalBlow?: { x: number; z: number; at: number; seq: number };
+  /** Game time of the last shot fired or damage taken (music intensity). */
+  lastCombat = -Infinity;
   /** Patrols spawned at mission start (later spawns are guards or bosses). */
   private patrolCount = 0;
   /** How this difficulty's soldiers fight (reaction, aim, callouts, flanking). */
@@ -937,6 +941,8 @@ export class Game {
     this.objective = false;
     this.bossSpawned = false;
     this.allClear = false;
+    this.finalBlow = undefined;
+    this.lastCombat = -Infinity;
     this.bossDead = false;
     this.phase = "playing";
     const pacing = missionPacing(mission.stage, mission.level);
@@ -1470,6 +1476,7 @@ export class Game {
     this.hp = Math.max(0, this.hp - (damage - absorbed));
   }
   takeDamage(damage: number, from?: { x: number; z: number }) {
+    this.lastCombat = this.elapsed;
     if (damage > 0) this.feel.hurt(damage, hurtAngle(this.pos, from));
     if (this.riding) {
       const v = this.riding;
@@ -1700,6 +1707,7 @@ export class Game {
     originY = 0.95,
     flashOffset = 0.7,
   ) {
+    this.lastCombat = this.elapsed;
     if (enemy)
       this.onSound(spec?.splash ? "enemyCannon" : "enemyShot", { x, z });
     if (spec?.visual !== "knife") {
@@ -1862,6 +1870,20 @@ export class Game {
         (!MISSIONS[this.index].finale || this.bossSpawned)
       )
         this.allClear = true;
+      // The final kill (last command boss, or the mission's last hostile) gets
+      // a slow-motion beat from the presentation director.
+      if (
+        this.allClear ||
+        (e.boss &&
+          MISSIONS[this.index].finale &&
+          !this.enemies.some((o) => o.boss && o.hp > 0))
+      )
+        this.finalBlow = {
+          x: e.x,
+          z: e.z,
+          at: this.elapsed,
+          seq: (this.finalBlow?.seq ?? 0) + 1,
+        };
       this.feel.kill(this.elapsed, e.boss ? 1 : e.armored ? 0.5 : 0);
       this.onSound("kill", e);
       // Music stingers mark big moments: bosses and every fourth chained kill.

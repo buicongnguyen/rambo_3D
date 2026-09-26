@@ -250,6 +250,8 @@ export class World {
   renderer: T.WebGLRenderer;
   terrain = new T.Group();
   actors = new T.Group();
+  /** Director camera override: look at (x, z), `zoom` < 1 moves closer. */
+  cameraOverride: { x: number; z: number; zoom: number } | null = null;
   private actorBatches = new ActorBatches(this.actors);
   decor: T.Object3D[] = [];
   destructibles: { box: Box; mesh: T.Group; hp: number; kind: string }[] = [];
@@ -931,16 +933,23 @@ export class World {
     const menuFocus = sampleRoute(MISSIONS[this.missionIndex].route, 0.18);
     if (!menu && this.wasMenu) this.resetCamera(focus);
     if (!menu) {
-      // Narrow portrait screens need a smaller horizontal dead zone.
-      const horizontal = Math.min(4.5, Math.max(1.8, this.camera.aspect * 4));
-      this.followTarget.x = followAxis(
-        this.followTarget.x,
-        focus.x,
-        horizontal,
-        dt,
-      );
-      this.followTarget.z = followAxis(this.followTarget.z, focus.z, 3.5, dt);
-      const reach = this.viewReach();
+      const cinematic = this.cameraOverride;
+      if (cinematic) {
+        // Director beats (boss intro, slow-motion kill) steer the camera.
+        this.followTarget.x = cinematic.x;
+        this.followTarget.z = cinematic.z;
+      } else {
+        // Narrow portrait screens need a smaller horizontal dead zone.
+        const horizontal = Math.min(4.5, Math.max(1.8, this.camera.aspect * 4));
+        this.followTarget.x = followAxis(
+          this.followTarget.x,
+          focus.x,
+          horizontal,
+          dt,
+        );
+        this.followTarget.z = followAxis(this.followTarget.z, focus.z, 3.5, dt);
+      }
+      const reach = this.viewReach() * (cinematic?.zoom ?? 1);
       this.camera.position.set(
         this.followTarget.x,
         27 * reach,

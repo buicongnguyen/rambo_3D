@@ -28,13 +28,39 @@ const SPACING: Record<string, number> = {
   damage: 0.12,
   warn: 0.4,
 };
-const STINGERS = new Set(["start", "win", "lose", "rampage", "bossDown"]);
+const STINGERS = new Set([
+  "start",
+  "win",
+  "lose",
+  "rampage",
+  "bossDown",
+  "bossIntro",
+]);
 type Note = [beat: number, note: number, beats: number, voice: string];
 /**
  * Short music stingers (no loops): each is a one-shot burst of roughly twenty
  * synthesized notes lasting two seconds or less, so music never costs frames.
  */
 const SONGS: Record<string, { bpm: number; notes: Note[] }> = {
+  // Command bosses arrive: two dark minor hits, then an unresolved dominant.
+  bossIntro: {
+    bpm: 120,
+    notes: [
+      [0, 0, 0.5, "kick"],
+      [0, 43, 1.2, "bass"],
+      [0, 55, 0.4, "lead"],
+      [0, 58, 0.4, "lead2"],
+      [0.75, 0, 0.5, "kick"],
+      [0.75, 55, 0.4, "lead"],
+      [0.75, 58, 0.4, "lead2"],
+      [1.5, 0, 1, "kick"],
+      [1.5, 0, 1.5, "crash"],
+      [1.5, 38, 1.6, "bass"],
+      [1.5, 54, 1.6, "lead"],
+      [1.5, 57, 1.6, "lead2"],
+      [1.5, 62, 1.6, "lead2"],
+    ],
+  },
   start: {
     bpm: 150,
     notes: [
@@ -168,6 +194,7 @@ const TRIM_DB: Record<string, number> = {
   lose: 9,
   rampage: 8,
   bossDown: 4,
+  bossIntro: 5,
 };
 
 export class GameAudio {
@@ -180,13 +207,22 @@ export class GameAudio {
   private voices = 0;
   private effectsOn = true;
   private musicOn = true;
-  // Background theme: one looping pre-rendered buffer at a time.
+  // Background theme: pre-rendered loops. Stage themes play as two synced
+  // stems (base + combat layer); boss arrangements as one full loop.
   private unlocked = false;
   private themeKey = "";
   private themeSource?: AudioBufferSourceNode;
+  private combatSource?: AudioBufferSourceNode;
   private themeGain?: GainNode;
+  private combatGain?: GainNode;
+  private themeFilter?: BiquadFilterNode;
   private themeLevel = 1;
+  /** Combat layer level (0-1), driven by the game's combat intensity. */
+  intensity = 0;
+  /** Low-pass on the music (0 open, 1 muffled): low health and slow motion. */
+  muffle = 0;
   private themes = new Map<string, Promise<AudioBuffer>>();
+  private stems = new Map<string, Promise<[AudioBuffer, AudioBuffer]>>();
 
   static isMusic(type: string) {
     return STINGERS.has(type);
@@ -225,7 +261,35 @@ export class GameAudio {
 
   /** Render a theme ahead of time so it starts the moment it is needed. */
   prefetch(name: string, boss = false) {
-    if (this.musicOn) void this.theme(`${name}${boss ? ":boss" : ""}`);
+    if (!this.musicOn) return;
+    if (boss) void this.theme(`${name}:boss`);
+    else void this.stemPair(name);
+  }
+
+  /** Fade the combat stem in or out (0-1) without restarting the loop. */
+  setIntensity(level: number) {
+    this.intensity = Math.min(1, Math.max(0, level));
+    if (this.combatGain && this.ctx)
+      this.combatGain.gain.setTargetAtTime(
+        this.intensity,
+        this.ctx.currentTime,
+        0.12,
+      );
+  }
+
+  /** Muffle the music (0 open to 1 closed), e.g. at low health or in slow motion. */
+  setMuffle(amount: number) {
+    this.muffle = Math.min(1, Math.max(0, amount));
+    if (this.themeFilter && this.ctx)
+      this.themeFilter.frequency.setTargetAtTime(
+        this.cutoff(),
+        this.ctx.currentTime,
+        0.15,
+      );
+  }
+
+  private cutoff() {
+    return 20000 * (650 / 20000) ** this.muffle;
   }
 
   /** Lower the theme (e.g. while paused) without restarting it. */
@@ -248,33 +312,66 @@ export class GameAudio {
         m.renderTheme(name, variant === "boss"),
       );
       this.themes.set(key, buffer);
-      // Keep at most three rendered loops (about 1.2 MB each at 32 kHz mono).
-      if (this.themes.size > 3)
+      // Keep at most two full loops (boss arrangements) in memory.
+      if (this.themes.size > 2)
         this.themes.delete(this.themes.keys().next().value!);
     }
     return buffer;
+  }
+
+  private stemPair(name: string) {
+    let pair = this.stems.get(name);
+    if (!pair) {
+      pair = import("./music-render").then((m) => m.renderStems(name));
+      this.stems.set(name, pair);
+      // The title and one stage theme: two stem pairs at most.
+      if (this.stems.size > 2)
+        this.stems.delete(this.stems.keys().next().value!);
+    }
+    return pair;
   }
 
   private startTheme(delay: number) {
     const key = this.themeKey;
     try {
       const ctx = this.ensure();
-      void this.theme(key).then((buffer) => {
+      const [name, variant] = key.split(":");
+      const ready: Promise<AudioBuffer[]> =
+        variant === "boss"
+          ? this.theme(key).then((b) => [b])
+          : this.stemPair(name);
+      void ready.then((buffers) => {
         if (key !== this.themeKey || !this.musicOn || this.themeSource) return;
         const at = ctx.currentTime + delay;
-        const source = ctx.createBufferSource(),
-          gain = ctx.createGain();
-        source.buffer = buffer;
-        source.loop = true;
+        const gain = ctx.createGain(),
+          filter = ctx.createBiquadFilter();
+        filter.type = "lowpass";
+        filter.Q.value = 0.5;
+        filter.frequency.value = this.cutoff();
         gain.gain.setValueAtTime(0.0001, at);
         gain.gain.exponentialRampToValueAtTime(
           THEME_GAIN * this.themeLevel,
           at + 1.6,
         );
-        source.connect(gain).connect(this.music!);
-        source.start(at);
-        this.themeSource = source;
+        gain.connect(filter).connect(this.music!);
+        // Stems start on the same sample and share one length: phase-locked.
+        const sources = buffers.map((buffer, i) => {
+          const source = ctx.createBufferSource();
+          source.buffer = buffer;
+          source.loop = true;
+          if (i === 1) {
+            const layer = ctx.createGain();
+            layer.gain.value = this.intensity;
+            source.connect(layer).connect(gain);
+            this.combatGain = layer;
+          } else source.connect(gain);
+          source.start(at);
+          return source;
+        });
+        this.themeSource = sources[0];
+        this.combatSource = sources[1];
         this.themeGain = gain;
+        this.themeFilter = filter;
       });
     } catch {
       // Music is optional.
@@ -283,14 +380,17 @@ export class GameAudio {
 
   private stopTheme(fade: number) {
     const source = this.themeSource,
+      layer = this.combatSource,
       gain = this.themeGain;
-    this.themeSource = this.themeGain = undefined;
+    this.themeSource = this.combatSource = this.themeGain = undefined;
+    this.combatGain = this.themeFilter = undefined;
     if (!source || !gain || !this.ctx) return;
     const now = this.ctx.currentTime;
     gain.gain.cancelScheduledValues(now);
     gain.gain.setValueAtTime(Math.max(0.0001, gain.gain.value), now);
     gain.gain.exponentialRampToValueAtTime(0.0001, now + fade);
     source.stop(now + fade + 0.05);
+    layer?.stop(now + fade + 0.05);
   }
 
   private ensure() {

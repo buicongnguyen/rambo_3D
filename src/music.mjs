@@ -227,3 +227,56 @@ export function composeTheme(name, boss = false) {
 export function themeFor(biome) {
   return THEMES[biome] ? biome : "title";
 }
+
+/** Voices that belong to the combat layer: all percussion. */
+export const COMBAT_VOICES = new Set([
+  "timpani",
+  "boom",
+  "snare",
+  "kick",
+  "taiko",
+  "tom",
+  "bongo",
+  "shaker",
+  "hat",
+  "crash",
+]);
+
+/**
+ * Adaptive music: the stage theme split into two stems that loop in sync.
+ * `base` (melody, strings, pad, bass) always plays; `combat` (all percussion
+ * plus a driving bass ostinato and brass stabs) fades in with combat intensity.
+ * Both share the theme's tempo and length, so they stay phase-locked.
+ */
+export function themeStems(name) {
+  const full = composeTheme(name);
+  const theme = THEMES[name] ?? THEMES.title;
+  const base = full.events.filter((e) => !COMBAT_VOICES.has(e.voice));
+  const combat = full.events.filter((e) => COMBAT_VOICES.has(e.voice));
+  const roots = theme.mode === "major" ? MAJOR_CHORDS : CHORDS;
+  for (let bar = 0; bar < 16; bar++) {
+    const t = bar * 4,
+      chord = triad(theme.mode, roots[bar]);
+    // Driving eighth-note bass an octave above the pedal, accenting the beat.
+    for (let b = 0; b < 4; b += 0.5)
+      combat.push({
+        at: t + b,
+        beats: 0.4,
+        note: theme.root - 12 + chord[0],
+        voice: "bass",
+        velocity: b % 1 ? 0.45 : 0.65,
+      });
+    // Syncopated brass stabs on the chord: the "battle" hits.
+    for (const b of [0, 1.5, 3])
+      for (const semis of chord)
+        combat.push({
+          at: t + b,
+          beats: 0.3,
+          note: theme.root + semis,
+          voice: "brass",
+          velocity: b ? 0.35 : 0.45,
+        });
+  }
+  const stem = (events) => ({ ...full, events });
+  return { base: stem(base), combat: stem(combat) };
+}

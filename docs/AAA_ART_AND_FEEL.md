@@ -88,10 +88,20 @@ The loop is made seamless by folding the release tail into the start and adding 
 | Main-thread cost | 9–22 ms, once per theme |
 | Render time | 1.6–2.9 s on the audio thread |
 | Loop length | 28–40 s |
-| Memory | about 4–5 MB per cached loop (at most three kept) |
+| Memory | about 4–5 MB per cached loop (at most two stem pairs and two boss loops kept) |
 | Loop seam | 0 |
 
 Playback is a single looping buffer source. The briefing pre-renders the next stage theme, and finales pre-render the boss version. The theme dips under stingers and while paused, stops at the result screen, and follows the Music switch.
+
+**Adaptive layers.**
+
+- `themeStems()` splits a stage theme into a **base** stem (melody, strings, pad, bass) and a **combat** stem (all percussion plus a driving eighth-note bass and syncopated brass stabs).
+- `renderStems()` renders both and normalises them with one shared factor, so base plus combat at full intensity peaks where the full mix did.
+- Both loops start on the same sample with identical lengths, so they stay phase-locked. The combat stem has its own gain.
+- The main loop computes intensity about every 90 ms with `combatTarget()` (alerted hostiles within 30 m, seconds since the last shot or hit, being spotted) and smooths it with `smoothIntensity()`: 0.5 s to rise, 3.5 s to settle.
+- A low-pass filter on the theme bus muffles the music below 35% health (`healthMuffle()`) and during the slow-motion kill.
+- Boss arrangements stay single full loops.
+- The cache keeps at most two stem pairs (title and current stage) and two boss loops.
 
 ## Rescue door fix
 
@@ -173,7 +183,19 @@ Character rigs keep the commando joint hierarchy, so `CharacterMotion` animates 
   - Moves over 4 m in one step (spawns, restarts) snap instead of sliding.
   - Blending a Crazy city map (500+ actors) stays under the 4 ms threshold in `tests/ai-pacing.spec.ts`.
 
-## Suggested next steps
+## Cinematic beats
 
-- a boss-intro camera beat and a slow-motion final kill
-- adaptive music layers that follow combat intensity
+`Director` in `src/director.mjs` layers presentation beats over the fixed-step simulation. It is pure and unit-tested. Game.update never sees it, so tests that step the game directly are unaffected. Each frame the main loop asks it whether to hold or slow the simulation and where the camera should look (`world.cameraOverride`). Beats run on wall-clock time, so a slow device never stretches them.
+
+- **Boss intro.**
+  - Triggered when finale bosses spawn: `INTRO` is a 0.6 s pan, a 1.5 s hold and a 0.55 s pan back, zooming to 0.8.
+  - The simulation holds throughout. Letterbox bars and a name card show each boss's name and counter tip, with a new `bossIntro` stinger.
+  - Any key or tap skips to the pan back after 0.4 s. A relay retry skips the intro.
+- **Slow-motion final kill.**
+  - `Game.finalBlow` is set by the kill of the last finale boss, or by the kill that clears the map.
+  - `SLOWMO` runs at quarter speed for 1.5 s, easing back over the last 0.3 s, with the camera leaning 55% toward the kill and zooming to 0.82.
+  - Render interpolation keeps the slowed motion smooth.
+  - When the kill ends the mission, the debrief reveal waits for the beat. The save is still banked at once.
+- **Reduced motion** keeps only the name card: no hold, pan or slow motion.
+
+`tests/director.test.mjs` covers the timelines and the music model. `tests/director.spec.ts` checks the held intro and its skip, the slow-motion before the debrief, and slow motion on the last boss while the finale continues. It also checks that the music stems play looped and in sync, and that the combat layer rises in a firefight.

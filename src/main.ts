@@ -24,6 +24,13 @@ import "./style.css";
 import { World, loadAssets, model } from "./world";
 import { Game, type Input } from "./game";
 import { Interpolator } from "./interpolation.mjs";
+import {
+  Director,
+  SLOWMO,
+  combatTarget,
+  smoothIntensity,
+  healthMuffle,
+} from "./director.mjs";
 import { MISSIONS, COVER, BOSS_NAMES } from "./missions";
 import { freshSave, validateSave, advanceCampaign } from "./rules.mjs";
 const $ = <E extends HTMLElement = HTMLElement>(s: string) =>
@@ -75,7 +82,7 @@ app.innerHTML = `
 <aside class="intel"><div class="intel-top"><span class="live-dot"></span> LIVE RECON <span>SECTOR 07</span></div><div class="intel-map"><div class="scan"></div><div class="coordinate c1">17°04′ N</div><div class="coordinate c2">106°42′ E</div><div class="map-line l1"></div><div class="map-line l2"></div><span class="map-dot d1"></span><span class="map-dot d2"></span><span class="map-dot d3"></span><span class="map-label">KHE SAN VALLEY</span></div><div class="intel-bottom"><span>MISSION BRIEF / <b id="brief-number">01</b></span><h2 id="brief-title">Emerald Killbox</h2><p id="brief-copy"></p><div class="intel-meta"><span>◆ SOLO CAMPAIGN</span><span>● 3D TACTICAL ACTION</span></div></div></aside>
 <section class="campaign" aria-label="Campaign missions"><div class="campaign-heading"><span>CHOOSE YOUR NEXT FRONT</span><span>CAMPAIGN / NIGHTFALL</span></div><div id="mission-cards" class="mission-cards"></div></section>
 <footer class="menu-footer"><span>AN ORIGINAL LOW-POLY COMBAT EXPERIENCE <b id="best-score"></b></span><button id="controls-open">FIELD MANUAL <span>↗</span></button><span>BUILT WITH BLENDER + THREE.JS</span></footer></main>
-<section id="hud" hidden aria-label="Mission status"><div class="hud-top"><div class="objective-panel"><span class="eyebrow" id="mission-label"></span><h2 id="mission-title"></h2><div id="objectives"></div></div><div class="hud-right"><button class="icon-button" id="pause">Ⅱ <span>PAUSE</span></button><canvas id="minimap" width="144" height="144" aria-label="Tactical map: road pale green, player white, enemies orange, weapons purple, medical green, shields blue, relay yellow, prisons and allies cyan, treasure gold"></canvas><span class="map-caption" id="route-direction">NORTHBOUND ROUTE</span></div></div><div id="hud-feed"><div id="boss-panel" hidden><div><b id="boss-name"></b><span id="boss-phase">ARMORED TARGET</span></div><div class="boss-track"><i id="boss-bar"></i></div></div><div id="combat-notice" role="status" hidden></div><div id="interact-prompt" hidden></div><div id="radio" role="status"><span>VALE / RADIO</span><p></p></div></div><div class="hud-bottom"><div class="health-panel"><div class="hud-kicker">GHOST <span id="health-text"></span></div><div class="health-track"><i id="health-bar"></i></div><div id="shield-text" aria-label="Shield, allies and field credits">SHIELD 0 / 80</div><div id="awareness">UNSEEN · FLANK FOR REAR HITS</div><div class="health-meta"><span id="dash-text">DODGE READY</span><span id="score">000000</span></div></div><div class="controls-strip"><button id="turbo" aria-label="Activate Turbo" aria-keyshortcuts="F">F · TURBO READY</button> <kbd>WASD</kbd> MOVE <kbd>B</kbd> BLAST <kbd>SPACE</kbd> AUTO FIRE <kbd>E</kbd> INTERACT <kbd>SHIFT</kbd> DODGE</div><div class="ammo-panel"><div id="weapon-name">M4 / ASSAULT RIFLE</div><strong id="ammo">24</strong><span id="ammo-reserve">/ ∞</span><small id="reload-label">R RELOAD · Q SWITCH</small><button id="weapon-swap" aria-label="Switch weapon" aria-keyshortcuts="Q" title="Press Q to cycle collected weapons">Q - SWAP WEAPON</button></div></div><div id="touch"><div id="move-pad" aria-label="Movement joystick: drag to walk or run" role="group"><span class="stick-nub"></span><small>MOVE</small></div><div class="touch-actions"><button data-action="swap" aria-label="Switch weapon" class="swap-weapon">SWAP WEAPON</button><button data-action="reload">RELOAD</button><button data-action="interact" aria-label="Board or exit nearby vehicle">USE</button><button data-action="dodge">DODGE</button><button data-action="turbo" aria-label="Activate Turbo" class="turbo">TURBO</button><button data-hold="blast" class="blast" aria-label="Target explosive stores" title="Hold to fire at a safe explosive store">BLAST</button><button data-hold="fire" class="fire">FIRE</button></div></div></section>
+<section id="hud" hidden aria-label="Mission status"><div class="hud-top"><div class="objective-panel"><span class="eyebrow" id="mission-label"></span><h2 id="mission-title"></h2><div id="objectives"></div></div><div class="hud-right"><button class="icon-button" id="pause">Ⅱ <span>PAUSE</span></button><canvas id="minimap" width="144" height="144" aria-label="Tactical map: road pale green, player white, enemies orange, weapons purple, medical green, shields blue, relay yellow, prisons and allies cyan, treasure gold"></canvas><span class="map-caption" id="route-direction">NORTHBOUND ROUTE</span></div></div><div id="hud-feed"><div id="boss-panel" hidden><div><b id="boss-name"></b><span id="boss-phase">ARMORED TARGET</span></div><div class="boss-track"><i id="boss-bar"></i></div></div><div id="combat-notice" role="status" hidden></div><div id="interact-prompt" hidden></div><div id="radio" role="status"><span>VALE / RADIO</span><p></p></div></div><div class="hud-bottom"><div class="health-panel"><div class="hud-kicker">GHOST <span id="health-text"></span></div><div class="health-track"><i id="health-bar"></i></div><div id="shield-text" aria-label="Shield, allies and field credits">SHIELD 0 / 80</div><div id="awareness">UNSEEN · FLANK FOR REAR HITS</div><div class="health-meta"><span id="dash-text">DODGE READY</span><span id="score">000000</span></div></div><div class="controls-strip"><button id="turbo" aria-label="Activate Turbo" aria-keyshortcuts="F">F · TURBO READY</button> <kbd>WASD</kbd> MOVE <kbd>B</kbd> BLAST <kbd>SPACE</kbd> AUTO FIRE <kbd>E</kbd> INTERACT <kbd>SHIFT</kbd> DODGE</div><div class="ammo-panel"><div id="weapon-name">M4 / ASSAULT RIFLE</div><strong id="ammo">24</strong><span id="ammo-reserve">/ ∞</span><small id="reload-label">R RELOAD · Q SWITCH</small><button id="weapon-swap" aria-label="Switch weapon" aria-keyshortcuts="Q" title="Press Q to cycle collected weapons">Q - SWAP WEAPON</button></div></div><div id="touch"><div id="move-pad" aria-label="Movement joystick: drag to walk or run" role="group"><span class="stick-nub"></span><small>MOVE</small></div><div class="touch-actions"><button data-action="swap" aria-label="Switch weapon" class="swap-weapon">SWAP WEAPON</button><button data-action="reload">RELOAD</button><button data-action="interact" aria-label="Board or exit nearby vehicle">USE</button><button data-action="dodge">DODGE</button><button data-action="turbo" aria-label="Activate Turbo" class="turbo">TURBO</button><button data-hold="blast" class="blast" aria-label="Target explosive stores" title="Hold to fire at a safe explosive store">BLAST</button><button data-hold="fire" class="fire">FIRE</button></div></div></section><div id="boss-intro" aria-live="polite"><i class="letterbox top"></i><i class="letterbox bottom"></i><div class="boss-card"><span>COMMAND BOSS INBOUND</span><h2 id="boss-intro-name"></h2><p id="boss-intro-tip"></p></div></div>
 <div id="overlay" class="overlay" hidden></div><div id="toast" role="status" hidden></div>`;
 const canvas = $<HTMLCanvasElement>("#scene");
 let world: World, game: Game, feedback: FeedbackUI;
@@ -204,6 +211,11 @@ const stageStars = (stage: number) =>
 function menu() {
   mode = "menu";
   clearInput();
+  clearTimeout(resultTimer);
+  director.reset();
+  if (world) world.cameraOverride = null;
+  audio.setIntensity(0.6);
+  audio.setMuffle(0);
   audio.setThemeLevel(1);
   audio.playTheme("title");
   $("#menu").hidden = false;
@@ -387,6 +399,13 @@ function start(fromRelay = false) {
     world.marker.visible = true;
   }
   interpolator.reset();
+  clearTimeout(resultTimer);
+  director.reset();
+  world.cameraOverride = null;
+  // A relay retry replays the counterattack without replaying the boss intro.
+  introShown = fromRelay;
+  blowSeq = game.finalBlow?.seq ?? 0;
+  musicIntensity = 0;
   mode = "playing";
   $("#menu").hidden = true;
   $("#brand").hidden = true;
@@ -558,43 +577,53 @@ function end(win: boolean) {
     )
     .join("");
   const debrief = `<div class="debrief"><div class="grade" aria-label="${grade.stars} of 3 stars"><div class="grade-stars">${stars}</div><ul>${criteria}</ul></div><div class="tally">${rows}<div class="tally-total"><img src="${uiIcon("coin")}" alt=""><span>BANKED</span><b id="banked" data-total="${banked}">+${banked}</b><em>BALANCE ${save.credits} CREDITS</em></div></div></div>`;
-  showOverlay(
-    `<span class="eyebrow">${win ? "TRANSMISSION RECEIVED" : "SIGNAL LOST"} / 0${game.index + 1}</span><h2>${final ? "Everyone comes home." : win ? "Mission accomplished." : "Not your last stand."}</h2>${win ? debrief : "<p>Use cover to break enemy sightlines. Dodge when orange rings appear, and collect green health drops. Your completed campaign progress is safe.</p>"}<p class="rescue-result">${win ? `${game.rescued} rescued · ${game.squad.allies.length} allies returning · ${game.credits} credits recovered` : "Unbanked mission treasure is lost. Your saved squad and field kit return on retry."}</p><div class="result-stats"><div><b>${game.score.toLocaleString()}</b><span>MISSION SCORE</span></div><div><b>${game.kills}</b><span>TARGETS DOWN</span></div><div><b>${formatTime(game.elapsed)}</b><span>FIELD TIME</span></div></div>${win && !final ? `<span class="eyebrow">CHOOSE YOUR NEXT ADVANTAGE · ARMOR SAVED BY DEFAULT</span><div class="upgrades">${upgrades}</div>` : `${!win && game.checkpoint ? '<button id="result-checkpoint" class="primary">RETRY FROM RELAY <span>↗</span></button>' : ""}<button id="result-primary" class="${!win && game.checkpoint ? "secondary-action" : "primary"}">${win ? "RETURN TO BRIEFING" : "RETRY MISSION"} <span>↗</span></button>`}${!win ? '<button id="result-menu" class="text-button">MISSION BRIEFING</button>' : ""}`,
-    win ? "debrief-modal" : "",
-  );
-  const total = document.querySelector<HTMLElement>("#banked");
-  if (total && !prefs.reduced) {
-    // Count the banked credits up while the stars pop in.
-    const started = performance.now(),
-      target = Number(total.dataset.total);
-    const tick = (now: number) => {
-      const t = Math.min(1, (now - started - 700) / 900);
-      total.textContent = `+${Math.round(target * Math.max(0, t) ** 0.6)}`;
-      if (t < 1 && total.isConnected) requestAnimationFrame(tick);
-    };
-    requestAnimationFrame(tick);
-  }
-  for (const b of document.querySelectorAll<HTMLButtonElement>(
-    "[data-upgrade]",
-  ))
-    b.onclick = () => {
-      if (mode !== "result") return;
-      const chosen = b.dataset.upgrade;
-      if (chosen !== "armor" && chosen !== "power" && chosen !== "mobility")
-        return;
-      if (chosen !== "armor") {
-        save.armor--;
-        save[chosen]++;
-      }
-      write("nightfall-campaign", save);
-      menu();
-    };
-  const primary = document.querySelector<HTMLButtonElement>("#result-primary");
-  if (primary) primary.onclick = win ? menu : () => start();
-  const relay = document.querySelector<HTMLButtonElement>("#result-checkpoint");
-  if (relay) relay.onclick = () => start(true);
-  const back = document.querySelector<HTMLButtonElement>("#result-menu");
-  if (back) back.onclick = menu;
+  const reveal = () => {
+    if (mode !== "result") return;
+    showOverlay(
+      `<span class="eyebrow">${win ? "TRANSMISSION RECEIVED" : "SIGNAL LOST"} / 0${game.index + 1}</span><h2>${final ? "Everyone comes home." : win ? "Mission accomplished." : "Not your last stand."}</h2>${win ? debrief : "<p>Use cover to break enemy sightlines. Dodge when orange rings appear, and collect green health drops. Your completed campaign progress is safe.</p>"}<p class="rescue-result">${win ? `${game.rescued} rescued · ${game.squad.allies.length} allies returning · ${game.credits} credits recovered` : "Unbanked mission treasure is lost. Your saved squad and field kit return on retry."}</p><div class="result-stats"><div><b>${game.score.toLocaleString()}</b><span>MISSION SCORE</span></div><div><b>${game.kills}</b><span>TARGETS DOWN</span></div><div><b>${formatTime(game.elapsed)}</b><span>FIELD TIME</span></div></div>${win && !final ? `<span class="eyebrow">CHOOSE YOUR NEXT ADVANTAGE · ARMOR SAVED BY DEFAULT</span><div class="upgrades">${upgrades}</div>` : `${!win && game.checkpoint ? '<button id="result-checkpoint" class="primary">RETRY FROM RELAY <span>↗</span></button>' : ""}<button id="result-primary" class="${!win && game.checkpoint ? "secondary-action" : "primary"}">${win ? "RETURN TO BRIEFING" : "RETRY MISSION"} <span>↗</span></button>`}${!win ? '<button id="result-menu" class="text-button">MISSION BRIEFING</button>' : ""}`,
+      win ? "debrief-modal" : "",
+    );
+    const total = document.querySelector<HTMLElement>("#banked");
+    if (total && !prefs.reduced) {
+      // Count the banked credits up while the stars pop in.
+      const started = performance.now(),
+        target = Number(total.dataset.total);
+      const tick = (now: number) => {
+        const t = Math.min(1, (now - started - 700) / 900);
+        total.textContent = `+${Math.round(target * Math.max(0, t) ** 0.6)}`;
+        if (t < 1 && total.isConnected) requestAnimationFrame(tick);
+      };
+      requestAnimationFrame(tick);
+    }
+    for (const b of document.querySelectorAll<HTMLButtonElement>(
+      "[data-upgrade]",
+    ))
+      b.onclick = () => {
+        if (mode !== "result") return;
+        const chosen = b.dataset.upgrade;
+        if (chosen !== "armor" && chosen !== "power" && chosen !== "mobility")
+          return;
+        if (chosen !== "armor") {
+          save.armor--;
+          save[chosen]++;
+        }
+        write("nightfall-campaign", save);
+        menu();
+      };
+    const primary =
+      document.querySelector<HTMLButtonElement>("#result-primary");
+    if (primary) primary.onclick = win ? menu : () => start();
+    const relay =
+      document.querySelector<HTMLButtonElement>("#result-checkpoint");
+    if (relay) relay.onclick = () => start(true);
+    const back = document.querySelector<HTMLButtonElement>("#result-menu");
+    if (back) back.onclick = menu;
+  };
+  // The final kill plays out in slow motion before the debrief appears.
+  const blow = game.finalBlow;
+  if (win && blow && game.elapsed - blow.at < 0.2 && !prefs.reduced)
+    resultTimer = window.setTimeout(reveal, SLOWMO.seconds * 1000);
+  else reveal();
 }
 function formatTime(t: number) {
   return `${Math.floor(t / 60)
@@ -898,6 +927,7 @@ $("#weapon-swap").onclick = () => {
   if (mode === "playing") input.swap = true;
 };
 window.addEventListener("keydown", (e) => {
+  if (mode === "playing") director.skipIntro();
   if (e.code === "Tab" && !$("#overlay").hidden) {
     const buttons = Array.from(
       $("#overlay").querySelectorAll<HTMLElement>(
@@ -959,6 +989,7 @@ canvas.addEventListener("pointermove", (e) => {
   $("#crosshair").style.top = `${e.clientY}px`;
 });
 canvas.addEventListener("pointerdown", (e) => {
+  if (mode === "playing") director.skipIntro();
   if (mode === "playing" && e.button === 0) {
     pointer.set(
       (e.clientX / innerWidth) * 2 - 1,
@@ -1014,6 +1045,51 @@ let previous = performance.now(),
   alpha = 1;
 // Smooth motion on 120/144 Hz displays: draw between the last two 60 Hz steps.
 const interpolator = new Interpolator();
+// Cinematic beats (boss intro, slow-motion final kill) and adaptive music.
+const director = new Director();
+let introShown = false,
+  blowSeq = 0,
+  musicIntensity = 0,
+  resultTimer = 0;
+const BOSS_TIPS: Record<string, string> = {
+  gunship: "Lands to rearm: hit it on the ground.",
+  spider: "Climbs cover; strike while it rests.",
+  laserTank: "Leave the laser line before it fires.",
+  quadMech: "Four-gun volleys: flank while the guns cool.",
+  rocketMech: "Missile salvos: leave the orange rings.",
+  missileTruck: "Twin launchers: break line of sight.",
+  skyWraith: "Rocket rain and gun runs: step sideways.",
+  walker: "Three locked lines: sidestep, then hit the vented core.",
+};
+/** Start director beats the simulation just earned, and apply their cues. */
+function directorCues(beat: ReturnType<Director["update"]>) {
+  $("#boss-intro").classList.toggle("show", beat.card);
+  const m = MISSIONS[game.index];
+  if (!introShown && m.finale && game.bossSpawned && game.phase === "playing") {
+    introShown = true;
+    const bosses = game.enemies.filter((e) => e.boss && e.hp > 0);
+    const point = bosses.length
+      ? {
+          x: bosses.reduce((n, e) => n + e.x, 0) / bosses.length,
+          z: bosses.reduce((n, e) => n + e.z, 0) / bosses.length,
+        }
+      : m.bossPos;
+    const kinds = [...new Set(bosses.map((e) => e.bossKind ?? ""))];
+    $("#boss-intro-name").textContent =
+      kinds.map((k) => BOSS_NAMES[k]).join(" + ") || m.boss;
+    $("#boss-intro-tip").textContent = kinds
+      .map((k) => BOSS_TIPS[k] ?? "")
+      .join(" ");
+    director.startIntro(point, prefs.reduced);
+    sound("bossIntro");
+  }
+  const blow = game.finalBlow;
+  if (blow && blow.seq !== blowSeq) {
+    blowSeq = blow.seq;
+    director.startSlowmo(blow, prefs.reduced);
+  }
+  audio.setMuffle(Math.max(healthMuffle(game.hp / game.maxHp), beat.slow));
+}
 function frame(now: number) {
   requestAnimationFrame(frame);
   const frameDelta = Math.max(0, (now - previous) / 1000);
@@ -1035,15 +1111,19 @@ function frame(now: number) {
     ray.setFromCamera(pointer, world.camera);
     ray.ray.intersectPlane(ground, input.aim);
     alpha = 1;
+    // Director beats hold (boss intro) or slow (final kill) the simulation.
+    // They run on wall-clock time, so a slow device never stretches them.
+    const beat = director.update(Math.min(frameDelta, 0.25), game.pos);
+    world.cameraOverride = beat.camera;
     if (game.phase === "dying") {
       // End-screen presentation follows elapsed time even when rendering is slow.
       acc = 0;
       game.update(frameDelta, input);
-    } else if (game.feel.hitStop > 0) {
+    } else if (game.feel.hitStop > 0 || beat.hold) {
       // Hit-stop: hold the simulation for a few frames on heavy impacts.
       acc = 0;
     } else {
-      acc += dt;
+      acc += dt * beat.scale;
       while (acc >= 1 / 60) {
         interpolator.capture(world.actors);
         game.update(1 / 60, input);
@@ -1051,11 +1131,33 @@ function frame(now: number) {
       }
       alpha = acc * 60;
     }
+    directorCues(beat);
     game.feel.decay(dt);
     feedback.update(game, world, $("#crosshair"), prefs.reduced);
     if (now - lastHud > 90) {
+      const tick = Math.min(0.5, (now - lastHud) / 1000);
       updateHud();
       lastHud = now;
+      // Adaptive music: the combat layer follows nearby alerted hostiles,
+      // recent gunfire or damage, and being seen.
+      let alertedNear = 0;
+      for (const e of game.enemies)
+        if (
+          e.hp > 0 &&
+          e.alerted &&
+          Math.hypot(e.x - game.pos.x, e.z - game.pos.z) < 30
+        )
+          alertedNear++;
+      musicIntensity = smoothIntensity(
+        musicIntensity,
+        combatTarget({
+          alertedNear,
+          sinceCombat: game.elapsed - game.lastCombat,
+          spotted: game.spotted,
+        }),
+        tick,
+      );
+      audio.setIntensity(musicIntensity);
       // Command bosses bring the faster, drum-heavy version of the stage theme.
       const mission = MISSIONS[game.index];
       audio.playTheme(
@@ -1066,7 +1168,13 @@ function frame(now: number) {
   } else {
     acc = 0;
     alpha = 1;
-    if (mode === "result") game.updatePresentation(frameDelta);
+    if (mode === "result") {
+      // The slow-motion final kill keeps playing out behind the debrief delay.
+      const beat = director.update(Math.min(frameDelta, 0.25), game.pos);
+      world.cameraOverride = beat.camera;
+      game.updatePresentation(frameDelta * beat.scale);
+      directorCues(beat);
+    }
   }
   $("#crosshair").hidden = mode !== "playing" || !pointerSeen || input.assist;
   world.shake =
@@ -1129,6 +1237,7 @@ async function init() {
         world,
         audio,
         interpolator,
+        director,
       };
   } catch (error) {
     showOverlay(
