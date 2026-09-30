@@ -95,6 +95,9 @@ test("sound and music can be switched off in settings, and cues are cheap to sch
     JSON.parse(localStorage.getItem("nightfall-prefs")!),
   );
   expect(prefs).toMatchObject({ sound: false, music: false });
+  // Leaving a mission asks for a second tap.
+  await page.locator("#to-menu").click();
+  await expect(page.locator("#to-menu")).toHaveText("TAP AGAIN TO LEAVE");
   await page.locator("#to-menu").click();
   await expect(page.locator("#sound")).toHaveText("SOUND OFF");
   await page.locator("#sound").click();

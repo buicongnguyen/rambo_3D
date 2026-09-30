@@ -16,7 +16,12 @@ test("Low reduces rendered detail and preserves the mission when switching", asy
     };
   });
   await page.locator("#pause").click();
-  await page.locator("#setting-low").selectOption("low");
+  // Graphics detail is a LOW / HIGH segmented control inside #setting-low.
+  await page.locator('#setting-low [data-quality="low"]').click();
+  await expect(page.locator('[data-quality="low"]')).toHaveAttribute(
+    "aria-checked",
+    "true",
+  );
   const low = await page.evaluate(() => {
     const { world: w, game: g } = (window as any).__nightfall;
     w.render(0, g.pos, false, false);
@@ -39,7 +44,7 @@ test("Low reduces rendered detail and preserves the mission when switching", asy
   expect(low.soldiers).toBe(before.soldiers);
   expect(low.hp).toBe(before.hp);
   expect(low.smoke).toBe(2);
-  await page.locator("#setting-low").selectOption("high");
+  await page.locator('#setting-low [data-quality="high"]').click();
   expect(
     await page.evaluate(() => (window as any).__nightfall.world.lowDetail),
   ).toBe(false);

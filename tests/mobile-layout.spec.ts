@@ -67,8 +67,9 @@ test("mobile status leaves bottom thumb controls clear across phone sizes", asyn
         overflow: document.documentElement.scrollWidth > innerWidth,
       };
     });
+    // The joystick sits 12 px above the bottom edge (plus any safe area).
     expect(layout, `${width}x${height}`).toEqual({
-      bottom: width > height ? 16 : 20,
+      bottom: 12,
       clear: true,
       overflow: false,
     });

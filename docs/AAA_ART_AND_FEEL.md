@@ -68,6 +68,56 @@ Size and cost: the 44 GLBs now total about 4.2 MB, against 9.2 MB before. Soldie
 
 `src/debrief.mjs` (unit-tested) grades each level with up to three stars: complete it, beat a par time derived from the route length (75 s + 0.9 s per metre, +90 s for finales), and finish above 50% health. The debrief tallies banknotes ×10, gold ×25, diamonds ×75 and 10 credits per star, counts the banked total up and saves each level's best stars; stage cards show ★ n/9. The quartermaster shop presents Field Kit ranks and one-mission weapon supply drops as icon cards with a credit wallet. `art/build_ui_icons.py` renders the stars, coin, treasure, upgrade emblems and weapon icons in Blender from the same kit and GLBs.
 
+## Game UI (UI 2.0)
+
+![Phone UI before](ui-mobile-before.jpg)
+
+![Phone UI after: briefing, quartermaster, settings, HUD](ui-mobile-after.jpg)
+
+The menus used to look like a website: flat dark-green panels, hairline borders and pastel lime, with text-only touch buttons. They now match the vivid, toy-like 3D art.
+
+- **Split of work.** Blender renders the icons (`art/build_hud_icons.py`: seven control glyphs, four settings icons and two menu emblems, 192 KB); CSS builds every frame, button and label. Pre-rendered buttons would blur on 3× phone screens, could not show states and would add download weight. Full rings use a two-loop annulus, so they have no keyhole seam.
+- **Design system** (`src/ui.css`, loaded after `style.css`).
+  - Colours: gold, amber and orange on ink.
+  - Chunky bevelled buttons that press down, and a steel secondary style.
+  - A two-tap red confirm state, rounded glass panels and a coin wallet chip.
+- **Briefing.**
+  - The current stage and level, with its stars, sits above a full-width Deploy button.
+  - Quartermaster, Settings and Field Manual are icon tiles, and difficulty is a segmented control with threat pips.
+  - The stage cards are the stage picker (the hidden select is gone).
+  - On phones in landscape the briefing switches to two columns, so Deploy is always above the fold. Fake filler ("EST. 1985", coordinates) was removed.
+- **Quartermaster.**
+  - A wallet header and a featured Field Kit card with rank pips.
+  - A grid of weapon cards, each with a role tag and IMPACT and RATE bars scaled from the arsenal. The price is on the buy button.
+  - Clear owned (PACKED ✓, green) and locked states.
+- **Settings.** Blender-icon rows, styled switches and a LOW / HIGH segmented control, from both the briefing and the pause screen.
+- **Touch HUD.**
+  - Round buttons carry their icon as a CSS background, so the button stays the hit target and keeps its text label.
+  - FIRE is 96 px; the others sit on two arcs (86 px and 150 px) that never overlap.
+  - Labels are short enough to fit: TURBO 2.4s, 12s, TARGET, MOUNTED.
+  - HUD panels sit clear of the joystick and the action cluster.
+
+**Code and logic review fixes.**
+
+- The briefing rebuilt the 3D battlefield on every refresh, including each shop purchase. It now rebuilds only when the shown mission changes.
+- The shop and settings could open while assets loaded. A purchase then removed the loading label, and the next progress update crashed the game into "Field kit unavailable".
+- The HUD rewrote button text ten times a second, which would also have wiped icons. The interaction prompt rebuilt its HTML every tick and showed "E … / TAP USE" on every device.
+- The keyboard help showed on phones, and Restart or Leave took effect on a single tap.
+- Escape in the briefing returned focus to Deploy, even for the Field Manual or when Deploy was disabled. Focus now returns to whatever opened the overlay.
+- The Deploy label read "DEPLOY TO STAGE" with no number.
+- The stage cards were `<button>`s holding `<div>`, `<h3>` and `<p>`. They now hold phrasing content only and have a concise accessible name.
+- The header SOUND button was 32 px on phones. It is now 44 px.
+- The old touch-grid rules were dead CSS.
+
+`tests/ui.spec.ts` checks:
+
+- Above the fold on 390×844, 844×390 and 360×740: Deploy, the tiles and the header controls, with no clipped labels and no horizontal overflow.
+- Stage cards, and no world rebuild on purchase.
+- Settings from the briefing, and Escape focus.
+- The two-tap Restart, and input-specific help.
+- Round, icon-backed, non-overlapping touch controls in both orientations.
+- Shop states.
+
 ## Sound
 
 `src/audio.ts` synthesizes every cue with Web Audio, using noise bursts, filtered tones and a small brass-and-drums sequencer:

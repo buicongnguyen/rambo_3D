@@ -21,6 +21,7 @@ import {
 } from "./campaign.mjs";
 import * as T from "three";
 import "./style.css";
+import "./ui.css";
 import { World, loadAssets, model } from "./world";
 import { Game, type Input } from "./game";
 import { Interpolator } from "./interpolation.mjs";
@@ -77,12 +78,12 @@ const app = $("#app");
 app.innerHTML = `
 <canvas id="scene" aria-label="Three-dimensional mission battlefield"></canvas>
 <div class="vignette"></div><div id="crosshair" hidden><i></i></div>
-<header id="brand"><a href="#" id="home" aria-label="Operation Nightfall briefing"><span class="brand-mark">R<span>///</span></span><span class="brand-name">RAMBO <b>3D</b><small>OPERATION NIGHTFALL</small></span></a><div class="header-right"><span class="status-dot"></span> FIELD OPERATIONS <span class="divider">/</span> <span>EST. 1985</span><button id="sound" class="icon-button" aria-label="Toggle sound">SOUND ON</button></div></header>
-<main id="menu" class="menu"><section class="hero"><div class="eyebrow"><span></span> BEHIND ENEMY LINES. AGAIN.</div><h1>THE MISSION<br>IS <em>PERSONAL.</em></h1><p class="hero-copy">They left your people behind.<br>You came back for them.</p><div class="hero-rule"></div><div class="operation-line"><span>01—21</span><p>SEVEN STAGES. THREE LEVELS EACH.<br>EVERYONE COMES HOME.</p></div><div id="launch-area"><button class="primary" disabled id="deploy">PREPARING FIELD KIT <span id="load">0%</span></button></div><div class="difficulty"><span>ENGAGEMENT</span><button data-difficulty="easy">EASY</button><button data-difficulty="normal" class="selected">NORMAL</button><button data-difficulty="hard">HARD</button><button data-difficulty="crazy">CRAZY</button></div><p class="small-note" id="difficulty-note">New player? Try Easy. Unlimited rifle reloads in every mode; Hard and Crazy give less special ammo.</p><label class="stage-picker">STAGE <select id="stage-select" aria-label="Choose stage"></select></label></section>
-<aside class="intel"><div class="intel-top"><span class="live-dot"></span> LIVE RECON <span>SECTOR 07</span></div><div class="intel-map"><div class="scan"></div><div class="coordinate c1">17°04′ N</div><div class="coordinate c2">106°42′ E</div><div class="map-line l1"></div><div class="map-line l2"></div><span class="map-dot d1"></span><span class="map-dot d2"></span><span class="map-dot d3"></span><span class="map-label">KHE SAN VALLEY</span></div><div class="intel-bottom"><span>MISSION BRIEF / <b id="brief-number">01</b></span><h2 id="brief-title">Emerald Killbox</h2><p id="brief-copy"></p><div class="intel-meta"><span>◆ SOLO CAMPAIGN</span><span>● 3D TACTICAL ACTION</span></div></div></aside>
+<header id="brand"><a href="#" id="home" aria-label="Operation Nightfall briefing"><span class="brand-mark">R<span>///</span></span><span class="brand-name">RAMBO <b>3D</b><small>OPERATION NIGHTFALL</small></span></a><div class="header-right"><span id="wallet-chip" class="wallet-chip" title="Credits"><i aria-hidden="true"></i><b id="wallet-credits">0</b><small>CREDITS</small></span><button id="sound" class="icon-button sound-toggle" aria-label="Toggle sound">SOUND ON</button></div></header>
+<main id="menu" class="menu"><section class="hero"><div class="eyebrow"><span></span> BEHIND ENEMY LINES. AGAIN.</div><h1>THE MISSION <br>IS <em>PERSONAL.</em></h1><p class="hero-copy">They left your people behind.<br>You came back for them.</p><div class="hero-rule"></div><div class="operation-line"><span>01—21</span><p>SEVEN STAGES. THREE LEVELS EACH.<br>EVERYONE COMES HOME.</p></div><div id="launch-area"><button class="primary" disabled id="deploy">PREPARING FIELD KIT <span id="load">0%</span></button></div><div class="menu-tiles"><button id="field-shop" class="tile" disabled><img src="${import.meta.env.BASE_URL}ui/field-kit.png" alt=""><b>QUARTERMASTER</b><small id="shop-tile-note">FIELD KIT</small></button><button id="menu-settings" class="tile" disabled><img src="${import.meta.env.BASE_URL}ui/menu-settings.png" alt=""><b>SETTINGS</b><small>SOUND · GRAPHICS</small></button><button id="controls-open" class="tile"><img src="${import.meta.env.BASE_URL}ui/menu-manual.png" alt=""><b>FIELD MANUAL</b><small>CONTROLS · TIPS</small></button></div><div class="difficulty" role="group" aria-label="Engagement"><span>ENGAGEMENT</span><button data-difficulty="easy">EASY</button><button data-difficulty="normal" class="selected">NORMAL</button><button data-difficulty="hard">HARD</button><button data-difficulty="crazy">CRAZY</button></div><p class="small-note" id="difficulty-note">New player? Try Easy. Unlimited rifle reloads in every mode; Hard and Crazy give less special ammo.</p></section>
+<aside class="intel"><div class="intel-top"><span class="live-dot"></span> LIVE RECON <span id="intel-stage">STAGE 1</span></div><div class="intel-map"><div class="scan"></div><div class="map-line l1"></div><div class="map-line l2"></div><span class="map-dot d1"></span><span class="map-dot d2"></span><span class="map-dot d3"></span><span class="map-label">KHE SAN VALLEY</span></div><div class="intel-bottom"><span>MISSION BRIEF / <b id="brief-number">01</b></span><h2 id="brief-title">Emerald Killbox</h2><p id="brief-copy"></p><div class="intel-meta"><span>◆ SOLO CAMPAIGN</span><span>● 3D TACTICAL ACTION</span></div></div></aside>
 <section class="campaign" aria-label="Campaign missions"><div class="campaign-heading"><span>CHOOSE YOUR NEXT FRONT</span><span>CAMPAIGN / NIGHTFALL</span></div><div id="mission-cards" class="mission-cards"></div></section>
-<footer class="menu-footer"><span>AN ORIGINAL LOW-POLY COMBAT EXPERIENCE <b id="best-score"></b></span><button id="controls-open">FIELD MANUAL <span>↗</span></button><span>BUILT WITH BLENDER + THREE.JS</span></footer></main>
-<section id="hud" hidden aria-label="Mission status"><div class="hud-top"><div class="objective-panel"><span class="eyebrow" id="mission-label"></span><h2 id="mission-title"></h2><div id="objectives"></div></div><div class="hud-right"><button class="icon-button" id="pause">Ⅱ <span>PAUSE</span></button><canvas id="minimap" width="144" height="144" aria-label="Tactical map: road pale green, player white, enemies orange, weapons purple, medical green, shields blue, relay yellow, prisons and allies cyan, treasure gold"></canvas><span class="map-caption" id="route-direction">NORTHBOUND ROUTE</span></div></div><div id="hud-feed"><div id="boss-panel" hidden><div><b id="boss-name"></b><span id="boss-phase">ARMORED TARGET</span></div><div class="boss-track"><i id="boss-bar"></i></div></div><div id="combat-notice" role="status" hidden></div><div id="interact-prompt" hidden></div><div id="radio" role="status"><span>VALE / RADIO</span><p></p></div></div><div class="hud-bottom"><div class="health-panel"><div class="hud-kicker">GHOST <span id="health-text"></span></div><div class="health-track"><i id="health-bar"></i></div><div id="shield-text" aria-label="Shield, allies and field credits">SHIELD 0 / 80</div><div id="awareness">UNSEEN · FLANK FOR REAR HITS</div><div class="health-meta"><span id="dash-text">DODGE READY</span><span id="score">000000</span></div></div><div class="controls-strip"><button id="turbo" aria-label="Activate Turbo" aria-keyshortcuts="F">F · TURBO READY</button> <kbd>WASD</kbd> MOVE <kbd>B</kbd> BLAST <kbd>SPACE</kbd> AUTO FIRE <kbd>E</kbd> INTERACT <kbd>SHIFT</kbd> DODGE</div><div class="ammo-panel"><div id="weapon-name">M4 / ASSAULT RIFLE</div><strong id="ammo">24</strong><span id="ammo-reserve">/ ∞</span><small id="reload-label">R RELOAD · Q SWITCH</small><button id="weapon-swap" aria-label="Switch weapon" aria-keyshortcuts="Q" title="Press Q to cycle collected weapons">Q - SWAP WEAPON</button></div></div><div id="touch"><div id="move-pad" aria-label="Movement joystick: drag to walk or run" role="group"><span class="stick-nub"></span><small>MOVE</small></div><div class="touch-actions"><button data-action="swap" aria-label="Switch weapon" class="swap-weapon">SWAP WEAPON</button><button data-action="reload">RELOAD</button><button data-action="interact" aria-label="Board or exit nearby vehicle">USE</button><button data-action="dodge">DODGE</button><button data-action="turbo" aria-label="Activate Turbo" class="turbo">TURBO</button><button data-hold="blast" class="blast" aria-label="Target explosive stores" title="Hold to fire at a safe explosive store">BLAST</button><button data-hold="fire" class="fire">FIRE</button></div></div></section><div id="boss-intro" aria-live="polite"><i class="letterbox top"></i><i class="letterbox bottom"></i><div class="boss-card"><span>COMMAND BOSS INBOUND</span><h2 id="boss-intro-name"></h2><p id="boss-intro-tip"></p></div></div>
+<footer class="menu-footer"><span>AN ORIGINAL LOW-POLY COMBAT EXPERIENCE <b id="best-score"></b></span><span>BUILT WITH BLENDER + THREE.JS</span></footer></main>
+<section id="hud" hidden aria-label="Mission status"><div class="hud-top"><div class="objective-panel"><span class="eyebrow" id="mission-label"></span><h2 id="mission-title"></h2><div id="objectives"></div></div><div class="hud-right"><button class="icon-button" id="pause">Ⅱ <span>PAUSE</span></button><canvas id="minimap" width="144" height="144" aria-label="Tactical map: road pale green, player white, enemies orange, weapons purple, medical green, shields blue, relay yellow, prisons and allies cyan, treasure gold"></canvas><span class="map-caption" id="route-direction">NORTHBOUND ROUTE</span></div></div><div id="hud-feed"><div id="boss-panel" hidden><div><b id="boss-name"></b><span id="boss-phase">ARMORED TARGET</span></div><div class="boss-track"><i id="boss-bar"></i></div></div><div id="combat-notice" role="status" hidden></div><div id="interact-prompt" hidden></div><div id="radio" role="status"><span>VALE / RADIO</span><p></p></div></div><div class="hud-bottom"><div class="health-panel"><div class="hud-kicker">GHOST <span id="health-text"></span></div><div class="health-track"><i id="health-bar"></i></div><div id="shield-text" aria-label="Shield, allies and field credits">SHIELD 0 / 80</div><div id="awareness">UNSEEN · FLANK FOR REAR HITS</div><div class="health-meta"><span id="dash-text">DODGE READY</span><span id="score">000000</span></div></div><div class="controls-strip"><button id="turbo" aria-label="Activate Turbo" aria-keyshortcuts="F">F · TURBO READY</button> <kbd>WASD</kbd> MOVE <kbd>B</kbd> BLAST <kbd>SPACE</kbd> AUTO FIRE <kbd>E</kbd> INTERACT <kbd>SHIFT</kbd> DODGE</div><div class="ammo-panel"><div id="weapon-name">M4 / ASSAULT RIFLE</div><strong id="ammo">24</strong><span id="ammo-reserve">/ ∞</span><small id="reload-label">R RELOAD · Q SWITCH</small><button id="weapon-swap" aria-label="Switch weapon" aria-keyshortcuts="Q" title="Press Q to cycle collected weapons">Q - SWAP WEAPON</button></div></div><div id="touch"><div id="move-pad" aria-label="Movement joystick: drag to walk or run" role="group"><span class="stick-nub"></span><small>MOVE</small></div><div class="touch-actions"><button data-action="swap" aria-label="Switch weapon" class="swap-weapon">SWAP</button><button data-action="reload" aria-label="Reload">RELOAD</button><button data-action="interact" aria-label="Board, exit or use">USE</button><button data-action="dodge" aria-label="Dodge roll">DODGE</button><button data-action="turbo" aria-label="Activate Turbo" class="turbo">TURBO</button><button data-hold="blast" class="blast" aria-label="Target explosive stores" title="Hold to fire at a safe explosive store">BLAST</button><button data-hold="fire" class="fire" aria-label="Fire">FIRE</button></div></div></section><div id="boss-intro" aria-live="polite"><i class="letterbox top"></i><i class="letterbox bottom"></i><div class="boss-card"><span>COMMAND BOSS INBOUND</span><h2 id="boss-intro-name"></h2><p id="boss-intro-tip"></p></div></div>
 <div id="overlay" class="overlay" hidden></div><div id="toast" role="status" hidden></div>`;
 const canvas = $<HTMLCanvasElement>("#scene");
 let world: World, game: Game, feedback: FeedbackUI;
@@ -206,6 +207,38 @@ $("#sound").onclick = () => {
 syncSound();
 /** Blender-rendered UI icons live in public/ui. */
 const uiIcon = (name: string) => `${import.meta.env.BASE_URL}ui/${name}.png`;
+// Touch controls draw their Blender icons as CSS backgrounds (the button stays
+// the hit target and keeps its text label), resolved against the Pages base.
+for (const name of [
+  "hud-fire",
+  "hud-reload",
+  "hud-swap",
+  "hud-dodge",
+  "hud-turbo",
+  "hud-blast",
+  "hud-use",
+  "coin",
+])
+  document.documentElement.style.setProperty(
+    `--icon-${name}`,
+    `url("${uiIcon(name)}")`,
+  );
+/** The round touch Turbo button: "TURBO 2.4s" while active, else a short state. */
+function shortTurbo(label: string) {
+  if (/^TURBO \d/.test(label)) return label;
+  if (label === "TURBO READY") return "TURBO";
+  return label
+    .replace("TURBO / ", "")
+    .replace("PRIMARY EMPTY", "EMPTY")
+    .replace("NEED 2 GUNS", "2 GUNS");
+}
+/** Update text only when it changes: the HUD refreshes ten times a second. */
+function setText(el: Element, text: string) {
+  if (el.textContent !== text) el.textContent = text;
+}
+const coarsePointer = matchMedia("(pointer: coarse)");
+/** Mission index whose battlefield the briefing currently shows. */
+let builtIndex = -1;
 const stageStars = (stage: number) =>
   [0, 1, 2].reduce((n, level) => n + (save.stars[stage * 3 + level] ?? 0), 0);
 function menu() {
@@ -228,7 +261,10 @@ function menu() {
     m = MISSIONS[index];
   // Render the next stage theme while the briefing is open.
   audio.prefetch(themeFor(m.biome));
-  if (ready) {
+  // Rebuild the briefing battlefield only when the shown mission changes (not
+  // on every shop purchase or menu refresh): a rebuild is a visible hitch on phones.
+  if (ready && builtIndex !== index) {
+    builtIndex = index;
     game.cleanup();
     world.build(index);
     world.marker.visible = true;
@@ -237,6 +273,16 @@ function menu() {
       model(m.bossModel, 4, -14, 0.85),
     );
   }
+  // The shop and settings open once assets are ready (a purchase re-renders
+  // the briefing, which must not race the loading progress label).
+  $<HTMLButtonElement>("#field-shop").disabled = !ready;
+  $<HTMLButtonElement>("#menu-settings").disabled = !ready;
+  setText($("#wallet-credits"), save.credits.toLocaleString());
+  setText($("#intel-stage"), `STAGE ${m.stage + 1}`);
+  setText(
+    $("#shop-tile-note"),
+    `FIELD KIT ${save.fieldKit}/3 · ${save.squad} ALL${save.squad === 1 ? "Y" : "IES"}${save.loadout.length ? ` · ${save.loadout.length} PACKED` : ""}`,
+  );
   $("#best-score").textContent = save.best
     ? " / BEST " + save.best.toLocaleString()
     : "";
@@ -244,24 +290,33 @@ function menu() {
   $("#brief-title").textContent = m.name;
   $(".map-label").textContent = m.region;
   $("#brief-copy").textContent = m.brief;
+  // Stage cards are the stage picker (buttons hold phrasing content only).
   $("#mission-cards").innerHTML = STAGES.map(
     (stage, i) =>
-      `<article class="mission-card ${i === m.stage ? "active" : ""}"><div class="card-num">${i + 1}</div><div><span class="card-tag">THREE LEVELS / BOSS FINALE · <i class="card-stars">★ ${stageStars(i)}/9</i></span><h3>${stage.name}</h3><p>${stage.tip}</p></div></article>`,
+      `<button class="mission-card ${i === m.stage ? "active" : ""}" data-stage="${i}" aria-pressed="${i === m.stage}" aria-label="Stage ${i + 1}: ${stage.name}, ${stageStars(i)} of 9 stars"><span class="card-num">${i + 1}</span><span class="card-body"><span class="card-tag">THREE LEVELS / BOSS FINALE · <i class="card-stars">★ ${stageStars(i)}/9</i></span><strong class="card-title">${stage.name}</strong><span class="card-tip">${stage.tip}</span></span></button>`,
   ).join("");
-  const picker = $<HTMLSelectElement>("#stage-select");
-  picker.innerHTML = STAGES.map(
-    (stage, i) =>
-      `<option value="${i}" ${i === m.stage ? "selected" : ""}>${i + 1}. ${stage.name} · ★${stageStars(i)}</option>`,
-  ).join("");
-  picker.onchange = () => {
-    const pick = Number(picker.value) * 3;
-    // Re-picking the stage you are already on keeps the saved level.
-    previewMission =
-      !save.completed && pick === Math.floor(save.mission / 3) * 3
-        ? undefined
-        : pick;
-    menu();
-  };
+  for (const card of document.querySelectorAll<HTMLButtonElement>(
+    "#mission-cards [data-stage]",
+  ))
+    card.onclick = () => {
+      const stage = Number(card.dataset.stage);
+      if (stage === m.stage) return;
+      // Re-picking the stage you are already on keeps the saved level.
+      previewMission =
+        !save.completed && stage === Math.floor(save.mission / 3)
+          ? undefined
+          : stage * 3;
+      menu();
+      $<HTMLButtonElement>(`#mission-cards [data-stage="${stage}"]`).focus();
+    };
+  // Centre the current stage in the card strip without scrolling the page.
+  const strip = $("#mission-cards"),
+    activeCard = strip.querySelector<HTMLElement>(".mission-card.active");
+  if (activeCard) {
+    const card = activeCard.getBoundingClientRect(),
+      lane = strip.getBoundingClientRect();
+    strip.scrollLeft += card.left - lane.left - (lane.width - card.width) / 2;
+  }
   document
     .querySelectorAll<HTMLButtonElement>("[data-difficulty]")
     .forEach((b) => {
@@ -278,75 +333,10 @@ function menu() {
         ? "REPLAY CAMPAIGN"
         : save.mission > 0
           ? "CONTINUE OPERATION"
-          : "DEPLOY TO STAGE";
+          : "DEPLOY · STAGE 1";
+  const levelStars = save.stars[index] ?? 0;
   $("#launch-area").innerHTML =
-    `<button class="primary" id="deploy" ${ready ? "" : "disabled"}>${deployLabel} <span>↗</span></button>${previewMission !== undefined && (save.mission > 0 || save.completed) ? '<p class="small-note" id="stage-switch-note">Starts this stage at level 1. Credits, Field Kit and squad carry over; level upgrades restart.</p>' : ""}${save.mission > 0 && !save.completed ? '<button class="text-button" id="new-campaign">START NEW CAMPAIGN</button>' : ""}`;
-  const price = fieldKitCost(save);
-  $("#launch-area").insertAdjacentHTML(
-    "beforeend",
-    `<button class="text-button field-shop" id="field-shop">QUARTERMASTER · FIELD KIT ${save.fieldKit}/3 · ${save.credits} CREDITS · ${save.squad} ALLIES${save.loadout.length ? ` · ${save.loadout.length} SUPPLY DROP${save.loadout.length > 1 ? "S" : ""}` : ""}</button>`,
-  );
-  $("#field-shop").onclick = () => {
-    const kitReady = price !== null && save.credits >= price;
-    const card = (
-      icon: string,
-      title: string,
-      detail: string,
-      cost: string,
-      button: string,
-      state = "",
-    ) =>
-      `<article class="shop-card ${state}"><img src="${uiIcon(icon)}" alt=""><div><b>${title}</b><span>${detail}</span></div><div class="shop-buy">${button}<small>${cost}</small></div></article>`;
-    const supplies = SUPPLIES.map((item) => {
-      const owned = save.loadout.includes(item.id),
-        affordable = save.credits >= item.price,
-        name = WEAPONS[item.weapon].name;
-      return card(
-        "weapon-" + item.id,
-        name,
-        owned
-          ? "Packed: dropped with you at every deployment until you complete a mission."
-          : "Supply drop: starts your next deployment with this weapon and reserve magazines.",
-        owned ? "PACKED" : `${item.price} CREDITS`,
-        `<button data-buy="${item.id}" ${owned || !affordable ? "disabled" : ""} aria-label="Buy ${name} for ${item.price} credits">${owned ? "✓" : "BUY"}</button>`,
-        owned ? "owned" : affordable ? "" : "locked",
-      );
-    }).join("");
-    showOverlay(
-      `<span class="eyebrow">QUARTERMASTER</span><h2>Gear up for the next drop.</h2><div class="wallet"><img src="${uiIcon("coin")}" alt=""><b>${save.credits}</b><span>CREDITS</span><em>Banknote 10 · Gold 25 · Diamond 75 · ${STAR_BONUS} per star</em></div><div class="shop-grid">${card(
-        "field-kit",
-        `FIELD KIT RANK ${save.fieldKit}/3`,
-        "Permanent: +10 starting shield and one extra frag grenade every mission, including retries.",
-        price === null ? "MAXED" : `${price} CREDITS`,
-        `<button class="primary" id="buy-kit" ${kitReady ? "" : "disabled"}>${price === null ? "MAXED" : "UPGRADE"}</button>`,
-        price === null ? "owned" : kitReady ? "featured" : "featured locked",
-      )}${supplies}</div><button class="text-button" id="close-shop">RETURN TO BRIEFING</button>`,
-      "shop-modal",
-    );
-    $("#close-shop").focus();
-    const reopen = () => {
-      write("nightfall-campaign", save);
-      menu();
-      $("#field-shop").click();
-    };
-    $("#buy-kit").onclick = () => {
-      if (!kitReady || mode !== "menu") return;
-      save = buyFieldKit(save);
-      reopen();
-    };
-    for (const button of document.querySelectorAll<HTMLButtonElement>(
-      "[data-buy]",
-    ))
-      button.onclick = () => {
-        if (mode !== "menu") return;
-        save = buySupply(save, button.dataset.buy!);
-        reopen();
-      };
-    $("#close-shop").onclick = () => {
-      $("#overlay").hidden = true;
-      $("#field-shop").focus();
-    };
-  };
+    `<div class="mission-now"><span>STAGE ${m.stage + 1} · LEVEL ${m.level + 1} / 3${m.finale ? " · BOSS FINALE" : ""}</span><b>${m.name}</b><i aria-label="${levelStars} of 3 stars">${"★".repeat(levelStars)}${"☆".repeat(3 - levelStars)}</i></div><button class="primary" id="deploy" ${ready ? "" : "disabled"}>${deployLabel} <span>↗</span></button>${previewMission !== undefined && (save.mission > 0 || save.completed) ? '<p class="small-note" id="stage-switch-note">Starts this stage at level 1. Credits, Field Kit and squad carry over; level upgrades restart.</p>' : ""}${save.mission > 0 && !save.completed ? '<button class="text-button" id="new-campaign">START NEW CAMPAIGN</button>' : ""}`;
   $("#deploy").onclick = () => {
     // Changing stage or replaying restarts level progression, but recovered
     // treasure, permanent Field Kit ranks and rescued allies are kept.
@@ -387,6 +377,138 @@ function menu() {
       };
     };
 }
+/** Shop stat bars: per-shot impact and fire rate, relative to the arsenal. */
+const SUPPLY_ROLES: Record<string, string> = {
+  shotgun: "CLOSE RANGE",
+  machineGun: "SUPPRESSION",
+  launcher: "SPLASH",
+  missile: "ANTI-ARMOR",
+  laser: "PIERCING",
+};
+// Scales come from the player's arsenal, so rebalancing never pins a bar.
+const SHOP_WEAPONS = [WEAPONS[0], ...SUPPLIES.map((s) => WEAPONS[s.weapon])];
+const MAX_IMPACT = Math.max(...SHOP_WEAPONS.map((w) => w.damage * w.pellets));
+const MAX_RATE = Math.max(...SHOP_WEAPONS.map((w) => 1 / w.cool));
+function statBar(label: string, value: number) {
+  const pct = Math.round(Math.min(1, Math.max(0.08, value)) * 100);
+  return `<span class="stat"><em>${label}</em><i style="--v:${pct}%"></i></span>`;
+}
+/** The quartermaster: permanent Field Kit ranks and one-mission supply drops. */
+function openShop() {
+  if (!ready || mode !== "menu") return;
+  const price = fieldKitCost(save);
+  const kitReady = price !== null && save.credits >= price;
+  const coin = `<img class="coin" src="${uiIcon("coin")}" alt="">`;
+  const pips = [0, 1, 2]
+    .map((r) => `<i class="${r < save.fieldKit ? "on" : ""}"></i>`)
+    .join("");
+  const kit = `<article class="shop-card featured ${price === null ? "owned" : kitReady ? "" : "locked"}"><img src="${uiIcon("field-kit")}" alt=""><div class="shop-info"><b>FIELD KIT</b><span class="rank-pips" aria-label="Rank ${save.fieldKit} of 3">${pips}</span><span class="perk">+10 starting shield and +1 frag grenade every mission, retries included.</span></div><button class="primary buy" id="buy-kit" ${kitReady ? "" : "disabled"} aria-label="${price === null ? "Field Kit maxed" : `Upgrade Field Kit for ${price} credits`}">${price === null ? "MAXED ✓" : `${coin}${price}`}</button></article>`;
+  const supplies = SUPPLIES.map((item) => {
+    const spec = WEAPONS[item.weapon],
+      owned = save.loadout.includes(item.id),
+      affordable = save.credits >= item.price;
+    return `<article class="shop-card ${owned ? "owned" : affordable ? "" : "locked"}"><span class="role">${SUPPLY_ROLES[item.id] ?? ""}</span><img src="${uiIcon("weapon-" + item.id)}" alt=""><b>${spec.name}</b>${statBar("IMPACT", (spec.damage * spec.pellets) / MAX_IMPACT)}${statBar("RATE", Math.log(1 / spec.cool) / Math.log(MAX_RATE))}<button class="${owned ? "steel" : "primary"} buy" data-buy="${item.id}" ${owned || !affordable ? "disabled" : ""} aria-label="${owned ? `${spec.name} packed` : `Buy ${spec.name} for ${item.price} credits`}">${owned ? "PACKED ✓" : `${coin}${item.price}`}</button></article>`;
+  }).join("");
+  showOverlay(
+    `<div class="modal-head"><span class="eyebrow">QUARTERMASTER</span><button class="steel close" id="close-shop" aria-label="Return to briefing">BACK</button></div><h2>Gear up.</h2><div class="wallet">${coin}<b>${save.credits.toLocaleString()}</b><span>CREDITS</span><em>Banknote 10 · Gold 25 · Diamond 75 · ${STAR_BONUS} per star</em></div>${kit}<p class="shop-note">Supply drops start your next deployments with the weapon and spare magazines, until you win a mission.</p><div class="shop-grid">${supplies}</div>`,
+    "shop-modal",
+  );
+  const bought = () => {
+    write("nightfall-campaign", save);
+    menu();
+    openShop();
+  };
+  $("#buy-kit").onclick = () => {
+    if (!kitReady || mode !== "menu") return;
+    save = buyFieldKit(save);
+    bought();
+  };
+  for (const button of document.querySelectorAll<HTMLButtonElement>(
+    "[data-buy]",
+  ))
+    button.onclick = () => {
+      if (mode !== "menu") return;
+      save = buySupply(save, button.dataset.buy!);
+      bought();
+    };
+  $("#close-shop").onclick = () => {
+    $("#overlay").hidden = true;
+    $("#field-shop").focus();
+  };
+  $("#close-shop").focus();
+}
+$("#field-shop").onclick = openShop;
+/** Settings rows shared by the briefing's Settings and the pause screen. */
+function settingsRows() {
+  const row = (
+    id: string,
+    icon: string,
+    label: string,
+    note: string,
+    on: boolean,
+  ) =>
+    `<label class="setting"><img src="${uiIcon(icon)}" alt=""><span><b>${label}</b><small>${note}</small></span><input id="${id}" type="checkbox" role="switch" ${on ? "checked" : ""}></label>`;
+  return `<div class="settings">${row("setting-sound", "set-sound", "Sound effects", "Weapons, blasts and cues", prefs.sound)}${row("setting-music", "set-music", "Music", "Stage themes that follow the fight", prefs.music)}<div class="setting"><img src="${uiIcon("set-graphics")}" alt=""><span><b>Graphics detail</b><small>Low saves battery on phones</small></span><div class="segmented" id="setting-low" role="radiogroup" aria-label="Graphics detail"><button type="button" role="radio" data-quality="low" aria-checked="${prefs.low}">LOW</button><button type="button" role="radio" data-quality="high" aria-checked="${!prefs.low}">HIGH</button></div></div>${row("setting-motion", "set-motion", "Reduce camera motion", "No shake, camera pans or slow motion", prefs.reduced)}</div>`;
+}
+function bindSettings() {
+  $<HTMLInputElement>("#setting-sound").onchange = (e) => {
+    prefs.sound = (e.target as HTMLInputElement).checked;
+    syncSound();
+  };
+  $<HTMLInputElement>("#setting-music").onchange = (e) => {
+    prefs.music = (e.target as HTMLInputElement).checked;
+    syncSound();
+  };
+  for (const b of document.querySelectorAll<HTMLButtonElement>(
+    "[data-quality]",
+  ))
+    b.onclick = () => {
+      prefs.low = b.dataset.quality === "low";
+      world.quality(prefs.low);
+      write("nightfall-prefs", { ...prefs, difficulty });
+      for (const other of document.querySelectorAll("[data-quality]"))
+        other.setAttribute("aria-checked", String(other === b));
+    };
+  $<HTMLInputElement>("#setting-motion").onchange = (e) => {
+    prefs.reduced = (e.target as HTMLInputElement).checked;
+    write("nightfall-prefs", { ...prefs, difficulty });
+  };
+}
+$("#menu-settings").onclick = () => {
+  if (!ready || mode !== "menu") return;
+  showOverlay(
+    `<div class="modal-head"><span class="eyebrow">SETTINGS</span></div><h2>Field configuration.</h2>${settingsRows()}<button class="primary" id="close-settings">DONE <span>✓</span></button>`,
+    "settings-modal",
+  );
+  bindSettings();
+  $("#close-settings").onclick = () => {
+    $("#overlay").hidden = true;
+    $("#menu-settings").focus();
+  };
+};
+/** Destructive pause actions ask for a second tap within three seconds. */
+function confirmTap(
+  button: HTMLButtonElement,
+  prompt: string,
+  act: () => void,
+) {
+  const label = button.textContent ?? "";
+  let armed = 0;
+  button.onclick = () => {
+    if (armed) {
+      clearTimeout(armed);
+      act();
+      return;
+    }
+    button.textContent = prompt;
+    button.classList.add("confirm");
+    armed = window.setTimeout(() => {
+      armed = 0;
+      button.textContent = label;
+      button.classList.remove("confirm");
+    }, 3000);
+  };
+}
 function start(fromRelay = false) {
   if (!ready) return;
   interactionHint.reset();
@@ -399,6 +521,7 @@ function start(fromRelay = false) {
     world.marker.visible = true;
   }
   interpolator.reset();
+  builtIndex = -1; // A mission rebuilds the battlefield; the briefing must too.
   clearTimeout(resultTimer);
   director.reset();
   world.cameraOverride = null;
@@ -421,8 +544,13 @@ function start(fromRelay = false) {
   if (mission.finale) audio.prefetch(themeFor(mission.biome), true);
   canvas.focus();
 }
+/** The control that opened the current overlay, to return focus on close. */
+let overlayOpener: HTMLElement | null = null;
 function showOverlay(html: string, variant = "") {
   const overlay = $("#overlay");
+  const active = document.activeElement as HTMLElement | null;
+  if (active && !overlay.contains(active) && active !== document.body)
+    overlayOpener = active;
   overlay.innerHTML = `<section class="modal ${variant}" role="dialog" aria-modal="true" aria-label="Mission panel">${html}</section>`;
   overlay.hidden = false;
   overlay.querySelector<HTMLButtonElement>("button:not(:disabled)")?.focus();
@@ -432,29 +560,17 @@ function pause() {
   mode = "paused";
   clearInput();
   audio.setThemeLevel(0.35);
+  const m = MISSIONS[game.index];
   showOverlay(
-    `<span class="eyebrow">SIGNAL ON HOLD</span><h2>Take a breath.</h2><p>The battlefield will wait.</p><button id="resume" class="primary">RESUME OPERATION <span>↗</span></button><div class="settings"><label><span>Sound effects</span><input id="setting-sound" type="checkbox" ${prefs.sound ? "checked" : ""}></label><label><span>Music</span><input id="setting-music" type="checkbox" ${prefs.music ? "checked" : ""}></label><label><span>Graphics detail</span><select id="setting-low" aria-label="Graphics detail"><option value="low" ${prefs.low ? "selected" : ""}>Low · Mobile / battery saver</option><option value="high" ${!prefs.low ? "selected" : ""}>High · PC / detailed visuals</option></select></label><label><span>Reduce camera motion</span><input id="setting-motion" type="checkbox" ${prefs.reduced ? "checked" : ""}></label></div><div class="modal-actions"><button id="restart">RESTART MISSION</button><button id="to-menu">MISSION BRIEFING</button></div><p class="small-note">WASD / arrows move · Mouse aims · Click / Space fires<br>R reload · Q switch · B target explosives · E interact · Shift dodge · Esc pause</p>`,
+    `<span class="eyebrow">PAUSED · STAGE ${m.stage + 1} · LEVEL ${m.level + 1}</span><h2>Take a breath.</h2><p>The battlefield will wait.</p><button id="resume" class="primary">RESUME OPERATION <span>↗</span></button>${settingsRows()}<div class="modal-actions"><button id="restart" class="steel">RESTART MISSION</button><button id="to-menu" class="steel">MISSION BRIEFING</button></div><p class="small-note help-keys">WASD / arrows move · Mouse aims · Click / Space fires<br>R reload · Q switch · B target explosives · E interact · Shift dodge · Esc pause</p><p class="small-note help-touch">Left pad moves · FIRE aims for you · SWAP cycles weapons · hold BLAST to target fuel · USE boards vehicles</p>`,
+    "pause-modal",
   );
   $("#resume").onclick = resume;
-  $("#restart").onclick = () => start();
-  $("#to-menu").onclick = menu;
-  $<HTMLInputElement>("#setting-sound").onchange = (e) => {
-    prefs.sound = (e.target as HTMLInputElement).checked;
-    syncSound();
-  };
-  $<HTMLInputElement>("#setting-music").onchange = (e) => {
-    prefs.music = (e.target as HTMLInputElement).checked;
-    syncSound();
-  };
-  $<HTMLSelectElement>("#setting-low").onchange = (e) => {
-    prefs.low = (e.target as HTMLSelectElement).value === "low";
-    world.quality(prefs.low);
-    write("nightfall-prefs", { ...prefs, difficulty });
-  };
-  $<HTMLInputElement>("#setting-motion").onchange = (e) => {
-    prefs.reduced = (e.target as HTMLInputElement).checked;
-    write("nightfall-prefs", { ...prefs, difficulty });
-  };
+  confirmTap($<HTMLButtonElement>("#restart"), "TAP AGAIN TO RESTART", () =>
+    start(),
+  );
+  confirmTap($<HTMLButtonElement>("#to-menu"), "TAP AGAIN TO LEAVE", menu);
+  bindSettings();
 }
 function resume() {
   if (mode !== "paused") return;
@@ -701,13 +817,18 @@ function updateHud() {
           : "R RELOAD · Q SWITCH";
   for (const button of [$("#turbo"), $('[data-action="turbo"]')]) {
     (button as HTMLButtonElement).disabled = !game.canTurbo;
-    button.textContent =
-      (button.id === "turbo" ? "F · " : "") + game.turboLabel;
+    setText(
+      button,
+      button.id === "turbo"
+        ? "F · " + game.turboLabel
+        : shortTurbo(game.turboLabel),
+    );
     button.classList.toggle("active", game.turboTime > 0);
     button.title =
       "Hold FIRE during Turbo. Two guns for 3s; Tuned Weapons unlocks vehicle guns and extends duration. Light Kit reduces cooldown.";
   }
   const notice = $("#combat-notice");
+  const coarse = coarsePointer.matches;
   const teaching = game.index === 0 && !game.objective && game.elapsed < 35;
   const moved = Math.hypot(game.pos.x, game.pos.z - 18) > 3;
   const nearbyPrison = game.prisons.find(
@@ -725,7 +846,7 @@ function updateHud() {
   );
   const movementHint = teaching && !moved && game.elapsed < 8;
   const coach = movementHint
-    ? matchMedia("(pointer: coarse)").matches
+    ? coarse
       ? "LEFT PAD · MOVE TOWARD THE YELLOW RELAY"
       : "WASD · MOVE TOWARD THE YELLOW RELAY"
     : nearbyPrison
@@ -734,7 +855,7 @@ function updateHud() {
         ? "M249 CACHE · COLLECT 60 BONUS ROUNDS"
         : teaching
           ? !moved && game.elapsed < 10
-            ? matchMedia("(pointer: coarse)").matches
+            ? coarse
               ? "LEFT PAD · MOVE TOWARD THE YELLOW RELAY"
               : "WASD · MOVE TOWARD THE YELLOW RELAY"
             : game.kills === 0 && game.elapsed < 20
@@ -748,11 +869,10 @@ function updateHud() {
   notice.textContent = activeNotice ? game.combatNotice : coach;
   const blastButton = $('[data-hold="blast"]');
   blastButton.classList.toggle("active", !!input.blast);
-  blastButton.textContent = input.blast
-    ? game.blastTarget
-      ? "BLAST LOCK"
-      : "NO TARGET"
-    : "BLAST";
+  setText(
+    blastButton,
+    input.blast ? (game.blastTarget ? "TARGET" : "NO TARGET") : "BLAST",
+  );
   const mountedGun = !game.canSwapWeapon;
   for (const button of [$("#weapon-swap"), $('[data-action="swap"]')]) {
     (button as HTMLButtonElement).disabled = mountedGun;
@@ -764,16 +884,18 @@ function updateHud() {
         ? `Cycle ${ride.kind === "tank" ? "cannon" : "mounted gun"} and collected weapons (Q on keyboard)`
         : "Cycle collected weapons (Q on keyboard)";
   }
-  $("#weapon-swap").textContent = mountedGun
-    ? game.turboTime > 0
-      ? "TURBO / LOADOUT LOCKED"
-      : "MOUNTED GUN - EXIT TO SWAP"
-    : "Q - SWAP WEAPON";
-  $('[data-action="swap"]').textContent = mountedGun
-    ? game.turboTime > 0
-      ? "TURBO ACTIVE"
-      : "MOUNTED GUN"
-    : "SWAP WEAPON";
+  setText(
+    $("#weapon-swap"),
+    mountedGun
+      ? game.turboTime > 0
+        ? "TURBO / LOADOUT LOCKED"
+        : "MOUNTED GUN - EXIT TO SWAP"
+      : "Q - SWAP WEAPON",
+  );
+  setText(
+    $('[data-action="swap"]'),
+    mountedGun ? (game.turboTime > 0 ? "TURBO" : "MOUNTED") : "SWAP",
+  );
   const boss = game.boss;
   $("#boss-panel").hidden = !boss;
   if (boss) {
@@ -801,9 +923,17 @@ function updateHud() {
       : null;
   const changed = interactionHint.key !== hintKey;
   prompt.hidden = !interactionHint.update(hintKey, performance.now());
-  prompt.innerHTML = game.interaction
-    ? "<kbd>E</kbd> " + game.interaction + " <span>/ TAP USE</span>"
+  // Show the key on keyboards and the button on touch screens, and only touch
+  // the DOM when the prompt changes.
+  const promptHtml = game.interaction
+    ? coarse
+      ? `${game.interaction} <span>· TAP USE</span>`
+      : `<kbd>E</kbd> ${game.interaction}`
     : "";
+  if (prompt.dataset.html !== promptHtml) {
+    prompt.dataset.html = promptHtml;
+    prompt.innerHTML = promptHtml;
+  }
   if (changed && hintKey && !prefs.reduced) {
     prompt.getAnimations().forEach((a) => a.cancel());
     prompt.animate(
@@ -815,12 +945,10 @@ function updateHud() {
       { duration: 1000 },
     );
   }
-  const useButton = $('[data-action="interact"]');
-  useButton.textContent = game.riding
-    ? "EXIT"
-    : game.nearestRide
-      ? "BOARD"
-      : "USE";
+  setText(
+    $('[data-action="interact"]'),
+    game.riding ? "EXIT" : game.nearestRide ? "BOARD" : "USE",
+  );
   $("#radio").classList.toggle("visible", performance.now() < radioUntil);
   ctx.fillStyle = "#152723";
   ctx.fillRect(0, 0, 144, 144);
@@ -949,7 +1077,18 @@ window.addEventListener("keydown", (e) => {
     e.preventDefault();
     if (mode === "playing") pause();
     else if (mode === "paused") resume();
-    else if (mode === "menu") $("#overlay").hidden = true;
+    else if (mode === "menu" && !$("#overlay").hidden) {
+      $("#overlay").hidden = true;
+      // Back to the control that opened it, or the first usable menu control.
+      const opener = overlayOpener as HTMLButtonElement | null;
+      (opener?.isConnected && !opener.disabled
+        ? opener
+        : ([
+            $<HTMLButtonElement>("#deploy"),
+            $<HTMLButtonElement>("#controls-open"),
+          ].find((b) => !b.disabled) ?? null)
+      )?.focus();
+    }
     return;
   }
   if (mode !== "playing") return;
@@ -1212,7 +1351,8 @@ async function init() {
     world = new World(canvas);
     world.quality(prefs.low);
     await loadAssets((n) => {
-      $("#load").textContent = `${Math.round(n * 100)}%`;
+      const load = document.querySelector("#load");
+      if (load) load.textContent = `${Math.round(n * 100)}%`;
     });
     game = new Game(world);
     feedback = new FeedbackUI(document.body);
