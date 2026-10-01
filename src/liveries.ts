@@ -10,6 +10,7 @@ export function repaint(
   colors: Record<string, number>,
   livery: string,
 ) {
+  root.userData.variant = livery; // picks the matching 2.5D sprite sheet
   root.traverse((o) => {
     if (!(o instanceof T.Mesh) || Array.isArray(o.material)) return;
     const hex = colors[o.material.name];

@@ -15,6 +15,7 @@ export const infantryModel = (role: InfantryRole) =>
 /** Shared material variants and prefab gear preserve instancing across every patrol. */
 export function equipInfantry(root: T.Group, role: InfantryRole) {
   if (role === "rifleman") return;
+  if (role !== "ninja") root.userData.variant = role; // 2.5D sprite sheet
   const joints = new Map<string, T.Object3D>();
   root.traverse((o) => {
     if (o.userData.joint) joints.set(o.userData.joint, o);

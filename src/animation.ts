@@ -231,6 +231,8 @@ export class FallenBody {
       } else this.knock = undefined;
     }
     mesh.userData.batchActor = true;
+    mesh.userData.fallen = true; // 2.5D sprites switch to the fallen frame
+    mesh.userData.fade = 1;
     this.startY = mesh.position.y;
     this.initial = mesh.quaternion.clone();
     mesh.visible = true;
@@ -301,6 +303,7 @@ export class FallenBody {
           fall;
     }
     this.opacity = 1 - ease((this.age - 2) / 2);
+    this.mesh.userData.fade = this.opacity;
     for (const m of this.materials) m.opacity = this.opacity;
     if (this.age > 2 && !this.shadowsOff) {
       this.shadowsOff = true;

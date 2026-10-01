@@ -118,6 +118,30 @@ The menus used to look like a website: flat dark-green panels, hairline borders 
 - Round, icon-backed, non-overlapping touch controls in both orientations.
 - Shop states.
 
+## 2.5D phone renderer
+
+![2.5D on a phone](phone-2-5d.png)
+
+- **Bake.** `art/bake_sprites.py` renders each actor GLB (23 variants, including infantry roles, ally and hostile liveries and all bosses) with an orthographic camera at the game camera's pitch.
+  - People get 8 directions × idle, walk A, walk B and fallen in 96 px cells. Vehicles and bosses get 8 directions in 192 px cells.
+  - Roles are tinted and equipped exactly like `equipInfantry()` and `repaint()`.
+  - `art/sprites-webp.mjs` converts the sheets to WebP: 920 KB in total, fetched only in 2.5D mode.
+- **Runtime.** `src/sprites.ts` draws one InstancedMesh per sheet, plus one for blob shadows.
+  - The quad faces the camera and is lifted toward it so its lower edge clears the ground.
+  - Direction comes from the actor's yaw, and the walk frame from the distance travelled.
+  - Bodies show the fallen frame and fade with a dither, so there's no transparency sorting.
+  - Rigs are hidden only for the draw and restored straight afterwards. Gameplay, muzzles and tests see the same rigs, and hidden rigs skip their matrix updates.
+- **Mode.** `prefs.view` is `auto` (2.5D on coarse pointers), `3d` or `25d`, from Settings → View.
+- **Cost on the Crazy city map (206 sprites).**
+
+  | | 3D | 2.5D |
+  | --- | --- | --- |
+  | Draw calls | 343 | 101 |
+  | Triangles | 1.33 M | 0.29 M |
+  | Render CPU per frame | 6.7 ms | 1.0 ms |
+
+  `tests/sprites.spec.ts` guards at least a 2× draw-call cut.
+
 ## Sound
 
 `src/audio.ts` synthesizes every cue with Web Audio, using noise bursts, filtered tones and a small brass-and-drums sequencer:

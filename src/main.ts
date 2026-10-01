@@ -64,7 +64,15 @@ const prefs = {
   reduced:
     rawPrefs.reduced === true ||
     matchMedia("(prefers-reduced-motion: reduce)").matches,
+  /** Actor renderer: 3D rigs, 2.5D baked sprites, or auto (2.5D on touch screens). */
+  view: (["auto", "3d", "25d"].includes(String(rawPrefs.view))
+    ? rawPrefs.view
+    : "auto") as "auto" | "3d" | "25d",
 };
+/** 2.5D on phones and tablets (light drawing), full 3D on PCs, unless chosen. */
+const wants25d = () =>
+  prefs.view === "25d" ||
+  (prefs.view === "auto" && matchMedia("(pointer: coarse)").matches);
 let previewMission: number | undefined;
 let difficulty = ["easy", "normal", "hard", "crazy"].includes(
     String(rawPrefs.difficulty),
@@ -448,7 +456,7 @@ function settingsRows() {
     on: boolean,
   ) =>
     `<label class="setting"><img src="${uiIcon(icon)}" alt=""><span><b>${label}</b><small>${note}</small></span><input id="${id}" type="checkbox" role="switch" ${on ? "checked" : ""}></label>`;
-  return `<div class="settings">${row("setting-sound", "set-sound", "Sound effects", "Weapons, blasts and cues", prefs.sound)}${row("setting-music", "set-music", "Music", "Stage themes that follow the fight", prefs.music)}<div class="setting"><img src="${uiIcon("set-graphics")}" alt=""><span><b>Graphics detail</b><small>Low saves battery on phones</small></span><div class="segmented" id="setting-low" role="radiogroup" aria-label="Graphics detail"><button type="button" role="radio" data-quality="low" aria-checked="${prefs.low}">LOW</button><button type="button" role="radio" data-quality="high" aria-checked="${!prefs.low}">HIGH</button></div></div>${row("setting-motion", "set-motion", "Reduce camera motion", "No shake, camera pans or slow motion", prefs.reduced)}</div>`;
+  return `<div class="settings">${row("setting-sound", "set-sound", "Sound effects", "Weapons, blasts and cues", prefs.sound)}${row("setting-music", "set-music", "Music", "Stage themes that follow the fight", prefs.music)}<div class="setting"><img src="${uiIcon("set-graphics")}" alt=""><span><b>Graphics detail</b><small>Low saves battery on phones</small></span><div class="segmented" id="setting-low" role="radiogroup" aria-label="Graphics detail"><button type="button" role="radio" data-quality="low" aria-checked="${prefs.low}">LOW</button><button type="button" role="radio" data-quality="high" aria-checked="${!prefs.low}">HIGH</button></div></div><div class="setting"><img src="${uiIcon("set-graphics")}" alt=""><span><b>View</b><small>2.5D draws soldiers as light sprites (phones)</small></span><div class="segmented" id="setting-view" role="radiogroup" aria-label="View"><button type="button" role="radio" data-view="auto" aria-checked="${prefs.view === "auto"}">AUTO</button><button type="button" role="radio" data-view="3d" aria-checked="${prefs.view === "3d"}">3D</button><button type="button" role="radio" data-view="25d" aria-checked="${prefs.view === "25d"}">2.5D</button></div></div>${row("setting-motion", "set-motion", "Reduce camera motion", "No shake, camera pans or slow motion", prefs.reduced)}</div>`;
 }
 function bindSettings() {
   $<HTMLInputElement>("#setting-sound").onchange = (e) => {
@@ -467,6 +475,14 @@ function bindSettings() {
       world.quality(prefs.low);
       write("nightfall-prefs", { ...prefs, difficulty });
       for (const other of document.querySelectorAll("[data-quality]"))
+        other.setAttribute("aria-checked", String(other === b));
+    };
+  for (const b of document.querySelectorAll<HTMLButtonElement>("[data-view]"))
+    b.onclick = () => {
+      prefs.view = b.dataset.view as typeof prefs.view;
+      world.setMode25d(wants25d());
+      write("nightfall-prefs", { ...prefs, difficulty });
+      for (const other of document.querySelectorAll("[data-view]"))
         other.setAttribute("aria-checked", String(other === b));
     };
   $<HTMLInputElement>("#setting-motion").onchange = (e) => {
@@ -1350,6 +1366,7 @@ async function init() {
   try {
     world = new World(canvas);
     world.quality(prefs.low);
+    world.setMode25d(wants25d());
     await loadAssets((n) => {
       const load = document.querySelector("#load");
       if (load) load.textContent = `${Math.round(n * 100)}%`;

@@ -1,5 +1,6 @@
 import { followAxis } from "./camera-follow.mjs";
 import { ActorBatches } from "./batching";
+import { SpriteActors } from "./sprites";
 import { WORLD_BOUNDS } from "./campaign.mjs";
 import { sampleRoute, routeLength } from "./routes.mjs";
 import { segmentBox } from "./rules.mjs";
@@ -117,6 +118,7 @@ export function model(name: string, x = 0, z = 0, scale = 1) {
   const original = templates.get(name);
   if (!original) throw new Error(`Missing model: ${name}`);
   const g = original.clone(true);
+  g.userData.model = name; // picks the 2.5D sprite sheet
   g.position.set(x, 0, z);
   g.scale.setScalar(scale);
   return g;
@@ -250,6 +252,9 @@ export class World {
   renderer: T.WebGLRenderer;
   terrain = new T.Group();
   actors = new T.Group();
+  /** 2.5D phone renderer: actors drawn as baked sprites (see src/sprites.ts). */
+  sprites = new SpriteActors(this.actors);
+  mode25d = false;
   /** Director camera override: look at (x, z), `zoom` < 1 moves closer. */
   cameraOverride: { x: number; z: number; zoom: number } | null = null;
   private actorBatches = new ActorBatches(this.actors);
@@ -872,6 +877,12 @@ export class World {
       this.terrain.add(mesh);
     }
   }
+  /** Switch between the 3D and 2.5D actor renderers (sprites load on first use). */
+  setMode25d(on: boolean) {
+    this.mode25d = on;
+    if (on) void this.sprites.load(import.meta.env.BASE_URL);
+    else this.sprites.hide();
+  }
   quality(low: boolean) {
     this.lowDetail = low;
     this.terrain.traverse((o) => {
@@ -1045,6 +1056,10 @@ export class World {
     for (const object of this.scene.children)
       if (object !== this.terrain && object !== this.actors)
         object.updateMatrixWorld(true);
+    // 2.5D: sprite actors hide their rigs for this frame, so neither the
+    // matrix refresh below nor the batcher touches them.
+    if (this.mode25d && this.sprites.ready)
+      this.sprites.update(this.camera, dt);
     for (const actor of this.actors.children)
       if (actor.visible && !actor.userData.batchActor)
         actor.updateMatrixWorld(true);
@@ -1057,6 +1072,7 @@ export class World {
       this.renderer.render(this.scene, this.camera);
     } finally {
       this.scene.matrixWorldAutoUpdate = autoUpdate;
+      this.sprites.restore();
     }
   }
 }

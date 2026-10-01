@@ -1,0 +1,186 @@
+{
+ "rifleman": {
+  "file": "rifleman.webp",
+  "cell": 96,
+  "frames": 4,
+  "dirs": 8,
+  "size": 3.0654,
+  "centre": 0.945
+ },
+ "rifleman:rusher": {
+  "file": "rifleman-rusher.webp",
+  "cell": 96,
+  "frames": 4,
+  "dirs": 8,
+  "size": 2.7,
+  "centre": 0.945
+ },
+ "rifleman:swordsman": {
+  "file": "rifleman-swordsman.webp",
+  "cell": 96,
+  "frames": 4,
+  "dirs": 8,
+  "size": 4.016,
+  "centre": 0.945
+ },
+ "rifleman:thrower": {
+  "file": "rifleman-thrower.webp",
+  "cell": 96,
+  "frames": 4,
+  "dirs": 8,
+  "size": 2.7,
+  "centre": 0.945
+ },
+ "rifleman:rocketeer": {
+  "file": "rifleman-rocketeer.webp",
+  "cell": 96,
+  "frames": 4,
+  "dirs": 8,
+  "size": 2.7,
+  "centre": 0.945
+ },
+ "ninja": {
+  "file": "ninja.webp",
+  "cell": 96,
+  "frames": 4,
+  "dirs": 8,
+  "size": 3.8835,
+  "centre": 0.934
+ },
+ "commando": {
+  "file": "commando.webp",
+  "cell": 96,
+  "frames": 4,
+  "dirs": 8,
+  "size": 3.0654,
+  "centre": 0.935
+ },
+ "commando:ally": {
+  "file": "commando-ally.webp",
+  "cell": 96,
+  "frames": 4,
+  "dirs": 8,
+  "size": 2.7,
+  "centre": 0.935
+ },
+ "commandoWoman:ally": {
+  "file": "commandoWoman-ally.webp",
+  "cell": 96,
+  "frames": 4,
+  "dirs": 8,
+  "size": 2.7,
+  "centre": 0.919
+ },
+ "captive": {
+  "file": "captive.webp",
+  "cell": 96,
+  "frames": 1,
+  "dirs": 8,
+  "size": 2.0944,
+  "centre": 0.935
+ },
+ "captiveWoman": {
+  "file": "captiveWoman.webp",
+  "cell": 96,
+  "frames": 1,
+  "dirs": 8,
+  "size": 2.0586,
+  "centre": 0.919
+ },
+ "tank": {
+  "file": "tank.webp",
+  "cell": 192,
+  "frames": 1,
+  "dirs": 8,
+  "size": 9.8075,
+  "centre": 1.7752
+ },
+ "jeep": {
+  "file": "jeep.webp",
+  "cell": 192,
+  "frames": 1,
+  "dirs": 8,
+  "size": 5.135,
+  "centre": 1.0431
+ },
+ "motorcycle": {
+  "file": "motorcycle.webp",
+  "cell": 192,
+  "frames": 1,
+  "dirs": 8,
+  "size": 3.0407,
+  "centre": 0.714
+ },
+ "gunship": {
+  "file": "gunship.webp",
+  "cell": 192,
+  "frames": 1,
+  "dirs": 8,
+  "size": 15.7475,
+  "centre": 1.295
+ },
+ "spider": {
+  "file": "spider.webp",
+  "cell": 192,
+  "frames": 1,
+  "dirs": 8,
+  "size": 8.5378,
+  "centre": 1.16
+ },
+ "laserTank": {
+  "file": "laserTank.webp",
+  "cell": 192,
+  "frames": 1,
+  "dirs": 8,
+  "size": 9.9274,
+  "centre": 1.7752
+ },
+ "quadMech": {
+  "file": "quadMech.webp",
+  "cell": 192,
+  "frames": 1,
+  "dirs": 8,
+  "size": 6.72,
+  "centre": 3
+ },
+ "rocketMech": {
+  "file": "rocketMech.webp",
+  "cell": 192,
+  "frames": 1,
+  "dirs": 8,
+  "size": 6.4725,
+  "centre": 2.73
+ },
+ "missileTruck": {
+  "file": "missileTruck.webp",
+  "cell": 192,
+  "frames": 1,
+  "dirs": 8,
+  "size": 9.0268,
+  "centre": 1.6067
+ },
+ "skyWraith": {
+  "file": "skyWraith.webp",
+  "cell": 192,
+  "frames": 1,
+  "dirs": 8,
+  "size": 15.3731,
+  "centre": 1.6777
+ },
+ "walker": {
+  "file": "walker.webp",
+  "cell": 192,
+  "frames": 1,
+  "dirs": 8,
+  "size": 10.4728,
+  "centre": 1.63
+ },
+ "tank:hostile": {
+  "file": "tank-hostile.webp",
+  "cell": 192,
+  "frames": 1,
+  "dirs": 8,
+  "size": 9.8075,
+  "centre": 1.7752
+ }
+}
