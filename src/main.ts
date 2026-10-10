@@ -1,3 +1,4 @@
+import './mobile-game-init.mjs';
 import { buyFieldKit, buySupply, fieldKitCost, SUPPLIES } from "./economy.mjs";
 import {
   STAR_BONUS,
@@ -1125,6 +1126,14 @@ window.addEventListener("keydown", (e) => {
 });
 window.addEventListener("keyup", (e) => keys.delete(e.code));
 window.addEventListener("blur", () => {
+  clearInput();
+  pause();
+});
+window.addEventListener('pagehide', () => {
+  clearInput();
+  pause();
+});
+window.addEventListener('mobile-game-interruption', () => {
   clearInput();
   pause();
 });
