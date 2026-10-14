@@ -17,6 +17,8 @@ export class FeedbackUI {
   private nextArc = 0;
   private point = new T.Vector3();
   private critical = false;
+  /** Called once a frame with the hardest hit Ghost took (phone vibration). */
+  onHurt?: (damage: number) => void;
   constructor(parent: HTMLElement) {
     this.layer.id = "fx-layer";
     this.layer.setAttribute("aria-hidden", "true");
@@ -84,6 +86,7 @@ export class FeedbackUI {
       crosshair.classList.add(marker);
     }
     if (hurts.length) {
+      this.onHurt?.(Math.max(...hurts.map((h) => h.damage)));
       const at = this.screen(game.pos.x, 1, game.pos.z, world.camera);
       for (const hurt of hurts.slice(-2)) {
         const arc = this.arcs[this.nextArc++ % this.arcs.length];

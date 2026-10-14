@@ -112,7 +112,7 @@ button:hover {
 }
 .brand-name small {
   display: block;
-  font-size: 8px;
+  font-size: 11px;
   font-weight: 500;
   letter-spacing: 2.3px;
   margin-top: 6px;
@@ -121,7 +121,7 @@ button:hover {
   display: flex;
   align-items: center;
   gap: 11px;
-  font-size: 9px;
+  font-size: 11px;
   letter-spacing: 1.6px;
   color: #ccd1bf;
 }
@@ -138,7 +138,7 @@ button:hover {
   box-shadow: 0 0 12px #dced8890;
 }
 .icon-button {
-  font-size: 9px;
+  font-size: 11px;
   letter-spacing: 1.4px;
   border: 1px solid var(--line);
   padding: 13px 17px;
@@ -162,7 +162,7 @@ button:hover {
   padding: 45px 0 27px;
 }
 .eyebrow {
-  font-size: 9px;
+  font-size: 11px;
   font-weight: 600;
   letter-spacing: 2px;
   color: var(--lime);
@@ -212,7 +212,7 @@ h1 em {
   letter-spacing: 1px;
 }
 .operation-line p {
-  font-size: 8px;
+  font-size: 11px;
   line-height: 1.7;
   letter-spacing: 1.5px;
   color: #b5c2ac;
@@ -239,7 +239,7 @@ h1 em {
   align-items: center;
   gap: 7px;
   margin-top: 16px;
-  font-size: 8px;
+  font-size: 11px;
   letter-spacing: 1px;
 }
 .difficulty > span {
@@ -247,7 +247,7 @@ h1 em {
   margin-right: 10px;
 }
 .difficulty button {
-  font-size: 8px;
+  font-size: 11px;
   letter-spacing: 0.9px;
   padding: 6px 9px;
   border: 1px solid transparent;
@@ -258,7 +258,7 @@ h1 em {
   color: var(--lime);
 }
 .small-note {
-  font-size: 10px;
+  font-size: 11px;
   color: #9fae98;
   line-height: 1.7;
   margin: 10px 0 0;
@@ -275,7 +275,7 @@ h1 em {
   display: flex;
   align-items: center;
   gap: 8px;
-  font-size: 8px;
+  font-size: 11px;
   letter-spacing: 1.3px;
   padding: 16px;
   border-bottom: 1px solid var(--line);
@@ -379,7 +379,7 @@ h1 em {
 }
 .map-label {
   position: absolute;
-  font-size: 8px;
+  font-size: 11px;
   letter-spacing: 1px;
   left: 22px;
   top: 54px;
@@ -389,7 +389,7 @@ h1 em {
   padding: 20px;
 }
 .intel-bottom > span {
-  font-size: 8px;
+  font-size: 11px;
   letter-spacing: 1.5px;
   color: #a7b798;
 }
@@ -412,7 +412,7 @@ h1 em {
   margin-top: 20px;
   padding-top: 15px;
   border-top: 1px solid var(--line);
-  font-size: 7px;
+  font-size: 11px;
   letter-spacing: 0.5px;
   color: #bace9b;
 }
@@ -423,7 +423,7 @@ h1 em {
 .campaign-heading {
   display: flex;
   justify-content: space-between;
-  font-size: 8px;
+  font-size: 11px;
   letter-spacing: 1.7px;
   color: #b1c0a4;
   margin-bottom: 13px;
@@ -468,7 +468,7 @@ h1 em {
   color: var(--lime);
 }
 .card-tag {
-  font-size: 7px;
+  font-size: 11px;
   letter-spacing: 1.3px;
   color: #b2c599;
 }
@@ -480,7 +480,7 @@ h1 em {
   margin: 5px 0;
 }
 .mission-card .card-tip {
-  font-size: 9px;
+  font-size: 11px;
   color: #99ad8f;
   margin: 0;
   line-height: 1.5;
@@ -489,7 +489,7 @@ h1 em {
   position: absolute;
   right: 13px;
   top: 13px;
-  font-size: 7px;
+  font-size: 11px;
   letter-spacing: 0.6px;
   color: #a2b38c;
 }
@@ -501,12 +501,12 @@ h1 em {
   display: flex;
   align-items: center;
   justify-content: space-between;
-  font-size: 7px;
+  font-size: 11px;
   letter-spacing: 1.4px;
   color: #87a07e;
 }
 .menu-footer button {
-  font-size: 8px;
+  font-size: 11px;
   letter-spacing: 1.2px;
   color: #c6d4b7;
 }
@@ -517,7 +517,7 @@ h1 em {
 .text-button {
   display: block;
   padding: 16px 0 0;
-  font-size: 9px;
+  font-size: 11px;
   letter-spacing: 1.2px;
   color: #b8c89e;
 }
@@ -561,7 +561,7 @@ h1 em {
 #objectives {
   display: grid;
   gap: 7px;
-  font-size: 10px;
+  font-size: 11px;
   color: #b3c3a6;
 }
 #objectives .done {
@@ -587,8 +587,10 @@ h1 em {
   opacity: 0.92;
 }
 .map-caption {
-  font-size: 7px;
-  letter-spacing: 2px;
+  font-size: 11px;
+  letter-spacing: 0.6px;
+  white-space: nowrap;
+  text-shadow: 0 1px 2px #000c;
   color: #d4dec7;
 }
 .hud-bottom {
@@ -608,14 +610,14 @@ h1 em {
   border: 1px solid #b3c69a44;
 }
 .hud-kicker {
-  font-size: 10px;
+  font-size: 11px;
   font-weight: 700;
   letter-spacing: 2px;
   display: flex;
   justify-content: space-between;
 }
 .hud-kicker span {
-  font-size: 10px;
+  font-size: 11px;
   letter-spacing: 0;
   color: #bdd298;
 }
@@ -639,12 +641,12 @@ h1 em {
 .health-meta {
   display: flex;
   justify-content: space-between;
-  font-size: 8px;
+  font-size: 11px;
   color: #acbf9d;
   letter-spacing: 0.6px;
 }
 .controls-strip {
-  font-size: 8px;
+  font-size: 11px;
   letter-spacing: 0.7px;
   color: #d0d8c1;
   padding-bottom: 10px;
@@ -652,7 +654,7 @@ h1 em {
 kbd {
   display: inline-block;
   font-family: inherit;
-  font-size: 8px;
+  font-size: 11px;
   padding: 5px 6px;
   margin: 0 4px;
   border: 1px solid #c9d6ad66;
@@ -667,7 +669,7 @@ kbd {
   border-right: 2px solid var(--lime);
 }
 .ammo-panel > div {
-  font-size: 8px;
+  font-size: 11px;
   letter-spacing: 1.3px;
   color: #c5d1b7;
 }
@@ -684,7 +686,7 @@ kbd {
 }
 .ammo-panel small {
   display: block;
-  font-size: 8px;
+  font-size: 11px;
   letter-spacing: 1px;
   color: #b3c49e;
 }
@@ -700,12 +702,12 @@ kbd {
 #boss-panel > div:first-child {
   display: flex;
   justify-content: space-between;
-  font-size: 9px;
+  font-size: 11px;
   letter-spacing: 1px;
   color: #f8d4a7;
 }
 #boss-phase {
-  font-size: 7px;
+  font-size: 11px;
   color: #d0a981;
 }
 .boss-track {
@@ -734,7 +736,7 @@ kbd {
   transform: translate(-50%, 0);
 }
 #radio > span {
-  font-size: 7px;
+  font-size: 11px;
   letter-spacing: 1.7px;
   color: #a8d7b9;
 }
@@ -752,7 +754,7 @@ kbd {
   padding: 11px 18px;
   background: #e1ed98;
   color: #182b20;
-  font-size: 10px;
+  font-size: 11px;
   font-weight: 700;
   letter-spacing: 0.7px;
   white-space: nowrap;
@@ -762,7 +764,7 @@ kbd {
   border-color: #182b2070;
 }
 #interact-prompt span {
-  font-size: 8px;
+  font-size: 11px;
   opacity: 0.6;
 }
 .overlay {
@@ -818,7 +820,7 @@ input {
   gap: 12px;
 }
 .modal-actions button {
-  font-size: 9px;
+  font-size: 11px;
   letter-spacing: 1px;
   border: 1px solid var(--line);
   padding: 13px;
@@ -827,13 +829,13 @@ input {
   display: grid;
   grid-template-columns: 1fr 1fr;
   gap: 13px;
-  font-size: 10px;
+  font-size: 11px;
   margin: 25px 0;
   color: #d3dfbf;
 }
 .manual-grid > span {
   color: var(--lime);
-  font-size: 9px;
+  font-size: 11px;
   letter-spacing: 0.7px;
 }
 .result-stats {
@@ -852,7 +854,7 @@ input {
   color: var(--lime);
 }
 .result-stats span {
-  font-size: 7px;
+  font-size: 11px;
   letter-spacing: 1px;
   color: #aabc99;
 }
@@ -868,18 +870,18 @@ input {
   border: 1px solid #b6ca8b55;
   padding: 18px 14px;
   text-align: left;
-  font-size: 10px;
+  font-size: 11px;
 }
 .upgrades button:hover {
   background: #33492e;
 }
 .upgrades b {
-  font-size: 9px;
+  font-size: 11px;
   letter-spacing: 0.8px;
   color: var(--lime);
 }
 .upgrades span {
-  font-size: 10px;
+  font-size: 11px;
   color: #b7cba4;
 }
 #crosshair {
@@ -984,7 +986,7 @@ input {
     grid-template-columns: 1fr 270px;
   }
   .header-right {
-    font-size: 8px;
+    font-size: 11px;
     letter-spacing: 0.8px;
   }
   h1 {
@@ -996,7 +998,7 @@ input {
   .card-state {
     position: static;
     align-self: end;
-    font-size: 6px;
+    font-size: 11px;
   }
   .mission-card {
     gap: 10px;
@@ -1017,7 +1019,7 @@ input {
   }
   .intel-meta {
     gap: 8px;
-    font-size: 6px;
+    font-size: 11px;
   }
 }
 @media (max-width: 800px) {
@@ -1034,7 +1036,7 @@ input {
     font-size: 0;
   }
   .header-right button {
-    font-size: 8px;
+    font-size: 11px;
     padding: 10px;
   }
   .brand-mark {
@@ -1044,7 +1046,7 @@ input {
     font-size: 15px;
   }
   .brand-name small {
-    font-size: 7px;
+    font-size: 11px;
   }
   .menu {
     height: calc(100dvh - 78px);
@@ -1081,7 +1083,7 @@ input {
     padding: 12px 0;
   }
   .campaign-heading {
-    font-size: 7px;
+    font-size: 11px;
   }
   .campaign-heading > span:last-child {
     display: none;
@@ -1103,7 +1105,7 @@ input {
   .card-state {
     margin-left: auto;
     align-self: center;
-    font-size: 7px;
+    font-size: 11px;
   }
   .card-num {
     font-size: 30px;
@@ -1112,7 +1114,7 @@ input {
     height: 60px;
   }
   .menu-footer > span {
-    font-size: 6px;
+    font-size: 11px;
     max-width: 115px;
     line-height: 1.8;
   }
@@ -1124,10 +1126,10 @@ input {
     width: 100%;
   }
   .difficulty {
-    font-size: 7px;
+    font-size: 11px;
   }
   .small-note {
-    font-size: 9px;
+    font-size: 11px;
   }
   #hud {
     padding: 12px;
@@ -1137,14 +1139,14 @@ input {
     max-width: 240px;
   }
   .objective-panel .eyebrow {
-    font-size: 7px;
+    font-size: 11px;
   }
   .objective-panel h2 {
     font-size: 24px;
     margin: 7px 0 10px;
   }
   #objectives {
-    font-size: 8px;
+    font-size: 11px;
     gap: 6px;
   }
   .hud-right {
@@ -1155,12 +1157,12 @@ input {
     width: 85px;
   }
   .map-caption {
-    font-size: 5px;
+    font-size: 11px;
     letter-spacing: 1px;
   }
   .hud-right .icon-button {
     padding: 10px;
-    font-size: 9px;
+    font-size: 11px;
   }
   .hud-right .icon-button span {
     display: none;
@@ -1184,13 +1186,13 @@ input {
   }
   .ammo-panel > div,
   .ammo-panel small {
-    font-size: 7px;
+    font-size: 11px;
   }
   .health-meta {
-    font-size: 7px;
+    font-size: 11px;
   }
   .hud-kicker {
-    font-size: 9px;
+    font-size: 11px;
   }
   #radio {
     bottom: 120px;
@@ -1198,7 +1200,7 @@ input {
     padding: 10px 13px;
   }
   #radio p {
-    font-size: 10px;
+    font-size: 11px;
   }
   #boss-panel {
     top: 175px;
@@ -1222,10 +1224,10 @@ input {
     gap: 8px;
   }
   .upgrades span {
-    font-size: 9px;
+    font-size: 11px;
   }
   #interact-prompt {
-    font-size: 8px;
+    font-size: 11px;
     padding: 8px 10px;
     top: 50%;
   }
@@ -1275,7 +1277,7 @@ input {
   #move-pad small {
     position: absolute;
     bottom: 10px;
-    font-size: 8px;
+    font-size: 11px;
     color: #d6efd4;
     pointer-events: none;
   }
@@ -1316,7 +1318,7 @@ input {
   border: 1px solid var(--lime);
   background: #e1ed9826;
   color: var(--lime);
-  font-size: 10px;
+  font-size: 11px;
   font-weight: 800;
   letter-spacing: 0.5px;
 }
@@ -1394,7 +1396,7 @@ input {
     display: none;
   }
   #turbo {
-    font-size: 10px;
+    font-size: 11px;
   }
 }
 
@@ -1418,7 +1420,7 @@ input {
   }
   #combat-notice {
     top: 29%;
-    font-size: 10px;
+    font-size: 11px;
   }
 }
 
@@ -1437,10 +1439,10 @@ input {
     margin: 4px 0;
   }
   .objective-panel .eyebrow {
-    font-size: 7px;
+    font-size: 11px;
   }
   #objectives {
-    font-size: 9px;
+    font-size: 11px;
     line-height: 1.3;
   }
   #objectives > div {
@@ -1468,7 +1470,7 @@ input {
   .health-meta,
   .hud-kicker,
   #shield-text {
-    font-size: 8px;
+    font-size: 11px;
   }
   .ammo-panel {
     min-width: 140px;
@@ -1479,10 +1481,10 @@ input {
     line-height: 1.1;
   }
   .ammo-panel > div {
-    font-size: 8px;
+    font-size: 11px;
   }
   .ammo-panel small {
-    font-size: 7px;
+    font-size: 11px;
   }
   #weapon-swap {
     display: none;
@@ -1495,12 +1497,12 @@ input {
     padding: 7px 10px;
   }
   #radio p {
-    font-size: 9px;
+    font-size: 11px;
     line-height: 1.3;
   }
   #combat-notice {
     top: 33%;
-    font-size: 9px;
+    font-size: 11px;
   }
   #boss-panel {
     top: 75px;
@@ -1510,14 +1512,14 @@ input {
 }
 
 #awareness {
-  font: 700 9px/1.2 monospace;
+  font: 700 11px/1.2 monospace;
   color: #e9c887;
   margin-top: 3px;
   white-space: nowrap;
 }
 @media (pointer: coarse) and (max-height: 600px) and (orientation: landscape) {
   #awareness {
-    font-size: 7px;
+    font-size: 11px;
   }
 }
 
@@ -1585,15 +1587,15 @@ input {
   .hud-kicker span,
   .health-meta,
   #shield-text {
-    font-size: 9px;
+    font-size: 11px;
     letter-spacing: 0;
   }
   #awareness {
-    font-size: 8px;
+    font-size: 11px;
     white-space: normal;
   }
   .ammo-panel > div {
-    font-size: 9px;
+    font-size: 11px;
     letter-spacing: 0;
     overflow-wrap: anywhere;
   }
@@ -1620,11 +1622,11 @@ input {
     margin: 3px 0;
   }
   .objective-panel .eyebrow {
-    font-size: 7px;
+    font-size: 11px;
     letter-spacing: 1px;
   }
   #objectives {
-    font-size: 9px;
+    font-size: 11px;
     line-height: 1.3;
   }
   #objectives > div {
@@ -1646,7 +1648,7 @@ input {
     padding: 6px 9px;
   }
   #radio p {
-    font-size: 10px;
+    font-size: 11px;
     line-height: 1.3;
     margin-top: 4px;
   }
@@ -1699,7 +1701,7 @@ input {
     display: none;
   }
   #objectives {
-    font-size: 10px;
+    font-size: 11px;
   }
   .health-panel,
   .ammo-panel {
@@ -1722,7 +1724,7 @@ input {
     font-size: 24px;
   }
   .ammo-panel > div {
-    font-size: 9px;
+    font-size: 11px;
   }
   .hud-right {
     gap: 4px;
@@ -1737,7 +1739,7 @@ input {
     padding: 5px 8px;
   }
   #boss-name {
-    font-size: 9px;
+    font-size: 11px;
   }
   .boss-track {
     margin: 4px 0 0;
@@ -1781,7 +1783,7 @@ input {
 }
 @media (pointer: coarse) {
   #shield-text {
-    font-size: 8px;
+    font-size: 11px;
     letter-spacing: 0;
   }
 }
@@ -2037,7 +2039,7 @@ input {
   margin: 10px 0 0;
   display: grid;
   gap: 6px;
-  font-size: 10px;
+  font-size: 11px;
   color: #93a58c;
 }
 .grade li.met {
@@ -2063,7 +2065,7 @@ input {
 }
 .tally-row em {
   font-style: normal;
-  font-size: 10px;
+  font-size: 11px;
   color: #93a58c;
 }
 .tally-row b {
@@ -2092,7 +2094,7 @@ input {
   grid-row: span 2;
 }
 .tally-total span {
-  font-size: 9px;
+  font-size: 11px;
   letter-spacing: 2px;
   color: #f5d98a;
 }
@@ -2107,7 +2109,7 @@ input {
 }
 .tally-total em {
   font-style: normal;
-  font-size: 9px;
+  font-size: 11px;
   color: #c9b98a;
 }
 .debrief-modal .result-stats {

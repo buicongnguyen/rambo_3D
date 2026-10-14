@@ -118,6 +118,32 @@ The menus used to look like a website: flat dark-green panels, hairline borders 
 - Round, icon-backed, non-overlapping touch controls in both orientations.
 - Shop states.
 
+## Lessons from the sibling games (UI 2.1)
+
+![Failure debrief: the attacker's sprite, what happened and the counter](defeat-cards.png)
+
+We compared RAMBO 3D's screens with the earlier 2D versions (`rambo_game` v1–v3) and seven sibling 3D games in the same folder. Most of their strengths were already here: a debrief with stars and a checklist, damage numbers and arcs, Blender icons and pause settings. This pass adopted what was missing.
+
+- **One readability rule everywhere (Steel Front, Frontier Command, Kitehaven).**
+  - No text under 11 px. About 90 labels were 5–10 px: the HUD captions, the stage cards, the recon panel and the shop tags.
+  - 44 px touch targets. The LOW / HIGH and AUTO / 3D / 2.5D buttons were 31 px, shop BACK was 35 px and difficulty was 43 px.
+  - `tests/screens-audit.spec.ts` checks the menu, settings, shop, HUD and pause on six screens, from 360×640 and 568×320 up to a tablet and a desktop.
+  - The round touch buttons moved their icon up a little, so an 11 px RELOAD fits on the smallest phones.
+- **The failure debrief teaches (Tidelock).**
+  - Every hit on Ghost now records its cause (`hitCause` in `game.ts`): bullets carry their shooter, and hazards their owner.
+  - When Ghost goes down, the debrief shows the attacker's 2.5D sprite (no extra art), what happened and the counter. Command bosses use their boss-intro tip.
+- **Stray taps cannot press the debrief (Steel Front).** A debrief that lands mid-fight ignores taps and Enter for 0.45 s and takes focus afterwards. Auto-repeating Space or Enter never presses a panel button.
+- **Vibration (RAMBO v3).** Phones that support it buzz on hits (rate-limited), on going down and when a command boss arrives. The Settings switch shows only on touch devices with the API; iPhones ignore it.
+- **The pause screen idles (Steel Front's frame budget).**
+  - The world behind the pause panel is drawn once, then not again until a graphics setting changes, the window resizes or play resumes.
+  - Before, every frame was redrawn behind a frozen, dimmed panel.
+  - With CPU rendering each frame took seconds, so the two-tap MISSION BRIEFING could not register within its 3 s window.
+  - The audio test now waits on the audio clock, which lags the wall clock on a busy machine.
+- **Fixes found while comparing.**
+  - The shared iPhone helper's Full screen button was unstyled text, and it never reached the pause screen because the selector was wrong. It is now a steel bar in both places.
+  - The desktop header shade now spans the whole window.
+  - View has its own Blender icon (a crate beside a sprite card), and Vibration has a buzzing phone.
+
 ## 2.5D phone renderer
 
 ![2.5D on a phone](phone-2-5d.png)

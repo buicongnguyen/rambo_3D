@@ -240,6 +240,34 @@ def motion():
     K.cyl('Camera reel', (.05, 0, .7), .28, DEPTH, M['amber'], 'Y', 24, .04)
 
 
+def view():
+    """3D or 2.5D: a solid crate behind a flat sprite card of a soldier."""
+    K.box('View cube', (-.5, .35, .12), (.9, .9, .9), M['orange'], .06, 2,
+          rot=(math.radians(-24), 0, math.radians(40)))
+    backed('View card', [(-.1, -.95), (.9, -.95), (.9, .9), (-.1, .9)], M['paper'], grow=1.08)
+    y = -DEPTH * .6
+    K.cyl('Sprite head', (.4, y, .5), .17, DEPTH, M['amber'], 'Y', 20, .03)
+    flat('Sprite torso', [(.16, -.25), (.64, -.25), (.6, .3), (.2, .3)], M['green'], DEPTH, y)
+    flat('Sprite leg', [(.18, -.8), (.36, -.8), (.38, -.25), (.2, -.25)], M['gunmetal'], DEPTH, y)
+    flat('Sprite leg', [(.44, -.8), (.62, -.8), (.6, -.25), (.42, -.25)], M['gunmetal'], DEPTH, y)
+
+
+def vibrate():
+    """A phone buzzing: handset between two zigzag shake lines."""
+    backed('Phone body', [(-.42, -.95), (.42, -.95), (.42, .95), (-.42, .95)], M['gunmetal'])
+    flat('Phone screen', [(-.32, -.7), (.32, -.7), (.32, .78), (-.32, .78)], M['cyan'], DEPTH, -.04)
+    K.cyl('Phone button', (0, -.06, -.83), .07, DEPTH, M['steel'], 'Y', 14)
+    for sign in (-1, 1):
+        x0 = sign * .62
+        pts = [(x0, .55), (x0 + sign * .18, .3), (x0, .05), (x0 + sign * .18, -.2), (x0, -.45)]
+        for (ax, az), (bx, bz) in zip(pts, pts[1:]):
+            dx, dz = bx - ax, bz - az
+            n = math.hypot(dx, dz)
+            px, pz = -dz / n * .07, dx / n * .07
+            flat('Shake line', [(ax - px, az - pz), (bx - px, bz - pz), (bx + px, bz + pz), (ax + px, az + pz)],
+                 M['amber'], DEPTH, 0, .02)
+
+
 def gear():
     pts = []
     teeth = 8
@@ -293,6 +321,8 @@ render('set-sound', sound)
 render('set-music', music)
 render('set-graphics', graphics)
 render('set-motion', motion)
+render('set-view', view)
+render('set-vibrate', vibrate)
 render('menu-settings', gear)
 render('menu-manual', manual)
 print('HUD ICONS', sorted(n for n in os.listdir(OUT) if n.startswith(('hud-', 'set-', 'menu-'))))

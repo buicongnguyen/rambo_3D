@@ -177,7 +177,37 @@ type Bullet = {
   life: number;
   damage: number;
   enemy: boolean;
+  /** The enemy that fired it, so a defeat can name what took Ghost down. */
+  by?: Actor;
 };
+/** What last hurt Ghost: the failure debrief names it and teaches the counter. */
+export type HitCause = {
+  cause:
+    | "gunfire"
+    | "tank"
+    | "rocket"
+    | "thrower"
+    | "rusher"
+    | "swordsman"
+    | "ninja"
+    | "boss"
+    | "blast"
+    | "rockfall";
+  boss?: string;
+};
+/** Name the attacker behind a hit from the actor and the weapon it used. */
+export function hitCause(by?: Actor, spec?: WeaponSpec): HitCause {
+  if (by?.boss) return { cause: "boss", boss: by.bossKind };
+  if (by?.armored) return { cause: "tank" };
+  const role = by?.role;
+  if (spec?.id === "enemyRocket" || role === "rocketeer")
+    return { cause: "rocket" };
+  if (spec?.id === "enemyKnife" || role === "thrower")
+    return { cause: "thrower" };
+  if (role === "rusher" || role === "swordsman" || role === "ninja")
+    return { cause: role };
+  return { cause: "gunfire" };
+}
 type Effect = {
   mesh: T.Mesh<T.BufferGeometry, T.MeshBasicMaterial>;
   life: number;
@@ -549,6 +579,10 @@ export class Game {
   /** Sound cue, optionally at a world position for distance and panning. */
   onSound: (type: string, at?: { x: number; z: number }) => void = () => {};
   onEnd: (win: boolean) => void = () => {};
+  /** What last hurt Ghost this mission (shown on the failure debrief). */
+  lastHit?: HitCause;
+  /** The enemy whose turn it is in the update loop; shoot() tags its bullets. */
+  private firing?: Actor;
   private rescueMarkerGeo = new T.RingGeometry(1.05, 1.22, 32);
   private rescueMarkerMat = new T.MeshBasicMaterial({
     color: 0x57eaff,
@@ -935,6 +969,7 @@ export class Game {
     this.dashCooldown = 0;
     this.invincible = 0;
     this.elapsed = 0;
+    this.lastHit = undefined;
     this.feel.reset();
     this.kills = 0;
     this.score = 0;
@@ -1475,8 +1510,13 @@ export class Game {
     this.shield -= absorbed;
     this.hp = Math.max(0, this.hp - (damage - absorbed));
   }
-  takeDamage(damage: number, from?: { x: number; z: number }) {
+  takeDamage(
+    damage: number,
+    from?: { x: number; z: number },
+    cause: HitCause = { cause: "gunfire" },
+  ) {
     this.lastCombat = this.elapsed;
+    if (damage > 0) this.lastHit = cause;
     if (damage > 0) this.feel.hurt(damage, hurtAngle(this.pos, from));
     if (this.riding) {
       const v = this.riding;
@@ -1504,6 +1544,7 @@ export class Game {
     damage: number,
     height?: number,
     hostile = false,
+    cause?: HitCause,
   ) {
     this.impacts.emit(
       x,
@@ -1547,7 +1588,7 @@ export class Game {
         (box) => segmentBox(x, z, this.pos.x, this.pos.z, box) !== Infinity,
       )
     ) {
-      this.takeDamage(damage, { x, z });
+      this.takeDamage(damage, { x, z }, cause ?? hitCause(undefined, spec));
       this.invincible = Math.max(this.invincible, 0.18);
     }
     for (const prop of [...this.world.destructibles])
@@ -1771,6 +1812,7 @@ export class Game {
       life: enemy && !spec?.id.startsWith("enemy") ? 4 : (spec?.life ?? 1.05),
       damage,
       enemy,
+      by: enemy ? this.firing : undefined,
     });
   }
   hurt(
@@ -1997,10 +2039,11 @@ export class Game {
           )
         ) {
           // Blades cannot meaningfully penetrate a tank; boots/jeeps remain vulnerable.
-          this.takeDamage(this.riding?.kind === "tank" ? 1 : profile.damage, {
-            x: e.x,
-            z: e.z,
-          });
+          this.takeDamage(
+            this.riding?.kind === "tank" ? 1 : profile.damage,
+            { x: e.x, z: e.z },
+            hitCause(e),
+          );
           this.invincible = Math.max(this.invincible, 0.25);
           this.playerMotion.hit();
           this.spark(this.pos.x, this.pos.z);
@@ -2158,7 +2201,7 @@ export class Game {
       occupied?.spec.radius ?? 0.5,
     );
     if (personal > 0 && this.invincible === 0) {
-      this.takeDamage(personal, { x, z });
+      this.takeDamage(personal, { x, z }, { cause: "blast" });
       this.invincible = Math.max(this.invincible, 0.25);
       this.playerMotion.hit();
       this.onSound("damage");
@@ -2492,7 +2535,11 @@ export class Game {
                 segmentBox(e.x, e.z, this.pos.x, this.pos.z, box) !== Infinity,
             )
           ) {
-            this.takeDamage(BOSS_ATTACKS.laserTank.damage, { x: e.x, z: e.z });
+            this.takeDamage(
+              BOSS_ATTACKS.laserTank.damage,
+              { x: e.x, z: e.z },
+              hitCause(e),
+            );
             this.invincible = 0.3;
           }
           this.effects.push({ mesh: e.beam, life: 0.22, max: 0.22 });
@@ -3495,6 +3542,7 @@ export class Game {
       if (b.spec?.id === "enemyRocket") pressure.rocket++;
     for (const e of this.enemies) {
       if (e.hp <= 0) continue;
+      this.firing = e;
       if (
         this.quakeTime > 0 &&
         !(aircraft(e.bossKind) && e.mesh.position.y > 2)
@@ -3824,6 +3872,7 @@ export class Game {
           : (1.6 + (e.index % 8) * 0.06) * this.ai.interval;
       }
     }
+    this.firing = undefined;
     for (let i = this.bullets.length - 1; i >= 0; i--) {
       const b = this.bullets[i];
       b.life -= dt;
@@ -3935,7 +3984,11 @@ export class Game {
           b.hits.add(victim);
         }
         if (hitPlayer && this.invincible === 0) {
-          this.takeDamage(b.damage, { x: b.originX, z: b.originZ });
+          this.takeDamage(
+            b.damage,
+            { x: b.originX, z: b.originZ },
+            hitCause(b.by, b.spec),
+          );
           this.playerMotion.hit();
           this.invincible = Math.max(this.invincible, 0.18);
           this.spark(this.pos.x, this.pos.z);
@@ -3955,6 +4008,7 @@ export class Game {
           b.damage * 0.8,
           victim ? victim.mesh.position.y + 1 : undefined,
           b.enemy,
+          b.enemy ? hitCause(b.by, b.spec) : undefined,
         );
       }
       b.mesh.position.set(
@@ -4072,7 +4126,11 @@ export class Game {
             )) &&
           this.invincible === 0
         ) {
-          this.takeDamage(h.damage ?? 28, { x: h.x, z: h.z });
+          this.takeDamage(
+            h.damage ?? 28,
+            { x: h.x, z: h.z },
+            h.owner ? hitCause(h.owner) : { cause: "rockfall" },
+          );
           this.playerMotion.hit();
           this.invincible = Math.max(this.invincible, 0.2);
           this.onSound("damage");

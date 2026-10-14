@@ -75,9 +75,13 @@ test("sound and music can be switched off in settings, and cues are cheap to sch
     for (let i = 0; i < 20; i++)
       for (const cue of cues) audio.play(cue, { gain: 0.5, pan: 0.3 });
     const scheduleMs = performance.now() - started;
-    await new Promise((resolve) =>
-      setTimeout(resolve, (stingerSeconds("win") + 1) * 1000),
-    );
+    // Voices end on the audio clock, which lags wall time when the machine
+    // is busy (CPU-rendered WebGL): wait in audio time, capped at 20 s.
+    const ctx = (audio as any).ctx as AudioContext;
+    const end = ctx.currentTime + stingerSeconds("win") + 1;
+    const cap = performance.now() + 20000;
+    while (ctx.currentTime < end && performance.now() < cap)
+      await new Promise((resolve) => setTimeout(resolve, 100));
     const voices = (audio as any).voices;
     audio.configure(false, false);
     await new Promise((resolve) => setTimeout(resolve, 100));

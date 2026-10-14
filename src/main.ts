@@ -1,4 +1,6 @@
 import './mobile-game-init.mjs';
+import { defeatCard } from "./defeat";
+import { Haptics } from "./haptics";
 import { buyFieldKit, buySupply, fieldKitCost, SUPPLIES } from "./economy.mjs";
 import {
   STAR_BONUS,
@@ -69,7 +71,11 @@ const prefs = {
   view: (["auto", "3d", "25d"].includes(String(rawPrefs.view))
     ? rawPrefs.view
     : "auto") as "auto" | "3d" | "25d",
+  /** Phone vibration on hits, going down and boss arrivals (where supported). */
+  vibrate: rawPrefs.vibrate !== false,
 };
+const haptics = new Haptics();
+haptics.enabled = prefs.vibrate;
 /** 2.5D on phones and tablets (light drawing), full 3D on PCs, unless chosen. */
 const wants25d = () =>
   prefs.view === "25d" ||
@@ -457,7 +463,7 @@ function settingsRows() {
     on: boolean,
   ) =>
     `<label class="setting"><img src="${uiIcon(icon)}" alt=""><span><b>${label}</b><small>${note}</small></span><input id="${id}" type="checkbox" role="switch" ${on ? "checked" : ""}></label>`;
-  return `<div class="settings">${row("setting-sound", "set-sound", "Sound effects", "Weapons, blasts and cues", prefs.sound)}${row("setting-music", "set-music", "Music", "Stage themes that follow the fight", prefs.music)}<div class="setting"><img src="${uiIcon("set-graphics")}" alt=""><span><b>Graphics detail</b><small>Low saves battery on phones</small></span><div class="segmented" id="setting-low" role="radiogroup" aria-label="Graphics detail"><button type="button" role="radio" data-quality="low" aria-checked="${prefs.low}">LOW</button><button type="button" role="radio" data-quality="high" aria-checked="${!prefs.low}">HIGH</button></div></div><div class="setting"><img src="${uiIcon("set-graphics")}" alt=""><span><b>View</b><small>2.5D draws soldiers as light sprites (phones)</small></span><div class="segmented" id="setting-view" role="radiogroup" aria-label="View"><button type="button" role="radio" data-view="auto" aria-checked="${prefs.view === "auto"}">AUTO</button><button type="button" role="radio" data-view="3d" aria-checked="${prefs.view === "3d"}">3D</button><button type="button" role="radio" data-view="25d" aria-checked="${prefs.view === "25d"}">2.5D</button></div></div>${row("setting-motion", "set-motion", "Reduce camera motion", "No shake, camera pans or slow motion", prefs.reduced)}</div>`;
+  return `<div class="settings">${row("setting-sound", "set-sound", "Sound effects", "Weapons, blasts and cues", prefs.sound)}${row("setting-music", "set-music", "Music", "Stage themes that follow the fight", prefs.music)}<div class="setting"><img src="${uiIcon("set-graphics")}" alt=""><span><b>Graphics detail</b><small>Low saves battery on phones</small></span><div class="segmented" id="setting-low" role="radiogroup" aria-label="Graphics detail"><button type="button" role="radio" data-quality="low" aria-checked="${prefs.low}">LOW</button><button type="button" role="radio" data-quality="high" aria-checked="${!prefs.low}">HIGH</button></div></div><div class="setting"><img src="${uiIcon("set-view")}" alt=""><span><b>View</b><small>2.5D draws soldiers as light sprites (phones)</small></span><div class="segmented" id="setting-view" role="radiogroup" aria-label="View"><button type="button" role="radio" data-view="auto" aria-checked="${prefs.view === "auto"}">AUTO</button><button type="button" role="radio" data-view="3d" aria-checked="${prefs.view === "3d"}">3D</button><button type="button" role="radio" data-view="25d" aria-checked="${prefs.view === "25d"}">2.5D</button></div></div>${row("setting-motion", "set-motion", "Reduce camera motion", "No shake, camera pans or slow motion", prefs.reduced)}${haptics.offered ? row("setting-vibrate", "set-vibrate", "Vibration", "Buzz on hits, knockdowns and bosses", prefs.vibrate) : ""}</div>`;
 }
 function bindSettings() {
   $<HTMLInputElement>("#setting-sound").onchange = (e) => {
@@ -474,6 +480,7 @@ function bindSettings() {
     b.onclick = () => {
       prefs.low = b.dataset.quality === "low";
       world.quality(prefs.low);
+      redrawPaused();
       write("nightfall-prefs", { ...prefs, difficulty });
       for (const other of document.querySelectorAll("[data-quality]"))
         other.setAttribute("aria-checked", String(other === b));
@@ -482,6 +489,9 @@ function bindSettings() {
     b.onclick = () => {
       prefs.view = b.dataset.view as typeof prefs.view;
       world.setMode25d(wants25d());
+      redrawPaused();
+      // 2.5D sheets load lazily: draw again once they arrive.
+      void world.sprites.loading?.then(redrawPaused);
       write("nightfall-prefs", { ...prefs, difficulty });
       for (const other of document.querySelectorAll("[data-view]"))
         other.setAttribute("aria-checked", String(other === b));
@@ -490,6 +500,13 @@ function bindSettings() {
     prefs.reduced = (e.target as HTMLInputElement).checked;
     write("nightfall-prefs", { ...prefs, difficulty });
   };
+  const vibrate = document.querySelector<HTMLInputElement>("#setting-vibrate");
+  if (vibrate)
+    vibrate.onchange = () => {
+      prefs.vibrate = haptics.enabled = vibrate.checked;
+      write("nightfall-prefs", { ...prefs, difficulty });
+      if (!vibrate.checked) haptics.stop();
+    };
 }
 $("#menu-settings").onclick = () => {
   if (!ready || mode !== "menu") return;
@@ -563,18 +580,60 @@ function start(fromRelay = false) {
 }
 /** The control that opened the current overlay, to return focus on close. */
 let overlayOpener: HTMLElement | null = null;
-function showOverlay(html: string, variant = "") {
+let settleTimer = 0;
+/**
+ * While paused the world is frozen behind the panel: draw it once, then idle
+ * (battery on phones; CPU-rendered browsers stay responsive). Settings that
+ * change the look, and resizes, ask for one more frame.
+ */
+let pausedDrawn = false;
+const redrawPaused = () => (pausedDrawn = false);
+let downBuzzed = false;
+/**
+ * Show a modal panel. `settle` is for panels that appear mid-fight (the
+ * debrief): a finger still tapping FIRE or a held Space must not press the
+ * button that lands under it, so the buttons ignore input briefly and take
+ * focus only afterwards.
+ */
+function showOverlay(html: string, variant = "", settle = false) {
   const overlay = $("#overlay");
   const active = document.activeElement as HTMLElement | null;
   if (active && !overlay.contains(active) && active !== document.body)
     overlayOpener = active;
   overlay.innerHTML = `<section class="modal ${variant}" role="dialog" aria-modal="true" aria-label="Mission panel">${html}</section>`;
   overlay.hidden = false;
-  overlay.querySelector<HTMLButtonElement>("button:not(:disabled)")?.focus();
+  clearTimeout(settleTimer);
+  const focus = () =>
+    overlay.querySelector<HTMLButtonElement>("button:not(:disabled)")?.focus();
+  if (!settle) {
+    overlay.classList.remove("settling");
+    focus();
+    return;
+  }
+  (document.activeElement as HTMLElement | null)?.blur?.();
+  overlay.classList.add("settling");
+  settleTimer = window.setTimeout(() => {
+    overlay.classList.remove("settling");
+    focus();
+  }, OVERLAY_SETTLE_MS);
 }
+const OVERLAY_SETTLE_MS = 450;
+// A key held down from the fight (Space fires) auto-repeats; it must never
+// press a panel button, and nothing is pressed while a panel settles.
+document.addEventListener(
+  "keydown",
+  (e) => {
+    const overlay = document.querySelector("#overlay");
+    if (!overlay || overlay.hasAttribute("hidden")) return;
+    if (e.key !== " " && e.key !== "Enter") return;
+    if (e.repeat || overlay.classList.contains("settling")) e.preventDefault();
+  },
+  true,
+);
 function pause() {
   if (mode !== "playing") return;
   mode = "paused";
+  pausedDrawn = false;
   clearInput();
   audio.setThemeLevel(0.35);
   const m = MISSIONS[game.index];
@@ -713,8 +772,9 @@ function end(win: boolean) {
   const reveal = () => {
     if (mode !== "result") return;
     showOverlay(
-      `<span class="eyebrow">${win ? "TRANSMISSION RECEIVED" : "SIGNAL LOST"} / 0${game.index + 1}</span><h2>${final ? "Everyone comes home." : win ? "Mission accomplished." : "Not your last stand."}</h2>${win ? debrief : "<p>Use cover to break enemy sightlines. Dodge when orange rings appear, and collect green health drops. Your completed campaign progress is safe.</p>"}<p class="rescue-result">${win ? `${game.rescued} rescued · ${game.squad.allies.length} allies returning · ${game.credits} credits recovered` : "Unbanked mission treasure is lost. Your saved squad and field kit return on retry."}</p><div class="result-stats"><div><b>${game.score.toLocaleString()}</b><span>MISSION SCORE</span></div><div><b>${game.kills}</b><span>TARGETS DOWN</span></div><div><b>${formatTime(game.elapsed)}</b><span>FIELD TIME</span></div></div>${win && !final ? `<span class="eyebrow">CHOOSE YOUR NEXT ADVANTAGE · ARMOR SAVED BY DEFAULT</span><div class="upgrades">${upgrades}</div>` : `${!win && game.checkpoint ? '<button id="result-checkpoint" class="primary">RETRY FROM RELAY <span>↗</span></button>' : ""}<button id="result-primary" class="${!win && game.checkpoint ? "secondary-action" : "primary"}">${win ? "RETURN TO BRIEFING" : "RETRY MISSION"} <span>↗</span></button>`}${!win ? '<button id="result-menu" class="text-button">MISSION BRIEFING</button>' : ""}`,
+      `<span class="eyebrow">${win ? "TRANSMISSION RECEIVED" : "SIGNAL LOST"} / 0${game.index + 1}</span><h2>${final ? "Everyone comes home." : win ? "Mission accomplished." : "Not your last stand."}</h2>${win ? debrief : defeatCard(game.lastHit, import.meta.env.BASE_URL, BOSS_TIPS[game.lastHit?.boss ?? ""]) + `<p class="defeat-progress">${game.checkpoint ? "The relay is secured: you can retry from it." : "Your completed campaign progress is safe."}</p>`}<p class="rescue-result">${win ? `${game.rescued} rescued · ${game.squad.allies.length} allies returning · ${game.credits} credits recovered` : "Unbanked mission treasure is lost. Your saved squad and field kit return on retry."}</p><div class="result-stats"><div><b>${game.score.toLocaleString()}</b><span>MISSION SCORE</span></div><div><b>${game.kills}</b><span>TARGETS DOWN</span></div><div><b>${formatTime(game.elapsed)}</b><span>FIELD TIME</span></div></div>${win && !final ? `<span class="eyebrow">CHOOSE YOUR NEXT ADVANTAGE · ARMOR SAVED BY DEFAULT</span><div class="upgrades">${upgrades}</div>` : `${!win && game.checkpoint ? '<button id="result-checkpoint" class="primary">RETRY FROM RELAY <span>↗</span></button>' : ""}<button id="result-primary" class="${!win && game.checkpoint ? "secondary-action" : "primary"}">${win ? "RETURN TO BRIEFING" : "RETRY MISSION"} <span>↗</span></button>`}${!win ? '<button id="result-menu" class="text-button">MISSION BRIEFING</button>' : ""}`,
       win ? "debrief-modal" : "",
+      true,
     );
     const total = document.querySelector<HTMLElement>("#banked");
     if (total && !prefs.reduced) {
@@ -1199,6 +1259,7 @@ for (const b of document.querySelectorAll<HTMLButtonElement>(
   b.onlostpointercapture = release;
 }
 window.addEventListener("resize", () => {
+  redrawPaused();
   clearInput();
   world?.resize();
 });
@@ -1246,6 +1307,7 @@ function directorCues(beat: ReturnType<Director["update"]>) {
       .join(" ");
     director.startIntro(point, prefs.reduced);
     sound("bossIntro");
+    haptics.boss();
   }
   const blow = game.finalBlow;
   if (blow && blow.seq !== blowSeq) {
@@ -1298,6 +1360,10 @@ function frame(now: number) {
     directorCues(beat);
     game.feel.decay(dt);
     feedback.update(game, world, $("#crosshair"), prefs.reduced);
+    if (game.phase === "dying" && !downBuzzed) {
+      downBuzzed = true;
+      haptics.down();
+    } else if (game.phase === "playing") downBuzzed = false;
     if (now - lastHud > 90) {
       const tick = Math.min(0.5, (now - lastHud) / 1000);
       updateHud();
@@ -1360,6 +1426,10 @@ function frame(now: number) {
   world.indicatorScale = game?.riding
     ? Math.max(1, game.riding.spec.radius * 1.2)
     : 1;
+  if (mode === "paused") {
+    if (pausedDrawn) return;
+    pausedDrawn = true;
+  }
   // game.pos is the player mesh position, so the camera focus is blended too.
   interpolator.apply(world.actors, alpha);
   world.render(
@@ -1382,6 +1452,9 @@ async function init() {
     });
     game = new Game(world);
     feedback = new FeedbackUI(document.body);
+    feedback.onHurt = (damage) => {
+      if (game.phase === "playing") haptics.hurt(damage);
+    };
     game.onRadio = radio;
     game.onSound = sound;
     game.onEnd = end;
@@ -1402,6 +1475,7 @@ async function init() {
         start,
         world,
         audio,
+        haptics,
         interpolator,
         director,
       };
