@@ -4,7 +4,8 @@ import { BOSS_NAMES } from "./missions";
 /**
  * The failure debrief names what took Ghost down and teaches its counter
  * (after Tidelock's reason-specific failure text). The portrait is the
- * attacker's 2.5D sprite sheet, front-facing idle frame, so no extra art.
+ * attacker's 2.5D sprite sheet (front-facing idle cell, laid out as the
+ * sprite manifest says), so no extra art.
  */
 type Lesson = { who: string; line: string; tip: string; sprite?: string };
 const LESSONS: Record<HitCause["cause"], Lesson> = {
@@ -18,31 +19,31 @@ const LESSONS: Record<HitCause["cause"], Lesson> = {
     who: "ENEMY TANK",
     line: "An enemy tank shelled you.",
     tip: "Duck behind solid cover while its cannon reloads, or answer with the anti-armor missile or your own tank.",
-    sprite: "tank-hostile",
+    sprite: "tank:hostile",
   },
   rocket: {
     who: "ROCKET TROOPER",
     line: "A rocket found you.",
     tip: "Watch for the orange aiming line. Move sideways or break sight behind cover before it locks.",
-    sprite: "rifleman-rocketeer",
+    sprite: "rifleman:rocketeer",
   },
   thrower: {
     who: "KNIFE THROWER",
     line: "Thrown blades wore you down.",
     tip: "Throwers loose one visible blade at a time. Sidestep it, then return fire.",
-    sprite: "rifleman-thrower",
+    sprite: "rifleman:thrower",
   },
   rusher: {
     who: "KNIFE RUSHER",
     line: "A rusher closed the distance.",
     tip: "Rushers are fragile: shoot them first, and backstep or DODGE when their stab is warned.",
-    sprite: "rifleman-rusher",
+    sprite: "rifleman:rusher",
   },
   swordsman: {
     who: "SWORDSMAN",
     line: "A long-sword sweep caught you.",
     tip: "Step outside the orange arc, then strike while the sword recovers.",
-    sprite: "rifleman-swordsman",
+    sprite: "rifleman:swordsman",
   },
   ninja: {
     who: "NINJA",
@@ -71,17 +72,26 @@ const GENERIC: Lesson = {
   line: "Ghost went down.",
   tip: "Use cover to break enemy sightlines. Dodge when orange rings appear, and collect green health drops.",
 };
-/** Front-facing idle cell: column 0 (yaw 0) of the top row. */
-const PEOPLE_FRAMES = 4;
-const BIG = new Set(["tank-hostile", ...Object.keys(BOSS_NAMES)]);
+/** Sprite sheets by manifest key (art/bake_sprites.py writes the layout). */
+type Sheet = { file: string; frames: number; dirs: number };
+let sheets: Record<string, Sheet> | undefined;
+/** Fetch the sprite manifest once (tiny); until then portraits use the glyph. */
+export async function loadDefeatSheets(base: string) {
+  if (sheets) return;
+  try {
+    sheets = await (await fetch(`${base}sprites/manifest.json`)).json();
+  } catch {
+    // Offline or blocked: the card keeps its glyph portrait.
+  }
+}
 /**
- * Background size and position that frame one sheet cell, zoomed `zoom`x on
- * its centre (people cells leave room for a fallen body, so they zoom in).
+ * Background size and position that frame the front-facing idle cell
+ * (column 0, top row), zoomed `zoom`x on its centre. People cells leave room
+ * for a fallen body, so they zoom in more.
  */
-function cellFrame(frames: number, zoom: number) {
-  const w = 8 * zoom,
+function cellFrame({ dirs, frames }: Sheet, zoom: number) {
+  const w = dirs * zoom,
     h = frames * zoom;
-  // Centre of the cell (0.5 cells in) lands on the centre of the portrait.
   const x = w > 1 ? ((zoom / 2 - 0.5) / (w - 1)) * 100 : 0;
   const y = h > 1 ? ((zoom / 2 - 0.5) / (h - 1)) * 100 : 0;
   return `background-size:${w * 100}% ${h * 100}%;background-position:${x.toFixed(2)}% ${y.toFixed(2)}%`;
@@ -101,12 +111,13 @@ export function defeatLesson(hit: HitCause | undefined, bossTip?: string) {
 
 export function defeatCard(
   hit: HitCause | undefined,
-  base: string,
+  art: { base: string; glyph: string },
   bossTip?: string,
 ) {
   const l = defeatLesson(hit, bossTip);
-  const portrait = l.sprite
-    ? `<i class="defeat-portrait" style="background-image:url('${base}sprites/${l.sprite}.webp');${BIG.has(l.sprite) ? cellFrame(1, 1.15) : cellFrame(PEOPLE_FRAMES, 1.5)}"></i>`
-    : `<i class="defeat-portrait defeat-glyph" style="background-image:url('${base}ui/hud-blast.png')"></i>`;
+  const sheet = l.sprite ? sheets?.[l.sprite] : undefined;
+  const portrait = sheet
+    ? `<i class="defeat-portrait" style="background-image:url('${art.base}sprites/${sheet.file}');${cellFrame(sheet, sheet.frames > 1 ? 1.5 : 1.15)}"></i>`
+    : `<i class="defeat-portrait defeat-glyph" style="background-image:url('${art.glyph}')"></i>`;
   return `<div class="defeat" data-cause="${hit?.cause ?? "unknown"}">${portrait}<div><span class="eyebrow">TAKEN DOWN BY</span><b>${l.who}</b><p>${l.line}</p><p class="defeat-tip"><em>COUNTER</em> ${l.tip}</p></div></div>`;
 }

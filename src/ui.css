@@ -1421,8 +1421,14 @@ h1 em {
   .segmented button,
   .modal-head .close,
   .difficulty button,
-  .text-button {
+  .text-button,
+  .modal summary,
+  #brand > a {
     min-height: 44px;
+  }
+  .modal summary {
+    display: flex;
+    align-items: center;
   }
   .segmented button {
     display: inline-flex;

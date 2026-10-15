@@ -581,7 +581,12 @@ export class Game {
   onEnd: (win: boolean) => void = () => {};
   /** What last hurt Ghost this mission (shown on the failure debrief). */
   lastHit?: HitCause;
-  /** The enemy whose turn it is in the update loop; shoot() tags its bullets. */
+  /**
+   * The enemy whose turn it is in the update loop; shoot() tags its bullets
+   * with it. Every enemy weapon fires from inside that loop (infantry, tanks,
+   * bosses and their mounted guns); shots from anywhere else are untagged and
+   * read as generic gunfire. Cleared at the start and end of the loop.
+   */
   private firing?: Actor;
   private rescueMarkerGeo = new T.RingGeometry(1.05, 1.22, 32);
   private rescueMarkerMat = new T.MeshBasicMaterial({
@@ -1505,18 +1510,23 @@ export class Game {
           : `Q / SWAP cycles the ${v.kind === "tank" ? "cannon" : "mounted gun"} and your weapons; the strongest loaded one is used.`),
     );
   }
-  private damageHealth(damage: number) {
+  /** Only a hit that actually costs Ghost health becomes the cause shown on
+   * the failure debrief (not one a shield or vehicle soaked up). */
+  private damageHealth(damage: number, cause: HitCause | undefined) {
     const absorbed = Math.min(this.shield, damage);
     this.shield -= absorbed;
+    const before = this.hp;
     this.hp = Math.max(0, this.hp - (damage - absorbed));
+    if (this.hp < before) this.lastHit = cause;
   }
+  /** `cause` names the attacker for the failure debrief; pass undefined only
+   * when it is genuinely unknown (the debrief then gives general advice). */
   takeDamage(
     damage: number,
-    from?: { x: number; z: number },
-    cause: HitCause = { cause: "gunfire" },
+    from: { x: number; z: number } | undefined,
+    cause: HitCause | undefined,
   ) {
     this.lastCombat = this.elapsed;
-    if (damage > 0) this.lastHit = cause;
     if (damage > 0) this.feel.hurt(damage, hurtAngle(this.pos, from));
     if (this.riding) {
       const v = this.riding;
@@ -1529,13 +1539,13 @@ export class Game {
         this.player.visible = true;
         v.speed = 0;
         if (exit) this.pos.set(exit.x, 0, exit.z);
-        this.damageHealth(25);
+        this.damageHealth(25, cause);
         this.spark(v.mesh.position.x, v.mesh.position.z, true);
         this.addCorpse(new FallenBody(v.mesh, undefined, v.kind));
         this.invincible = 1;
         this.onRadio("Vehicle destroyed! Emergency evacuation.");
       }
-    } else this.damageHealth(damage);
+    } else this.damageHealth(damage, cause);
   }
   blast(
     x: number,
@@ -3084,6 +3094,7 @@ export class Game {
       if (this.corpses[i].update(dt)) this.corpses.splice(i, 1);
   }
   update(dt: number, input: Input) {
+    this.firing = undefined;
     if (this.phase === "dying") {
       this.updatePresentation(dt);
       this.deathClock += dt;

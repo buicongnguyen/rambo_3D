@@ -1,5 +1,5 @@
 import './mobile-game-init.mjs';
-import { defeatCard } from "./defeat";
+import { defeatCard, loadDefeatSheets } from "./defeat";
 import { Haptics } from "./haptics";
 import { buyFieldKit, buySupply, fieldKitCost, SUPPLIES } from "./economy.mjs";
 import {
@@ -499,6 +499,7 @@ function bindSettings() {
   $<HTMLInputElement>("#setting-motion").onchange = (e) => {
     prefs.reduced = (e.target as HTMLInputElement).checked;
     write("nightfall-prefs", { ...prefs, difficulty });
+    redrawPaused();
   };
   const vibrate = document.querySelector<HTMLInputElement>("#setting-vibrate");
   if (vibrate)
@@ -603,6 +604,8 @@ function showOverlay(html: string, variant = "", settle = false) {
   overlay.innerHTML = `<section class="modal ${variant}" role="dialog" aria-modal="true" aria-label="Mission panel">${html}</section>`;
   overlay.hidden = false;
   clearTimeout(settleTimer);
+  keyGuard = settle;
+  freshKeys.clear();
   const focus = () =>
     overlay.querySelector<HTMLButtonElement>("button:not(:disabled)")?.focus();
   if (!settle) {
@@ -618,15 +621,32 @@ function showOverlay(html: string, variant = "", settle = false) {
   }, OVERLAY_SETTLE_MS);
 }
 const OVERLAY_SETTLE_MS = 450;
-// A key held down from the fight (Space fires) auto-repeats; it must never
-// press a panel button, and nothing is pressed while a panel settles.
+/**
+ * Debriefs guard Space and Enter: a key held from the fight (Space fires)
+ * must not press a panel button, neither by auto-repeat nor on release once
+ * a button has focus. Only presses that start after the panel settled count.
+ * Other panels (manual, settings) keep normal key repeat and scrolling.
+ */
+let keyGuard = false;
+const freshKeys = new Set<string>();
+const guarded = (e: KeyboardEvent) =>
+  keyGuard &&
+  (e.key === " " || e.key === "Enter") &&
+  !$("#overlay").hidden;
 document.addEventListener(
   "keydown",
   (e) => {
-    const overlay = document.querySelector("#overlay");
-    if (!overlay || overlay.hasAttribute("hidden")) return;
-    if (e.key !== " " && e.key !== "Enter") return;
-    if (e.repeat || overlay.classList.contains("settling")) e.preventDefault();
+    if (!guarded(e)) return;
+    if (e.repeat || $("#overlay").classList.contains("settling"))
+      e.preventDefault();
+    else freshKeys.add(e.key);
+  },
+  true,
+);
+document.addEventListener(
+  "keyup",
+  (e) => {
+    if (guarded(e) && !freshKeys.delete(e.key)) e.preventDefault();
   },
   true,
 );
@@ -772,7 +792,7 @@ function end(win: boolean) {
   const reveal = () => {
     if (mode !== "result") return;
     showOverlay(
-      `<span class="eyebrow">${win ? "TRANSMISSION RECEIVED" : "SIGNAL LOST"} / 0${game.index + 1}</span><h2>${final ? "Everyone comes home." : win ? "Mission accomplished." : "Not your last stand."}</h2>${win ? debrief : defeatCard(game.lastHit, import.meta.env.BASE_URL, BOSS_TIPS[game.lastHit?.boss ?? ""]) + `<p class="defeat-progress">${game.checkpoint ? "The relay is secured: you can retry from it." : "Your completed campaign progress is safe."}</p>`}<p class="rescue-result">${win ? `${game.rescued} rescued · ${game.squad.allies.length} allies returning · ${game.credits} credits recovered` : "Unbanked mission treasure is lost. Your saved squad and field kit return on retry."}</p><div class="result-stats"><div><b>${game.score.toLocaleString()}</b><span>MISSION SCORE</span></div><div><b>${game.kills}</b><span>TARGETS DOWN</span></div><div><b>${formatTime(game.elapsed)}</b><span>FIELD TIME</span></div></div>${win && !final ? `<span class="eyebrow">CHOOSE YOUR NEXT ADVANTAGE · ARMOR SAVED BY DEFAULT</span><div class="upgrades">${upgrades}</div>` : `${!win && game.checkpoint ? '<button id="result-checkpoint" class="primary">RETRY FROM RELAY <span>↗</span></button>' : ""}<button id="result-primary" class="${!win && game.checkpoint ? "secondary-action" : "primary"}">${win ? "RETURN TO BRIEFING" : "RETRY MISSION"} <span>↗</span></button>`}${!win ? '<button id="result-menu" class="text-button">MISSION BRIEFING</button>' : ""}`,
+      `<span class="eyebrow">${win ? "TRANSMISSION RECEIVED" : "SIGNAL LOST"} / 0${game.index + 1}</span><h2>${final ? "Everyone comes home." : win ? "Mission accomplished." : "Not your last stand."}</h2>${win ? debrief : defeatCard(game.lastHit, { base: import.meta.env.BASE_URL, glyph: uiIcon("hud-blast") }, BOSS_TIPS[game.lastHit?.boss ?? ""]) + `<p class="defeat-progress">${game.checkpoint ? "The relay is secured: you can retry from it." : "Your completed campaign progress is safe."}</p>`}<p class="rescue-result">${win ? `${game.rescued} rescued · ${game.squad.allies.length} allies returning · ${game.credits} credits recovered` : "Unbanked mission treasure is lost. Your saved squad and field kit return on retry."}</p><div class="result-stats"><div><b>${game.score.toLocaleString()}</b><span>MISSION SCORE</span></div><div><b>${game.kills}</b><span>TARGETS DOWN</span></div><div><b>${formatTime(game.elapsed)}</b><span>FIELD TIME</span></div></div>${win && !final ? `<span class="eyebrow">CHOOSE YOUR NEXT ADVANTAGE · ARMOR SAVED BY DEFAULT</span><div class="upgrades">${upgrades}</div>` : `${!win && game.checkpoint ? '<button id="result-checkpoint" class="primary">RETRY FROM RELAY <span>↗</span></button>' : ""}<button id="result-primary" class="${!win && game.checkpoint ? "secondary-action" : "primary"}">${win ? "RETURN TO BRIEFING" : "RETRY MISSION"} <span>↗</span></button>`}${!win ? '<button id="result-menu" class="text-button">MISSION BRIEFING</button>' : ""}`,
       win ? "debrief-modal" : "",
       true,
     );
@@ -1201,8 +1221,10 @@ document.addEventListener("visibilitychange", () => {
   if (document.hidden) {
     clearInput();
     pause();
-  }
+  } else redrawPaused(); // The OS may have dropped the frame while away.
 });
+window.addEventListener("pageshow", redrawPaused);
+canvas.addEventListener("webglcontextrestored", redrawPaused);
 canvas.addEventListener("pointermove", (e) => {
   pointer.set(
     (e.clientX / innerWidth) * 2 - 1,
@@ -1451,6 +1473,7 @@ async function init() {
       if (load) load.textContent = `${Math.round(n * 100)}%`;
     });
     game = new Game(world);
+    void loadDefeatSheets(import.meta.env.BASE_URL);
     feedback = new FeedbackUI(document.body);
     feedback.onHurt = (damage) => {
       if (game.phase === "playing") haptics.hurt(damage);

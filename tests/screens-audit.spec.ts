@@ -48,7 +48,8 @@ const audit = (page: Page) =>
       if (own && parseFloat(cs.fontSize) < 11)
         out.small.push(`${el.className || el.tagName}:${cs.fontSize}`);
       if (!coarse) continue;
-      if (!el.matches("button, summary, select, [role=radio], input")) continue;
+      if (!el.matches("button, a[href], summary, select, [role=radio], [role=button], input"))
+        continue;
       // A switch inside a full-row label is tapped through its label.
       const target = el.closest("label") ?? el;
       const t = target.getBoundingClientRect();
@@ -78,6 +79,43 @@ for (const [w, h, touch] of SIZES)
     await page.locator("#pause").click();
     await expect(page.locator("#resume")).toBeVisible();
     expect(await audit(page), "pause").toEqual(clean);
+    await context.close();
+  });
+
+for (const [w, h, touch] of SIZES)
+  test(`${w}×${h}: the Field Manual and both debriefs keep the same rules`, async ({
+    browser,
+  }) => {
+    const { context, page } = await open(browser, w, h, touch);
+    await page.locator("#controls-open").click();
+    await page.evaluate(() =>
+      document
+        .querySelectorAll<HTMLDetailsElement>("#overlay details")
+        .forEach((d) => (d.open = true)),
+    );
+    expect(await audit(page), "manual").toEqual(clean);
+    await page.keyboard.press("Escape");
+    await page.locator("#deploy").click();
+    await page.evaluate(async () => {
+      const { game: g, input } = (window as any).__nightfall;
+      const { WEAPONS } = await import("/src/arsenal.ts");
+      g.invincible = 1e6;
+      for (const e of g.enemies) if (e.hp > 0) g.hurt(e, 999, WEAPONS[0]);
+      g.update(1 / 60, { ...input, x: 0, z: 0, fire: false });
+    });
+    await expect(page.locator(".grade")).toBeVisible({ timeout: 15000 });
+    expect(await audit(page), "won").toEqual(clean);
+    await page.reload();
+    await expect(page.locator("#deploy")).toBeEnabled();
+    await page.locator("#deploy").click();
+    await page.evaluate(() => {
+      const g = (window as any).__nightfall.game;
+      g.invincible = 0;
+      g.shield = 0;
+      g.takeDamage(1e6, { x: g.pos.x + 3, z: g.pos.z }, { cause: "rocket" });
+    });
+    await expect(page.locator(".defeat")).toBeVisible({ timeout: 15000 });
+    expect(await audit(page), "lost").toEqual(clean);
     await context.close();
   });
 
@@ -202,6 +240,8 @@ test("a debrief that lands mid-fight ignores taps and Enter until it settles", a
   await page.goto("/");
   await expect(page.locator("#deploy")).toBeEnabled();
   await page.locator("#deploy").click();
+  // Ghost is firing with Space when the last enemy falls.
+  await page.keyboard.down("Space");
   // Checked in the same task as the reveal, so a slow machine cannot let
   // the settle window pass before the probe.
   const landed = await page.evaluate(async () => {
@@ -241,6 +281,25 @@ test("a debrief that lands mid-fight ignores taps and Enter until it settles", a
   // Once settled, the panel takes focus and answers normally.
   await expect(page.locator("#overlay")).not.toHaveClass(/settling/);
   await expect(armor).toBeFocused();
+  // Releasing the Space held from the fight onto the focused button, or its
+  // auto-repeat, presses nothing; a fresh Space press does.
+  await page.evaluate(() => {
+    const armor = document.activeElement!;
+    armor.dispatchEvent(
+      new KeyboardEvent("keydown", { key: " ", repeat: true, bubbles: true, cancelable: true }),
+    );
+  });
+  await page.keyboard.up("Space");
+  await page.waitForTimeout(150);
+  expect(await page.evaluate(() => (window as any).__nightfall.mode)).toBe(
+    "result",
+  );
+  const blocked = await page.evaluate(() => {
+    const up = new KeyboardEvent("keyup", { key: " ", bubbles: true, cancelable: true });
+    document.activeElement!.dispatchEvent(up);
+    return up.defaultPrevented;
+  });
+  expect(blocked).toBe(true);
   await armor.click();
   await expect
     .poll(() => page.evaluate(() => (window as any).__nightfall.mode))
@@ -277,6 +336,18 @@ test("phones buzz on hits; the Vibration setting turns it off and persists", asy
       return (window as any).__buzz.length;
     });
   expect(await hurt()).toBeGreaterThan(0);
+  // Going down right after a hit still buzzes (hits are rate-limited, the
+  // knockdown and boss cues are not).
+  expect(
+    await page.evaluate(() => {
+      const { haptics } = (window as any).__nightfall;
+      const n = (window as any).__buzz.length;
+      haptics.hurt(30);
+      haptics.down();
+      haptics.hurt(30); // inside the quiet window: dropped
+      return (window as any).__buzz.length - n;
+    }),
+  ).toBe(2);
   // Turn it off in the pause menu: hits stop buzzing, and the choice persists.
   await page.locator("#pause").click();
   const row = page.locator("label.setting", { hasText: "Vibration" });
@@ -301,4 +372,30 @@ test("desktops do not offer Vibration", async ({ page }) => {
   await page.locator("#menu-settings").click();
   await expect(page.locator("#setting-sound")).toBeAttached();
   await expect(page.locator("#setting-vibrate")).toHaveCount(0);
+});
+
+test("the paused world is drawn once, and again only when a setting changes its look", async ({
+  page,
+}) => {
+  await page.goto("/");
+  await expect(page.locator("#deploy")).toBeEnabled();
+  await page.locator("#deploy").click();
+  await page.locator("#pause").click();
+  await expect(page.locator("#resume")).toBeVisible();
+  const frames = () =>
+    page.evaluate(
+      () => (window as any).__nightfall.world.renderer.info.render.frame,
+    );
+  await page.waitForTimeout(300);
+  const idle = await frames();
+  await page.waitForTimeout(600);
+  expect(await frames()).toBe(idle);
+  await page.locator('[data-quality="low"]').click();
+  await expect.poll(frames).toBeGreaterThan(idle);
+  const after = await frames();
+  await page.waitForTimeout(600);
+  expect(await frames()).toBe(after);
+  // Resuming draws every frame again.
+  await page.locator("#resume").click();
+  await expect.poll(frames).toBeGreaterThan(after + 3);
 });

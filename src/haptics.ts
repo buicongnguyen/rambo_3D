@@ -15,10 +15,12 @@ export class Haptics {
   get offered() {
     return this.supported && matchMedia("(pointer: coarse)").matches;
   }
-  private buzz(pattern: number | number[], gap: number) {
+  /** `urgent` cues (going down, a boss) are rare and never lost to the hit
+   * rate limit; they restart it so the next hit does not stomp on them. */
+  private buzz(pattern: number | number[], gap: number, urgent = false) {
     if (!this.enabled || !this.supported) return;
     const now = performance.now();
-    if (now < this.quietUntil) return;
+    if (!urgent && now < this.quietUntil) return;
     this.quietUntil = now + gap;
     this.sent++;
     try {
@@ -31,13 +33,18 @@ export class Haptics {
     this.buzz(damage >= 20 ? 45 : 22, 140);
   }
   down() {
-    this.buzz([60, 50, 140], 600);
+    this.buzz([60, 50, 140], 600, true);
   }
   boss() {
-    this.buzz([40, 60, 40, 60, 90], 600);
+    this.buzz([40, 60, 40, 60, 90], 600, true);
   }
   stop() {
     this.quietUntil = 0;
-    if (this.supported) navigator.vibrate(0);
+    if (!this.supported) return;
+    try {
+      navigator.vibrate(0);
+    } catch {
+      // Same embedded-browser quirk as buzz().
+    }
   }
 }

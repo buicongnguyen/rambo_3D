@@ -139,6 +139,15 @@ We compared RAMBO 3D's screens with the earlier 2D versions (`rambo_game` v1–v
   - Before, every frame was redrawn behind a frozen, dimmed panel.
   - With CPU rendering each frame took seconds, so the two-tap MISSION BRIEFING could not register within its 3 s window.
   - The audio test now waits on the audio clock, which lags the wall clock on a busy machine.
+- **Code and logic review fixes.**
+  - Damage fully absorbed by a shield or vehicle no longer becomes the "killer".
+  - Every damage path must now name its cause, and an unknown cause gets general advice rather than a wrong attacker.
+  - Portraits read the sprite layout from the sprite manifest.
+  - The knockdown and boss buzzes can no longer be swallowed by the hit rate limit.
+  - Releasing a Space held from the fight onto a focused debrief button presses nothing. Other panels keep normal key repeat.
+  - The paused frame is redrawn after returning from the background, after a WebGL context restore and after toggling Reduce motion.
+  - Field Manual headers and the logo/home link are 44 px on touch screens.
+  - The audit now also covers the Field Manual and both debriefs.
 - **Fixes found while comparing.**
   - The shared iPhone helper's Full screen button was unstyled text, and it never reached the pause screen because the selector was wrong. It is now a steel bar in both places.
   - The desktop header shade now spans the whole window.
