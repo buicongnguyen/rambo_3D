@@ -919,7 +919,8 @@ h1 em {
 }
 .stat {
   display: grid;
-  grid-template-columns: 46px 1fr;
+  /* Room for IMPACT at 11 px in wider Linux/Android fonts; bars stay aligned. */
+  grid-template-columns: minmax(56px, max-content) 1fr;
   align-items: center;
   gap: 6px;
   width: 100%;
