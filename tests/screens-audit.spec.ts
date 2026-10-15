@@ -33,7 +33,16 @@ const audit = (page: Page) =>
     const out = {
       small: [] as string[],
       taps: [] as string[],
+      clipped: [] as string[],
       overflow: document.documentElement.scrollWidth > innerWidth,
+    };
+    // Carousels hold content off screen on purpose.
+    const inScroller = (el: Element) => {
+      for (let p = el.parentElement; p && p !== document.body; p = p.parentElement) {
+        const ox = getComputedStyle(p).overflowX;
+        if (ox !== "visible" && p.scrollWidth > p.clientWidth + 1) return true;
+      }
+      return false;
     };
     const coarse = matchMedia("(pointer: coarse)").matches;
     const scope = document.querySelector("#overlay:not([hidden])") ?? document.body;
@@ -47,6 +56,16 @@ const audit = (page: Page) =>
       );
       if (own && parseFloat(cs.fontSize) < 11)
         out.small.push(`${el.className || el.tagName}:${cs.fontSize}`);
+      // Text wider than its own box (the logo mark overhangs by design).
+      if (
+        own &&
+        el.clientWidth > 0 &&
+        el.scrollWidth > el.clientWidth + 1 &&
+        cs.display !== "inline" &&
+        !el.closest(".brand-mark") &&
+        !inScroller(el)
+      )
+        out.clipped.push(`${el.id || el.className || el.tagName}:${el.scrollWidth}/${el.clientWidth}`);
       if (!coarse) continue;
       if (!el.matches("button, a[href], summary, select, [role=radio], [role=button], input"))
         continue;
@@ -58,7 +77,7 @@ const audit = (page: Page) =>
     }
     return out;
   });
-const clean = { small: [], taps: [], overflow: false };
+const clean = { small: [], taps: [], clipped: [], overflow: false };
 
 for (const [w, h, touch] of SIZES)
   test(`${w}×${h}: menu, settings, shop, pause and HUD keep 11 px text, 44 px taps and no sideways scroll`, async ({
@@ -76,6 +95,17 @@ for (const [w, h, touch] of SIZES)
     await page.locator("#deploy").click();
     await expect(page.locator("#hud")).toBeVisible();
     expect(await audit(page), "hud").toEqual(clean);
+    // Worst-case values: full shield, a full squad and four-digit credits.
+    await page.evaluate(() => {
+      const g = (window as any).__nightfall.game;
+      g.invincible = 1e6;
+      g.shield = 80;
+      g.credits = 9999;
+      for (let i = 0; i < 3; i++)
+        g.squad.add(g.pos.x - 1.5 - i, g.pos.z - 1.2, undefined, true);
+    });
+    await expect(page.locator("#shield-text")).toContainText("¤9999");
+    expect(await audit(page), "hud with worst-case values").toEqual(clean);
     await page.locator("#pause").click();
     await expect(page.locator("#resume")).toBeVisible();
     expect(await audit(page), "pause").toEqual(clean);

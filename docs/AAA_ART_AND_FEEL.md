@@ -147,6 +147,9 @@ We compared RAMBO 3D's screens with the earlier 2D versions (`rambo_game` v1–v
   - Releasing a Space held from the fight onto a focused debrief button presses nothing. Other panels keep normal key repeat.
   - The paused frame is redrawn after returning from the background, after a WebGL context restore and after toggling Reduce motion.
   - Field Manual headers and the logo/home link are 44 px on touch screens.
+  - The HUD status line ("SHIELD · ALLIES · ¤") used generic monospace. Raised to 11 px, it was cut off on Linux and Android, whose monospace is wider, and with large numbers on 360–390 px phones. It now uses the condensed display font with narrow fallbacks, and wraps rather than cutting off if the webfont is missing.
+  - On phones under 420 px wide, segmented settings (LOW/HIGH, AUTO/3D/2.5D) take their own line, instead of squeezing the label to one word per line.
+  - The audit now also checks clipped text, with a worst-case HUD (full shield and squad, ¤9999).
   - The audit now also covers the Field Manual and both debriefs.
 - **Fixes found while comparing.**
   - The shared iPhone helper's Full screen button was unstyled text, and it never reached the pause screen because the selector was wrong. It is now a steel bar in both places.

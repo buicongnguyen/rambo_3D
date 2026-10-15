@@ -1436,3 +1436,31 @@ h1 em {
     justify-content: center;
   }
 }
+/* The status line used the generic monospace font, which is much wider on
+   Linux and Android (DejaVu Sans Mono) than on Windows: at 11 px a full
+   "SHIELD 80 · ALLIES 3 · ¤9999" was cut off on phones. The condensed
+   display font fits it with room to spare on every platform. */
+#shield-text {
+  font-family:
+    "Barlow Condensed", "Arial Narrow", "Liberation Sans Narrow",
+    "Roboto Condensed", "DejaVu Sans Condensed", sans-serif;
+  font-weight: 700;
+  letter-spacing: 0.04em;
+  /* If the webfont never arrives, wrap rather than cut the numbers off. */
+  white-space: normal;
+}
+/* Narrow phones: a segmented control (LOW/HIGH, AUTO/3D/2.5D) takes its own
+   full-width line under the label, instead of squeezing the label column
+   to one word per line. */
+@media (max-width: 420px) {
+  .settings .setting:has(.segmented) {
+    grid-template-columns: 40px minmax(0, 1fr);
+  }
+  .settings .setting:has(.segmented) .segmented {
+    grid-column: 1 / -1;
+    display: flex;
+  }
+  .settings .setting:has(.segmented) .segmented button {
+    flex: 1;
+  }
+}
