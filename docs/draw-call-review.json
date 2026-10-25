@@ -1,0 +1,102 @@
+{
+  "date": "2026-10-25",
+  "method": "Fixed supply seed 98765, Crazy difficulty, frozen simulation, raw WebGL draws including shadows. Two captures after identical rebuilds. Not an FPS benchmark.",
+  "gpu": "ANGLE (NVIDIA, NVIDIA GeForce RTX 4080 SUPER (0x00002702) Direct3D11 vs_5_0 ps_5_0, D3D11)",
+  "profiles": [
+    {
+      "scene": "opening-high",
+      "canvas": [
+        1280,
+        800
+      ],
+      "beforeCalls": 370,
+      "afterCalls": 318,
+      "reductionPercent": 14.1,
+      "beforeTriangles": 614383,
+      "afterTriangles": 611767,
+      "geometryBytes": 4652268,
+      "geometryBytesUnchanged": true,
+      "stableRebuildCounts": true,
+      "visualChangedPixelsOver2": 1223,
+      "visualTotalPixels": 1024000,
+      "errors": [],
+      "unchangedCrossLoadPixelsOver2": 1154
+    },
+    {
+      "scene": "jungle-high",
+      "canvas": [
+        1280,
+        800
+      ],
+      "beforeCalls": 620,
+      "afterCalls": 441,
+      "reductionPercent": 28.9,
+      "beforeTriangles": 1941533,
+      "afterTriangles": 1919892,
+      "geometryBytes": 5213948,
+      "geometryBytesUnchanged": true,
+      "stableRebuildCounts": true,
+      "visualChangedPixelsOver2": 156,
+      "visualTotalPixels": 1024000,
+      "errors": [],
+      "unchangedCrossLoadPixelsOver2": 2
+    },
+    {
+      "scene": "city-high",
+      "canvas": [
+        1280,
+        800
+      ],
+      "beforeCalls": 654,
+      "afterCalls": 500,
+      "reductionPercent": 23.5,
+      "beforeTriangles": 2176043,
+      "afterTriangles": 2153579,
+      "geometryBytes": 7445976,
+      "geometryBytesUnchanged": true,
+      "stableRebuildCounts": true,
+      "visualChangedPixelsOver2": 186,
+      "visualTotalPixels": 1024000,
+      "errors": [],
+      "unchangedCrossLoadPixelsOver2": 0
+    },
+    {
+      "scene": "city-phone-3d",
+      "canvas": [
+        390,
+        844
+      ],
+      "beforeCalls": 284,
+      "afterCalls": 231,
+      "reductionPercent": 18.7,
+      "beforeTriangles": 547035,
+      "afterTriangles": 547311,
+      "geometryBytes": 7445976,
+      "geometryBytesUnchanged": true,
+      "stableRebuildCounts": true,
+      "visualChangedPixelsOver2": 55,
+      "visualTotalPixels": 329160,
+      "errors": [],
+      "unchangedCrossLoadPixelsOver2": 0
+    },
+    {
+      "scene": "city-phone-25d",
+      "canvas": [
+        390,
+        844
+      ],
+      "beforeCalls": 82,
+      "afterCalls": 73,
+      "reductionPercent": 11.0,
+      "beforeTriangles": 240903,
+      "afterTriangles": 241179,
+      "geometryBytes": 7480056,
+      "geometryBytesUnchanged": true,
+      "stableRebuildCounts": true,
+      "visualChangedPixelsOver2": 2,
+      "visualTotalPixels": 329160,
+      "errors": [],
+      "unchangedCrossLoadPixelsOver2": 0
+    }
+  ]
+}

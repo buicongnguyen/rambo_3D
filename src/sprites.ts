@@ -151,6 +151,7 @@ export class SpriteActors {
       old.instanceMatrix.count * 2,
     );
     old.removeFromParent();
+    old.dispose(); // Release the old instance buffer as well as quad attributes.
     old.geometry.dispose();
     sheet.mesh = next.mesh;
     sheet.uv = next.uv;

@@ -1228,6 +1228,7 @@ export class Game {
     const root = new T.Group();
     root.position.set(x, 0, z);
     root.userData.kind = kind;
+    root.userData.batchActor = true;
     if (kind === "ammo") {
       // A Blender olive ammo can with a brass belt reads as "bullets" at a glance.
       const can = model("ammoBox", 0, 0, 1.15);

@@ -1,5 +1,6 @@
 import * as T from "three";
 import { model } from "./world";
+import { batchColorVariant } from "./batching";
 import { INFANTRY } from "./enemy-roles.mjs";
 export type InfantryRole = keyof typeof INFANTRY;
 const uniforms = new Map<string, T.Material>();
@@ -27,8 +28,10 @@ export function equipInfantry(root: T.Group, role: InfantryRole) {
     ) {
       const key = role + o.material.uuid;
       if (!uniforms.has(key)) {
-        const m = o.material.clone() as T.MeshStandardMaterial;
-        m.color.setHex(colors[role]!);
+        const m = batchColorVariant(
+          o.material as T.MeshStandardMaterial,
+          colors[role]!,
+        );
         uniforms.set(key, m);
       }
       o.material = uniforms.get(key)!;
