@@ -100,3 +100,9 @@ CSS variables resolved relative icon URLs under assets/ui/ instead of ui/. The
 shared icon helper now resolves against document.baseURI. A built-game smoke
 check passed on desktop and mobile with no JavaScript errors or failed asset
 requests, including the coin and touch-control icons.
+
+The existing 2.5D comparison also now freezes simulation and uses the same supply
+seed before switching renderers. Its previous arbitrary animation-frame wait let
+combat and projectile counts vary with machine speed. The original requirement
+that 2.5D use fewer than half the 3D main-pass draws remains unchanged; the fixed
+comparison passed three CI-Low and two desktop-High repetitions.

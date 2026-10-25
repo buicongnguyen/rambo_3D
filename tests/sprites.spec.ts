@@ -43,12 +43,14 @@ test("2.5D draws a crowded map as sprites with far fewer draw calls and keeps ri
     const { game: g, world: w } = (window as any).__nightfall;
     w.setMode25d(true);
     await w.sprites.loading;
-    g.start(14, { armor: 0, power: 0, mobility: 0 }, "crazy");
+    g.start(14, { armor: 0, power: 0, mobility: 0 }, "crazy", 98765);
+    // Compare the same scene: live AI/projectiles during an arbitrary RAF wait
+    // changed this ratio with machine speed, especially after optimizing 3D.
+    g.phase = "won";
     const e = g.enemies[Math.floor(g.enemies.length * 0.45)];
     g.pos.set(e.x, 0, e.z);
-    // Let the map finish building (lazy models, instanced batches) first.
-    for (let i = 0; i < 20; i++)
-      await new Promise((r) => requestAnimationFrame(() => r(0)));
+    w.cameraOverride = undefined;
+    w.resetCamera(g.pos);
     const measure = (on: boolean) => {
       w.setMode25d(on);
       w.render(0, g.pos, false, true);
@@ -76,6 +78,6 @@ test("2.5D draws a crowded map as sprites with far fewer draw calls and keeps ri
     return { d3, d25, drawn, rigs, fallen };
   });
   expect(r.drawn).toBeGreaterThan(100);
-  expect(r.d25 * 2).toBeLessThan(r.d3);
+  expect(r.d25 * 2, JSON.stringify(r)).toBeLessThan(r.d3);
   expect(r).toMatchObject({ rigs: true, fallen: true });
 });
