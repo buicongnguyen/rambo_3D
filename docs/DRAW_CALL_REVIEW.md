@@ -94,3 +94,9 @@ checks passed across rendering, art, infantry behavior, death effects, mobile
 sprites, quality switching and on-foot/vehicle pickups. The new late-colour
 registration test caught a batch-key collision; the fix gives tinted and ordinary
 materials distinct keys, and the complete new draw-budget suite passed afterward.
+
+The live verification also found a pre-existing production-only icon URL issue:
+CSS variables resolved relative icon URLs under assets/ui/ instead of ui/. The
+shared icon helper now resolves against document.baseURI. A built-game smoke
+check passed on desktop and mobile with no JavaScript errors or failed asset
+requests, including the coin and touch-control icons.

@@ -221,7 +221,10 @@ $("#sound").onclick = () => {
 };
 syncSound();
 /** Blender-rendered UI icons live in public/ui. */
-const uiIcon = (name: string) => `${import.meta.env.BASE_URL}ui/${name}.png`;
+// CSS custom-property URLs resolve against the consuming stylesheet in assets/.
+// Use the document's base so icons also work in the built GitHub Pages bundle.
+const uiIcon = (name: string) =>
+  new URL(`${import.meta.env.BASE_URL}ui/${name}.png`, document.baseURI).href;
 // Touch controls draw their Blender icons as CSS backgrounds (the button stays
 // the hit target and keeps its text label), resolved against the Pages base.
 for (const name of [
