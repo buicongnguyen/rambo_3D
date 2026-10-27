@@ -12,6 +12,7 @@ type Burst = {
   radius: number;
   kind: string;
   blast: boolean;
+  low: boolean;
 };
 
 /** Reusable billboard bursts: no new geometry, textures or lights per impact. */
@@ -106,6 +107,7 @@ export class ImpactEffects {
       radius: 1,
       kind: "tracer",
       blast: false,
+      low: false,
     };
     group.visible = false;
     this.scene.add(group);
@@ -155,6 +157,7 @@ export class ImpactEffects {
     b.radius = radius;
     b.kind = kind;
     b.blast = blast;
+    b.low = low;
     b.group.position.set(x, y, z);
     b.group.visible = true;
     const color =
@@ -201,8 +204,10 @@ export class ImpactEffects {
     b.core.material.opacity = flash * (b.kind === "leaf" ? 0.15 : 1);
     b.glow.scale.setScalar(r * (1.25 + t * 4));
     b.glow.material.opacity = flash * (b.kind === "leaf" ? 0.04 : 0.45);
+    b.core.visible = b.glow.visible = flash > 0;
     b.ring.scale.setScalar(r * (0.35 + t * 1.5));
     b.ring.material.opacity = Math.max(0, 1 - t / 0.42) * (b.blast ? 0.65 : 0);
+    b.ring.visible = b.ring.material.opacity > 0;
     for (let i = 0; i < b.sparks.length; i++) {
       const a = (i * Math.PI * 2) / b.sparks.length + 0.3;
       const speed = r * (2.3 + (i % 2) * 1.2);
@@ -215,6 +220,7 @@ export class ImpactEffects {
       s.scale.set(r * 0.075, r * 0.4 * Math.max(0.3, 1 - t), 1);
       s.material.rotation = -a;
       s.material.opacity = Math.max(0, 1 - t / 0.5);
+      s.visible = i < (b.low ? 3 : 6) && s.material.opacity > 0;
     }
     for (let i = 0; i < b.smoke.length; i++) {
       const a = i * 2.4;

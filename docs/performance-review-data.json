@@ -1,0 +1,1898 @@
+{
+  "date": "2026-10-25",
+  "engine": "Three.js r180",
+  "before": [
+    {
+      "name": "desktop-idle",
+      "sampledFrames": 30,
+      "measurement": {
+        "active": false,
+        "calls": 15000,
+        "instanced": 9750,
+        "triangles": 64607370,
+        "allocBytes": 0,
+        "allocCalls": 0,
+        "uploadBytes": 18017280,
+        "uploadCalls": 5370,
+        "compose": 241920,
+        "multiply": 256770,
+        "mainCalls": 236,
+        "memory": {
+          "geometryBytes": 7445976,
+          "instanceBytes": 600576,
+          "geometries": 335,
+          "textures": 34,
+          "programs": 27
+        }
+      },
+      "cpuWorkMs": {
+        "median": 11.399999976158142,
+        "p95": 16.899999976158142
+      },
+      "frameGapMs": {
+        "median": 16.700000047683716,
+        "p95": 18.399999976158142
+      },
+      "heap": {
+        "usedSize": 69585000,
+        "totalSize": 71114752,
+        "embedderHeapUsedSize": 1980280,
+        "backingStorageSize": 17418766
+      },
+      "gpu": "ANGLE (NVIDIA, NVIDIA GeForce RTX 4080 SUPER (0x00002702) Direct3D11 vs_5_0 ps_5_0, D3D11)",
+      "canvas": [
+        1280,
+        800
+      ],
+      "cpuTop": [
+        {
+          "fn": "(idle)",
+          "file": "",
+          "selfMs": 389.704
+        },
+        {
+          "fn": "(program)",
+          "file": "",
+          "selfMs": 227.032
+        },
+        {
+          "fn": "update",
+          "file": "batching.ts",
+          "selfMs": 186.37
+        },
+        {
+          "fn": "projectObject",
+          "file": "chunk-IT3TP6RZ.js?v=d1a81882",
+          "selfMs": 66.58
+        },
+        {
+          "fn": "renderObject",
+          "file": "chunk-IT3TP6RZ.js?v=d1a81882",
+          "selfMs": 41.601
+        },
+        {
+          "fn": "renderObject",
+          "file": "chunk-IT3TP6RZ.js?v=d1a81882",
+          "selfMs": 40.95
+        },
+        {
+          "fn": "render",
+          "file": "world.ts",
+          "selfMs": 36.314
+        },
+        {
+          "fn": "projectObject",
+          "file": "chunk-IT3TP6RZ.js?v=d1a81882",
+          "selfMs": 32.265
+        },
+        {
+          "fn": "projectObject",
+          "file": "chunk-IT3TP6RZ.js?v=d1a81882",
+          "selfMs": 24.378
+        },
+        {
+          "fn": "renderObject",
+          "file": "chunk-IT3TP6RZ.js?v=d1a81882",
+          "selfMs": 24.34
+        },
+        {
+          "fn": "compose",
+          "file": "chunk-IT3TP6RZ.js?v=d1a81882",
+          "selfMs": 24.304
+        },
+        {
+          "fn": "WebGLRenderer.renderBufferDirect",
+          "file": "chunk-IT3TP6RZ.js?v=d1a81882",
+          "selfMs": 23.649
+        }
+      ],
+      "errors": []
+    },
+    {
+      "name": "phone-3d-idle",
+      "phone": true,
+      "sampledFrames": 30,
+      "measurement": {
+        "active": false,
+        "calls": 6930,
+        "instanced": 5010,
+        "triangles": 16419330,
+        "allocBytes": 0,
+        "allocCalls": 0,
+        "uploadBytes": 13340160,
+        "uploadCalls": 5340,
+        "compose": 110520,
+        "multiply": 117330,
+        "mainCalls": 231,
+        "memory": {
+          "geometryBytes": 7445976,
+          "instanceBytes": 444672,
+          "geometries": 289,
+          "textures": 34,
+          "programs": 13
+        }
+      },
+      "cpuWorkMs": {
+        "median": 25.5,
+        "p95": 35.200000047683716
+      },
+      "frameGapMs": {
+        "median": 26.100000023841858,
+        "p95": 36.5
+      },
+      "heap": {
+        "usedSize": 68984896,
+        "totalSize": 70590464,
+        "embedderHeapUsedSize": 2007272,
+        "backingStorageSize": 17152133
+      },
+      "gpu": "ANGLE (NVIDIA, NVIDIA GeForce RTX 4080 SUPER (0x00002702) Direct3D11 vs_5_0 ps_5_0, D3D11)",
+      "canvas": [
+        390,
+        844
+      ],
+      "cpuTop": [
+        {
+          "fn": "(program)",
+          "file": "",
+          "selfMs": 1685.249
+        },
+        {
+          "fn": "update",
+          "file": "batching.ts",
+          "selfMs": 468.197
+        },
+        {
+          "fn": "render",
+          "file": "world.ts",
+          "selfMs": 177.251
+        },
+        {
+          "fn": "projectObject",
+          "file": "chunk-IT3TP6RZ.js?v=d1a81882",
+          "selfMs": 70.68
+        },
+        {
+          "fn": "WebGLRenderer.renderBufferDirect",
+          "file": "chunk-IT3TP6RZ.js?v=d1a81882",
+          "selfMs": 69.887
+        },
+        {
+          "fn": "projectObject",
+          "file": "chunk-IT3TP6RZ.js?v=d1a81882",
+          "selfMs": 62.884
+        },
+        {
+          "fn": "projectObject",
+          "file": "chunk-IT3TP6RZ.js?v=d1a81882",
+          "selfMs": 60.913
+        },
+        {
+          "fn": "setProgram",
+          "file": "chunk-IT3TP6RZ.js?v=d1a81882",
+          "selfMs": 59.195
+        },
+        {
+          "fn": "bufferSubData",
+          "file": "",
+          "selfMs": 57.628
+        },
+        {
+          "fn": "projectObject",
+          "file": "chunk-IT3TP6RZ.js?v=d1a81882",
+          "selfMs": 44.709
+        },
+        {
+          "fn": "refreshUniformsCommon",
+          "file": "chunk-IT3TP6RZ.js?v=d1a81882",
+          "selfMs": 41.908
+        },
+        {
+          "fn": "step",
+          "file": "performance-fixture.ts",
+          "selfMs": 37.392
+        }
+      ],
+      "errors": []
+    },
+    {
+      "name": "phone-25d-idle",
+      "phone": true,
+      "sprites": true,
+      "sampledFrames": 30,
+      "measurement": {
+        "active": false,
+        "calls": 2190,
+        "instanced": 1350,
+        "triangles": 7235370,
+        "allocBytes": 0,
+        "allocCalls": 0,
+        "uploadBytes": 6067200,
+        "uploadCalls": 2130,
+        "compose": 28830,
+        "multiply": 18870,
+        "mainCalls": 73,
+        "memory": {
+          "geometryBytes": 7480056,
+          "instanceBytes": 225280,
+          "geometries": 207,
+          "textures": 43,
+          "programs": 15
+        }
+      },
+      "cpuWorkMs": {
+        "median": 12.800000071525574,
+        "p95": 18.5
+      },
+      "frameGapMs": {
+        "median": 16.600000023841858,
+        "p95": 20.600000023841858
+      },
+      "heap": {
+        "usedSize": 68355220,
+        "totalSize": 70066176,
+        "embedderHeapUsedSize": 2039072,
+        "backingStorageSize": 17053036
+      },
+      "gpu": "ANGLE (NVIDIA, NVIDIA GeForce RTX 4080 SUPER (0x00002702) Direct3D11 vs_5_0 ps_5_0, D3D11)",
+      "canvas": [
+        390,
+        844
+      ],
+      "cpuTop": [
+        {
+          "fn": "(program)",
+          "file": "",
+          "selfMs": 930.503
+        },
+        {
+          "fn": "(idle)",
+          "file": "",
+          "selfMs": 216.082
+        },
+        {
+          "fn": "update",
+          "file": "batching.ts",
+          "selfMs": 200.411
+        },
+        {
+          "fn": "render",
+          "file": "world.ts",
+          "selfMs": 121.427
+        },
+        {
+          "fn": "setProgram",
+          "file": "chunk-IT3TP6RZ.js?v=d1a81882",
+          "selfMs": 54.151
+        },
+        {
+          "fn": "update",
+          "file": "sprites.ts",
+          "selfMs": 49.025
+        },
+        {
+          "fn": "getProgram",
+          "file": "chunk-IT3TP6RZ.js?v=d1a81882",
+          "selfMs": 38.94
+        },
+        {
+          "fn": "getParameters",
+          "file": "chunk-IT3TP6RZ.js?v=d1a81882",
+          "selfMs": 36.437
+        },
+        {
+          "fn": "bufferSubData",
+          "file": "",
+          "selfMs": 31.776
+        },
+        {
+          "fn": "step",
+          "file": "performance-fixture.ts",
+          "selfMs": 28.399
+        },
+        {
+          "fn": "projectObject",
+          "file": "chunk-IT3TP6RZ.js?v=d1a81882",
+          "selfMs": 27.611
+        },
+        {
+          "fn": "compose",
+          "file": "chunk-IT3TP6RZ.js?v=d1a81882",
+          "selfMs": 22.066
+        }
+      ],
+      "errors": []
+    },
+    {
+      "name": "desktop-combat",
+      "combat": true,
+      "sampledFrames": 30,
+      "measurement": {
+        "active": false,
+        "calls": 19602,
+        "instanced": 12326,
+        "triangles": 66320910,
+        "allocBytes": 141724,
+        "allocCalls": 86,
+        "uploadBytes": 20564992,
+        "uploadCalls": 6614,
+        "compose": 390670,
+        "multiply": 272601,
+        "mainCalls": 436,
+        "memory": {
+          "geometryBytes": 7494458,
+          "instanceBytes": 772608,
+          "geometries": 351,
+          "textures": 36,
+          "programs": 34
+        }
+      },
+      "cpuWorkMs": {
+        "median": 21.100000023841858,
+        "p95": 28.59999990463257
+      },
+      "frameGapMs": {
+        "median": 21.5,
+        "p95": 28.899999976158142
+      },
+      "heap": {
+        "usedSize": 73072088,
+        "totalSize": 75968512,
+        "embedderHeapUsedSize": 2255456,
+        "backingStorageSize": 17640096
+      },
+      "gpu": "ANGLE (NVIDIA, NVIDIA GeForce RTX 4080 SUPER (0x00002702) Direct3D11 vs_5_0 ps_5_0, D3D11)",
+      "canvas": [
+        1280,
+        800
+      ],
+      "cpuTop": [
+        {
+          "fn": "(program)",
+          "file": "",
+          "selfMs": 265.868
+        },
+        {
+          "fn": "getProgramInfoLog",
+          "file": "",
+          "selfMs": 176.64
+        },
+        {
+          "fn": "update",
+          "file": "batching.ts",
+          "selfMs": 106.383
+        },
+        {
+          "fn": "update",
+          "file": "game.ts",
+          "selfMs": 97.18
+        },
+        {
+          "fn": "render",
+          "file": "world.ts",
+          "selfMs": 84.469
+        },
+        {
+          "fn": "",
+          "file": "progression.mjs",
+          "selfMs": 84.134
+        },
+        {
+          "fn": "step",
+          "file": "performance-fixture.ts",
+          "selfMs": 79.963
+        },
+        {
+          "fn": "toArray",
+          "file": "chunk-IT3TP6RZ.js?v=d1a81882",
+          "selfMs": 44.047
+        },
+        {
+          "fn": "getParameters",
+          "file": "chunk-IT3TP6RZ.js?v=d1a81882",
+          "selfMs": 37.421
+        },
+        {
+          "fn": "",
+          "file": "progression.mjs",
+          "selfMs": 36.748
+        },
+        {
+          "fn": "segmentBox",
+          "file": "rules.mjs",
+          "selfMs": 33.558
+        },
+        {
+          "fn": "pose",
+          "file": "animation.ts",
+          "selfMs": 31.648
+        }
+      ],
+      "errors": []
+    },
+    {
+      "name": "phone-25d-combat",
+      "phone": true,
+      "sprites": true,
+      "combat": true,
+      "sampledFrames": 30,
+      "measurement": {
+        "active": false,
+        "calls": 3492,
+        "instanced": 1368,
+        "triangles": 7298374,
+        "allocBytes": 70044,
+        "allocCalls": 51,
+        "uploadBytes": 6085632,
+        "uploadCalls": 2139,
+        "compose": 167966,
+        "multiply": 21817,
+        "mainCalls": 156,
+        "memory": {
+          "geometryBytes": 7528538,
+          "instanceBytes": 243712,
+          "geometries": 223,
+          "textures": 45,
+          "programs": 18
+        }
+      },
+      "cpuWorkMs": {
+        "median": 47.200000047683716,
+        "p95": 70.90000009536743
+      },
+      "frameGapMs": {
+        "median": 48.10000002384186,
+        "p95": 72.10000002384186
+      },
+      "heap": {
+        "usedSize": 69914752,
+        "totalSize": 72949760,
+        "embedderHeapUsedSize": 2040312,
+        "backingStorageSize": 17071614
+      },
+      "gpu": "ANGLE (NVIDIA, NVIDIA GeForce RTX 4080 SUPER (0x00002702) Direct3D11 vs_5_0 ps_5_0, D3D11)",
+      "canvas": [
+        390,
+        844
+      ],
+      "cpuTop": [
+        {
+          "fn": "(program)",
+          "file": "",
+          "selfMs": 790.272
+        },
+        {
+          "fn": "",
+          "file": "progression.mjs",
+          "selfMs": 503.784
+        },
+        {
+          "fn": "update",
+          "file": "game.ts",
+          "selfMs": 435.541
+        },
+        {
+          "fn": "seesPlayer",
+          "file": "progression.mjs",
+          "selfMs": 204.787
+        },
+        {
+          "fn": "step",
+          "file": "performance-fixture.ts",
+          "selfMs": 204.435
+        },
+        {
+          "fn": "update",
+          "file": "batching.ts",
+          "selfMs": 165.336
+        },
+        {
+          "fn": "rect",
+          "file": "combat.mjs",
+          "selfMs": 156.661
+        },
+        {
+          "fn": "pose",
+          "file": "animation.ts",
+          "selfMs": 156.008
+        },
+        {
+          "fn": "getParameters",
+          "file": "chunk-IT3TP6RZ.js?v=d1a81882",
+          "selfMs": 118.928
+        },
+        {
+          "fn": "update",
+          "file": "animation.ts",
+          "selfMs": 111.881
+        },
+        {
+          "fn": "segmentBox",
+          "file": "rules.mjs",
+          "selfMs": 107.663
+        },
+        {
+          "fn": "render",
+          "file": "world.ts",
+          "selfMs": 103.665
+        }
+      ],
+      "errors": []
+    },
+    {
+      "name": "desktop-blast-tail",
+      "effects": true,
+      "sampledFrames": 30,
+      "measurement": {
+        "active": false,
+        "calls": 21240,
+        "instanced": 9750,
+        "triangles": 64679370,
+        "allocBytes": 0,
+        "allocCalls": 0,
+        "uploadBytes": 18017280,
+        "uploadCalls": 5370,
+        "compose": 248160,
+        "multiply": 268770,
+        "mainCalls": 444,
+        "memory": {
+          "geometryBytes": 7448564,
+          "instanceBytes": 600576,
+          "geometries": 337,
+          "textures": 36,
+          "programs": 30
+        }
+      },
+      "cpuWorkMs": {
+        "median": 7.399999976158142,
+        "p95": 10.699999928474426
+      },
+      "frameGapMs": {
+        "median": 16.800000071525574,
+        "p95": 17.600000023841858
+      },
+      "heap": {
+        "usedSize": 70413964,
+        "totalSize": 71901184,
+        "embedderHeapUsedSize": 1997128,
+        "backingStorageSize": 17418858
+      },
+      "gpu": "ANGLE (NVIDIA, NVIDIA GeForce RTX 4080 SUPER (0x00002702) Direct3D11 vs_5_0 ps_5_0, D3D11)",
+      "canvas": [
+        1280,
+        800
+      ],
+      "cpuTop": [
+        {
+          "fn": "(idle)",
+          "file": "",
+          "selfMs": 805.031
+        },
+        {
+          "fn": "(program)",
+          "file": "",
+          "selfMs": 159.358
+        },
+        {
+          "fn": "update",
+          "file": "batching.ts",
+          "selfMs": 128.183
+        },
+        {
+          "fn": "getParameters",
+          "file": "chunk-IT3TP6RZ.js?v=d1a81882",
+          "selfMs": 21.514
+        },
+        {
+          "fn": "projectObject",
+          "file": "chunk-IT3TP6RZ.js?v=d1a81882",
+          "selfMs": 19.79
+        },
+        {
+          "fn": "renderObject",
+          "file": "chunk-IT3TP6RZ.js?v=d1a81882",
+          "selfMs": 18.73
+        },
+        {
+          "fn": "getProgram",
+          "file": "chunk-IT3TP6RZ.js?v=d1a81882",
+          "selfMs": 17.299
+        },
+        {
+          "fn": "renderObject",
+          "file": "chunk-IT3TP6RZ.js?v=d1a81882",
+          "selfMs": 17.106
+        },
+        {
+          "fn": "projectObject",
+          "file": "chunk-IT3TP6RZ.js?v=d1a81882",
+          "selfMs": 15.661
+        },
+        {
+          "fn": "projectObject",
+          "file": "chunk-IT3TP6RZ.js?v=d1a81882",
+          "selfMs": 15.543
+        },
+        {
+          "fn": "WebGLRenderer.renderBufferDirect",
+          "file": "chunk-IT3TP6RZ.js?v=d1a81882",
+          "selfMs": 15.333
+        },
+        {
+          "fn": "setProgram",
+          "file": "chunk-IT3TP6RZ.js?v=d1a81882",
+          "selfMs": 14.669
+        }
+      ],
+      "errors": []
+    }
+  ],
+  "after": [
+    {
+      "name": "desktop-idle",
+      "sampledFrames": 30,
+      "measurement": {
+        "active": false,
+        "calls": 15000,
+        "instanced": 9750,
+        "triangles": 64607370,
+        "allocBytes": 0,
+        "allocCalls": 0,
+        "uploadBytes": 0,
+        "uploadCalls": 0,
+        "compose": 241920,
+        "multiply": 256770,
+        "mainCalls": 236,
+        "memory": {
+          "geometryBytes": 7445976,
+          "instanceBytes": 600576,
+          "geometries": 335,
+          "textures": 34,
+          "programs": 27
+        }
+      },
+      "cpuWorkMs": {
+        "median": 6,
+        "p95": 6.600000023841858
+      },
+      "frameGapMs": {
+        "median": 16.699999928474426,
+        "p95": 17.600000023841858
+      },
+      "heap": {
+        "usedSize": 69630276,
+        "totalSize": 71639040,
+        "embedderHeapUsedSize": 1980736,
+        "backingStorageSize": 18228833
+      },
+      "gpu": "ANGLE (NVIDIA, NVIDIA GeForce RTX 4080 SUPER (0x00002702) Direct3D11 vs_5_0 ps_5_0, D3D11)",
+      "canvas": [
+        1280,
+        800
+      ],
+      "cpuTop": [
+        {
+          "fn": "(idle)",
+          "file": "",
+          "selfMs": 961.795
+        },
+        {
+          "fn": "(program)",
+          "file": "",
+          "selfMs": 124.9
+        },
+        {
+          "fn": "update",
+          "file": "batching.ts?t=1792923969070",
+          "selfMs": 100.471
+        },
+        {
+          "fn": "projectObject",
+          "file": "chunk-IT3TP6RZ.js?v=d1a81882",
+          "selfMs": 22.776
+        },
+        {
+          "fn": "renderObject",
+          "file": "chunk-IT3TP6RZ.js?v=d1a81882",
+          "selfMs": 15.271
+        },
+        {
+          "fn": "compose",
+          "file": "chunk-IT3TP6RZ.js?v=d1a81882",
+          "selfMs": 14.532
+        },
+        {
+          "fn": "updateMatrixWorld",
+          "file": "chunk-IT3TP6RZ.js?v=d1a81882",
+          "selfMs": 13.777
+        },
+        {
+          "fn": "projectObject",
+          "file": "chunk-IT3TP6RZ.js?v=d1a81882",
+          "selfMs": 12.938
+        },
+        {
+          "fn": "projectObject",
+          "file": "chunk-IT3TP6RZ.js?v=d1a81882",
+          "selfMs": 12.063
+        },
+        {
+          "fn": "renderObject",
+          "file": "chunk-IT3TP6RZ.js?v=d1a81882",
+          "selfMs": 12.058
+        },
+        {
+          "fn": "render",
+          "file": "world.ts?t=1792923969110",
+          "selfMs": 11.843
+        },
+        {
+          "fn": "WebGLRenderer.renderBufferDirect",
+          "file": "chunk-IT3TP6RZ.js?v=d1a81882",
+          "selfMs": 10.469
+        }
+      ],
+      "errors": []
+    },
+    {
+      "name": "phone-3d-idle",
+      "phone": true,
+      "sampledFrames": 30,
+      "measurement": {
+        "active": false,
+        "calls": 6930,
+        "instanced": 5010,
+        "triangles": 16419330,
+        "allocBytes": 0,
+        "allocCalls": 0,
+        "uploadBytes": 0,
+        "uploadCalls": 0,
+        "compose": 110520,
+        "multiply": 117330,
+        "mainCalls": 231,
+        "memory": {
+          "geometryBytes": 7445976,
+          "instanceBytes": 444672,
+          "geometries": 289,
+          "textures": 34,
+          "programs": 13
+        }
+      },
+      "cpuWorkMs": {
+        "median": 15.199999928474426,
+        "p95": 19.700000047683716
+      },
+      "frameGapMs": {
+        "median": 16.899999976158142,
+        "p95": 22.399999976158142
+      },
+      "heap": {
+        "usedSize": 68920852,
+        "totalSize": 70852608,
+        "embedderHeapUsedSize": 2052752,
+        "backingStorageSize": 17695576
+      },
+      "gpu": "ANGLE (NVIDIA, NVIDIA GeForce RTX 4080 SUPER (0x00002702) Direct3D11 vs_5_0 ps_5_0, D3D11)",
+      "canvas": [
+        390,
+        844
+      ],
+      "cpuTop": [
+        {
+          "fn": "(program)",
+          "file": "",
+          "selfMs": 618.293
+        },
+        {
+          "fn": "update",
+          "file": "batching.ts?t=1792923969070",
+          "selfMs": 211.968
+        },
+        {
+          "fn": "(idle)",
+          "file": "",
+          "selfMs": 84.346
+        },
+        {
+          "fn": "render",
+          "file": "world.ts?t=1792923969110",
+          "selfMs": 83.431
+        },
+        {
+          "fn": "toArray",
+          "file": "chunk-IT3TP6RZ.js?v=d1a81882",
+          "selfMs": 78.479
+        },
+        {
+          "fn": "projectObject",
+          "file": "chunk-IT3TP6RZ.js?v=d1a81882",
+          "selfMs": 73.134
+        },
+        {
+          "fn": "projectObject",
+          "file": "chunk-IT3TP6RZ.js?v=d1a81882",
+          "selfMs": 66.206
+        },
+        {
+          "fn": "projectObject",
+          "file": "chunk-IT3TP6RZ.js?v=d1a81882",
+          "selfMs": 49.781
+        },
+        {
+          "fn": "projectObject",
+          "file": "chunk-IT3TP6RZ.js?v=d1a81882",
+          "selfMs": 45.631
+        },
+        {
+          "fn": "WebGLRenderer.renderBufferDirect",
+          "file": "chunk-IT3TP6RZ.js?v=d1a81882",
+          "selfMs": 45.187
+        },
+        {
+          "fn": "projectObject",
+          "file": "chunk-IT3TP6RZ.js?v=d1a81882",
+          "selfMs": 29.523
+        },
+        {
+          "fn": "setProgram",
+          "file": "chunk-IT3TP6RZ.js?v=d1a81882",
+          "selfMs": 28.926
+        }
+      ],
+      "errors": []
+    },
+    {
+      "name": "phone-25d-idle",
+      "phone": true,
+      "sprites": true,
+      "sampledFrames": 30,
+      "measurement": {
+        "active": false,
+        "calls": 2190,
+        "instanced": 1350,
+        "triangles": 7235370,
+        "allocBytes": 0,
+        "allocCalls": 0,
+        "uploadBytes": 0,
+        "uploadCalls": 0,
+        "compose": 28830,
+        "multiply": 18870,
+        "mainCalls": 73,
+        "memory": {
+          "geometryBytes": 7480056,
+          "instanceBytes": 225280,
+          "geometries": 207,
+          "textures": 43,
+          "programs": 15
+        }
+      },
+      "cpuWorkMs": {
+        "median": 7.899999976158142,
+        "p95": 11.700000047683716
+      },
+      "frameGapMs": {
+        "median": 16.5,
+        "p95": 17.90000009536743
+      },
+      "heap": {
+        "usedSize": 68281752,
+        "totalSize": 69804032,
+        "embedderHeapUsedSize": 2004376,
+        "backingStorageSize": 17332159
+      },
+      "gpu": "ANGLE (NVIDIA, NVIDIA GeForce RTX 4080 SUPER (0x00002702) Direct3D11 vs_5_0 ps_5_0, D3D11)",
+      "canvas": [
+        390,
+        844
+      ],
+      "cpuTop": [
+        {
+          "fn": "(program)",
+          "file": "",
+          "selfMs": 689.583
+        },
+        {
+          "fn": "(idle)",
+          "file": "",
+          "selfMs": 649.897
+        },
+        {
+          "fn": "update",
+          "file": "batching.ts?t=1792923969070",
+          "selfMs": 188.13
+        },
+        {
+          "fn": "render",
+          "file": "world.ts?t=1792923969110",
+          "selfMs": 71.746
+        },
+        {
+          "fn": "update",
+          "file": "sprites.ts?t=1792923969068",
+          "selfMs": 36.984
+        },
+        {
+          "fn": "WebGLRenderer.renderBufferDirect",
+          "file": "chunk-IT3TP6RZ.js?v=d1a81882",
+          "selfMs": 28.739
+        },
+        {
+          "fn": "setProgram",
+          "file": "chunk-IT3TP6RZ.js?v=d1a81882",
+          "selfMs": 27.215
+        },
+        {
+          "fn": "projectObject",
+          "file": "chunk-IT3TP6RZ.js?v=d1a81882",
+          "selfMs": 26.474
+        },
+        {
+          "fn": "getParameters",
+          "file": "chunk-IT3TP6RZ.js?v=d1a81882",
+          "selfMs": 23.567
+        },
+        {
+          "fn": "step",
+          "file": "performance-fixture.ts",
+          "selfMs": 20.093
+        },
+        {
+          "fn": "getProgram",
+          "file": "chunk-IT3TP6RZ.js?v=d1a81882",
+          "selfMs": 17.956
+        },
+        {
+          "fn": "bindVertexArray",
+          "file": "",
+          "selfMs": 15.885
+        }
+      ],
+      "errors": []
+    },
+    {
+      "name": "desktop-combat",
+      "combat": true,
+      "sampledFrames": 30,
+      "measurement": {
+        "active": false,
+        "calls": 19236,
+        "instanced": 12326,
+        "triangles": 66306538,
+        "allocBytes": 141724,
+        "allocCalls": 86,
+        "uploadBytes": 9544072,
+        "uploadCalls": 5449,
+        "compose": 390670,
+        "multiply": 272345,
+        "mainCalls": 410,
+        "memory": {
+          "geometryBytes": 7494458,
+          "instanceBytes": 772608,
+          "geometries": 350,
+          "textures": 36,
+          "programs": 32
+        }
+      },
+      "cpuWorkMs": {
+        "median": 13.899999976158142,
+        "p95": 18.799999952316284
+      },
+      "frameGapMs": {
+        "median": 16.800000071525574,
+        "p95": 19
+      },
+      "heap": {
+        "usedSize": 73162292,
+        "totalSize": 77017088,
+        "embedderHeapUsedSize": 2064064,
+        "backingStorageSize": 18671347
+      },
+      "gpu": "ANGLE (NVIDIA, NVIDIA GeForce RTX 4080 SUPER (0x00002702) Direct3D11 vs_5_0 ps_5_0, D3D11)",
+      "canvas": [
+        1280,
+        800
+      ],
+      "cpuTop": [
+        {
+          "fn": "(idle)",
+          "file": "",
+          "selfMs": 235.611
+        },
+        {
+          "fn": "(program)",
+          "file": "",
+          "selfMs": 158.065
+        },
+        {
+          "fn": "getProgramInfoLog",
+          "file": "",
+          "selfMs": 128.991
+        },
+        {
+          "fn": "seesPlayer",
+          "file": "progression.mjs",
+          "selfMs": 106.637
+        },
+        {
+          "fn": "update",
+          "file": "batching.ts?t=1792923969070",
+          "selfMs": 68.155
+        },
+        {
+          "fn": "render",
+          "file": "world.ts?t=1792923969110",
+          "selfMs": 66.155
+        },
+        {
+          "fn": "step",
+          "file": "performance-fixture.ts",
+          "selfMs": 56.709
+        },
+        {
+          "fn": "update",
+          "file": "game.ts?t=1792923969110",
+          "selfMs": 47.229
+        },
+        {
+          "fn": "seesPlayer",
+          "file": "progression.mjs",
+          "selfMs": 39.847
+        },
+        {
+          "fn": "toArray",
+          "file": "chunk-IT3TP6RZ.js?v=d1a81882",
+          "selfMs": 31.822
+        },
+        {
+          "fn": "segmentBox",
+          "file": "rules.mjs",
+          "selfMs": 24.158
+        },
+        {
+          "fn": "renderObject",
+          "file": "chunk-IT3TP6RZ.js?v=d1a81882",
+          "selfMs": 21.846
+        }
+      ],
+      "errors": []
+    },
+    {
+      "name": "phone-25d-combat",
+      "phone": true,
+      "sprites": true,
+      "combat": true,
+      "sampledFrames": 30,
+      "measurement": {
+        "active": false,
+        "calls": 3147,
+        "instanced": 1368,
+        "triangles": 7284044,
+        "allocBytes": 70044,
+        "allocCalls": 51,
+        "uploadBytes": 791328,
+        "uploadCalls": 508,
+        "compose": 167966,
+        "multiply": 21582,
+        "mainCalls": 133,
+        "memory": {
+          "geometryBytes": 7528538,
+          "instanceBytes": 243712,
+          "geometries": 222,
+          "textures": 45,
+          "programs": 18
+        }
+      },
+      "cpuWorkMs": {
+        "median": 42.10000002384186,
+        "p95": 69.29999995231628
+      },
+      "frameGapMs": {
+        "median": 43,
+        "p95": 70.5
+      },
+      "heap": {
+        "usedSize": 69894192,
+        "totalSize": 72687616,
+        "embedderHeapUsedSize": 2105464,
+        "backingStorageSize": 17369169
+      },
+      "gpu": "ANGLE (NVIDIA, NVIDIA GeForce RTX 4080 SUPER (0x00002702) Direct3D11 vs_5_0 ps_5_0, D3D11)",
+      "canvas": [
+        390,
+        844
+      ],
+      "cpuTop": [
+        {
+          "fn": "(program)",
+          "file": "",
+          "selfMs": 746.927
+        },
+        {
+          "fn": "segmentBox",
+          "file": "rules.mjs",
+          "selfMs": 452.935
+        },
+        {
+          "fn": "update",
+          "file": "game.ts?t=1792923969110",
+          "selfMs": 390.878
+        },
+        {
+          "fn": "seesPlayer",
+          "file": "progression.mjs",
+          "selfMs": 186.393
+        },
+        {
+          "fn": "step",
+          "file": "performance-fixture.ts",
+          "selfMs": 170.13
+        },
+        {
+          "fn": "update",
+          "file": "batching.ts?t=1792923969070",
+          "selfMs": 156.753
+        },
+        {
+          "fn": "rect",
+          "file": "combat.mjs",
+          "selfMs": 141.657
+        },
+        {
+          "fn": "",
+          "file": "progression.mjs",
+          "selfMs": 132.413
+        },
+        {
+          "fn": "pose",
+          "file": "animation.ts",
+          "selfMs": 104.357
+        },
+        {
+          "fn": "render",
+          "file": "world.ts?t=1792923969110",
+          "selfMs": 96.108
+        },
+        {
+          "fn": "update",
+          "file": "animation.ts",
+          "selfMs": 94.543
+        },
+        {
+          "fn": "getParameters",
+          "file": "chunk-IT3TP6RZ.js?v=d1a81882",
+          "selfMs": 91.508
+        }
+      ],
+      "errors": []
+    },
+    {
+      "name": "desktop-blast-tail",
+      "effects": true,
+      "sampledFrames": 30,
+      "measurement": {
+        "active": false,
+        "calls": 16440,
+        "instanced": 9750,
+        "triangles": 64610250,
+        "allocBytes": 0,
+        "allocCalls": 0,
+        "uploadBytes": 0,
+        "uploadCalls": 0,
+        "compose": 248160,
+        "multiply": 264450,
+        "mainCalls": 284,
+        "memory": {
+          "geometryBytes": 7448564,
+          "instanceBytes": 600576,
+          "geometries": 336,
+          "textures": 35,
+          "programs": 28
+        }
+      },
+      "cpuWorkMs": {
+        "median": 6.899999976158142,
+        "p95": 12.5
+      },
+      "frameGapMs": {
+        "median": 16.700000047683716,
+        "p95": 18.100000023841858
+      },
+      "heap": {
+        "usedSize": 70187836,
+        "totalSize": 72425472,
+        "embedderHeapUsedSize": 1980544,
+        "backingStorageSize": 18228925
+      },
+      "gpu": "ANGLE (NVIDIA, NVIDIA GeForce RTX 4080 SUPER (0x00002702) Direct3D11 vs_5_0 ps_5_0, D3D11)",
+      "canvas": [
+        1280,
+        800
+      ],
+      "cpuTop": [
+        {
+          "fn": "(idle)",
+          "file": "",
+          "selfMs": 837.686
+        },
+        {
+          "fn": "update",
+          "file": "batching.ts?t=1792923969070",
+          "selfMs": 139.645
+        },
+        {
+          "fn": "(program)",
+          "file": "",
+          "selfMs": 125.925
+        },
+        {
+          "fn": "projectObject",
+          "file": "chunk-IT3TP6RZ.js?v=d1a81882",
+          "selfMs": 22.208
+        },
+        {
+          "fn": "projectObject",
+          "file": "chunk-IT3TP6RZ.js?v=d1a81882",
+          "selfMs": 21.825
+        },
+        {
+          "fn": "render",
+          "file": "world.ts?t=1792923969110",
+          "selfMs": 21.303
+        },
+        {
+          "fn": "renderObject",
+          "file": "chunk-IT3TP6RZ.js?v=d1a81882",
+          "selfMs": 17.354
+        },
+        {
+          "fn": "renderObject",
+          "file": "chunk-IT3TP6RZ.js?v=d1a81882",
+          "selfMs": 16.986
+        },
+        {
+          "fn": "projectObject",
+          "file": "chunk-IT3TP6RZ.js?v=d1a81882",
+          "selfMs": 14.189
+        },
+        {
+          "fn": "renderObject",
+          "file": "chunk-IT3TP6RZ.js?v=d1a81882",
+          "selfMs": 14.156
+        },
+        {
+          "fn": "projectObject",
+          "file": "chunk-IT3TP6RZ.js?v=d1a81882",
+          "selfMs": 12.591
+        },
+        {
+          "fn": "updateMatrixWorld",
+          "file": "chunk-IT3TP6RZ.js?v=d1a81882",
+          "selfMs": 12.457
+        }
+      ],
+      "errors": []
+    }
+  ],
+  "pixels": [
+    {
+      "name": "desktop-blast-tail",
+      "changedOver24": 16,
+      "pixels": 1024000,
+      "maxDelta": 55
+    },
+    {
+      "name": "desktop-combat",
+      "changedOver24": 0,
+      "pixels": 1024000,
+      "maxDelta": 1
+    },
+    {
+      "name": "desktop-idle",
+      "changedOver24": 3,
+      "pixels": 1024000,
+      "maxDelta": 44
+    },
+    {
+      "name": "phone-25d-combat",
+      "changedOver24": 0,
+      "pixels": 329160,
+      "maxDelta": 1
+    },
+    {
+      "name": "phone-25d-idle",
+      "changedOver24": 0,
+      "pixels": 329160,
+      "maxDelta": 0
+    },
+    {
+      "name": "phone-3d-idle",
+      "changedOver24": 0,
+      "pixels": 329160,
+      "maxDelta": 0
+    }
+  ],
+  "rejectedTransformCache": {
+    "interleaved": [
+      {
+        "phone": false,
+        "combat": false,
+        "blocks": [
+          [
+            10.458333333333334,
+            10.291666686534882,
+            10.06666667262713
+          ],
+          [
+            9.166666686534882,
+            11.058333307504654,
+            10.533333311478296
+          ],
+          [
+            8.916666646798452,
+            11.791666666666666,
+            11.883333345254263
+          ],
+          [
+            11.16666665673256,
+            13.233333339293798,
+            10.350000003973642
+          ],
+          [
+            9.716666678587595,
+            9.975000013907751,
+            11.36666664481163
+          ],
+          [
+            10.533333341280619,
+            11.641666680574417,
+            10.69166667262713
+          ],
+          [
+            9.299999992052713,
+            12.275000015894571,
+            12.408333341280619
+          ],
+          [
+            10.450000007947287,
+            9.608333319425583,
+            9.38333331545194
+          ],
+          [
+            8.950000017881393,
+            11.26666667064031,
+            8.624999980131784
+          ],
+          [
+            11.858333339293798,
+            10.241666664679846,
+            10.975000003973642
+          ],
+          [
+            9.508333365122477,
+            10.441666652758917,
+            11.35833332935969
+          ],
+          [
+            10.958333303531012,
+            10.933333307504654,
+            9.925000001986822
+          ]
+        ],
+        "optimizedRatio": 1.1052215194738202,
+        "controlRatio": 1.0150316453696568
+      },
+      {
+        "phone": false,
+        "combat": true,
+        "blocks": [
+          [
+            24.599999984105427,
+            29.366666674613953,
+            23.858333349227905
+          ],
+          [
+            26.87499999006589,
+            40.58333332339922,
+            29.433333327372868
+          ],
+          [
+            25.73333332935969,
+            27,
+            25.091666668653488
+          ],
+          [
+            26.791666636864345,
+            29.241666664679844,
+            25.233333309491474
+          ],
+          [
+            29.183333337306976,
+            31.766666650772095,
+            27.466666668653488
+          ],
+          [
+            29.033333351214726,
+            31.399999996026356,
+            30.799999992052715
+          ],
+          [
+            28.958333323399227,
+            33.05833331743876,
+            31.441666652758915
+          ],
+          [
+            31.616666664679844,
+            37.22500001390775,
+            33.53333333134651
+          ],
+          [
+            33.625000009934105,
+            36.76666668057442,
+            32.84166666865349
+          ],
+          [
+            29.16666665673256,
+            33.3583333392938,
+            31
+          ],
+          [
+            30.983333319425583,
+            38.84166666865349,
+            29.816666652758915
+          ],
+          [
+            31.78333330154419,
+            36.583333353201546,
+            33.04166668653488
+          ]
+        ],
+        "optimizedRatio": 1.1437142863081913,
+        "controlRatio": 1.039590982262693
+      },
+      {
+        "phone": true,
+        "combat": false,
+        "blocks": [
+          [
+            7.724999974171321,
+            10.149999996026358,
+            8.324999968210856
+          ],
+          [
+            8.433333337306976,
+            10.650000005960464,
+            11.324999978144964
+          ],
+          [
+            8.774999996026358,
+            9.766666650772095,
+            7.933333347241084
+          ],
+          [
+            9.475000013907751,
+            11.749999970197678,
+            8.724999984105429
+          ],
+          [
+            9.566666662693024,
+            10.024999996026358,
+            9.183333367109299
+          ],
+          [
+            12.049999982118607,
+            9.191666652758917,
+            9.48333332935969
+          ],
+          [
+            9.366666674613953,
+            10.766666660706202,
+            8.891666650772095
+          ],
+          [
+            8.074999988079071,
+            9.974999994039536,
+            11.183333337306976
+          ],
+          [
+            9.233333349227905,
+            9.38333331545194,
+            7.566666692495346
+          ],
+          [
+            9.166666646798452,
+            12.225000003973642,
+            7.8499999940395355
+          ],
+          [
+            8.974999984105429,
+            8.750000009934107,
+            9.649999986092249
+          ],
+          [
+            10.899999976158142,
+            9.81666668256124,
+            8.541666676600775
+          ]
+        ],
+        "optimizedRatio": 1.1494661905591885,
+        "controlRatio": 0.949288253725391
+      },
+      {
+        "phone": true,
+        "combat": true,
+        "blocks": [
+          [
+            67.59999999403954,
+            58.36666669448217,
+            56.791666666666664
+          ],
+          [
+            79.33333336313565,
+            74.06666666269302,
+            73.50833332538605
+          ],
+          [
+            72.52499997615814,
+            71.6583333214124,
+            80.71666665871938
+          ],
+          [
+            75.75,
+            79.14999998609225,
+            62.79166665673256
+          ],
+          [
+            82.31666666269302,
+            77.85000001390775,
+            76.75833334525426
+          ],
+          [
+            85.03333335121472,
+            77.33333333333333,
+            73.1083333293597
+          ],
+          [
+            86.88333333532016,
+            82.6416666607062,
+            68.52499999602635
+          ],
+          [
+            57.050000001986824,
+            69.36666667461395,
+            61.925000001986824
+          ],
+          [
+            55.05833332737287,
+            52.81666667262713,
+            50.375
+          ],
+          [
+            48.31666668256124,
+            52.44999998807907,
+            49.77499996622404
+          ],
+          [
+            53.36666668454806,
+            49.574999998013176,
+            50.22500000397364
+          ],
+          [
+            67.59166665871938,
+            73.81666666269302,
+            49.07500000794729
+          ]
+        ],
+        "optimizedRatio": 0.9592856063873755,
+        "controlRatio": 0.9265756298038481
+      }
+    ],
+    "cpuPreparationOnly": [
+      {
+        "phone": false,
+        "combat": false,
+        "blocks": [
+          [
+            1.807499998807907,
+            1.9725000023841859,
+            1.669999998807907
+          ],
+          [
+            2.7375,
+            2.1025000005960464,
+            1.8
+          ],
+          [
+            1.7724999994039536,
+            2.1825000017881395,
+            1.8775000005960465
+          ],
+          [
+            1.8349999994039536,
+            2.069999998807907,
+            1.4125
+          ],
+          [
+            2.519999998807907,
+            4.012500002980232,
+            1.6175000011920928
+          ],
+          [
+            2.7775000005960466,
+            3.0549999982118607,
+            1.8050000011920928
+          ],
+          [
+            1.4925000011920928,
+            2.094999998807907,
+            2.1625
+          ],
+          [
+            1.775,
+            2.7950000017881393,
+            2.032499998807907
+          ],
+          [
+            2.8349999994039536,
+            3.677499997615814,
+            2.8599999994039536
+          ],
+          [
+            2.105000001192093,
+            2.0974999994039534,
+            2.180000001192093
+          ],
+          [
+            2.305000001192093,
+            3.8875,
+            2
+          ],
+          [
+            2.4125,
+            4.440000000596046,
+            2.3599999994039536
+          ]
+        ],
+        "optimizedRatio": 1.2971781299432072,
+        "controlRatio": 0.978238341721846
+      },
+      {
+        "phone": false,
+        "combat": true,
+        "blocks": [
+          [
+            10.762499997019768,
+            11.917499998211861,
+            9.952500000596046
+          ],
+          [
+            9.694999998807907,
+            11.969999998807907,
+            10.1125
+          ],
+          [
+            10.577499997615813,
+            12.184999999403953,
+            9.61749999821186
+          ],
+          [
+            10.502500000596047,
+            12.46749999821186,
+            9.479999998211861
+          ],
+          [
+            10.230000001192092,
+            12.147500002384186,
+            9.3
+          ],
+          [
+            9.852499997615814,
+            12.1125,
+            9.715000000596046
+          ],
+          [
+            9.89249999821186,
+            12.15750000178814,
+            9.3
+          ],
+          [
+            9.002500000596047,
+            11.792500001192092,
+            9.215000000596046
+          ],
+          [
+            10.957499998807908,
+            12.760000002384185,
+            10.60750000178814
+          ],
+          [
+            9.502500000596047,
+            11.672499999403954,
+            10.302500003576279
+          ],
+          [
+            10.659999999403954,
+            12.075,
+            10.202499997615813
+          ],
+          [
+            9.884999999403954,
+            14.25,
+            10.879999998211861
+          ]
+        ],
+        "optimizedRatio": 1.228360957502951,
+        "controlRatio": 0.9680584077519648
+      },
+      {
+        "phone": true,
+        "combat": false,
+        "blocks": [
+          [
+            2.757499998807907,
+            2.725,
+            2.7224999964237213
+          ],
+          [
+            2.0149999976158144,
+            3.552499997615814,
+            2.685000002384186
+          ],
+          [
+            2.092499998211861,
+            2.9525000005960464,
+            1.880000001192093
+          ],
+          [
+            2.219999998807907,
+            2.992500001192093,
+            2.1625
+          ],
+          [
+            3.342500001192093,
+            3.177499997615814,
+            3.470000001788139
+          ],
+          [
+            3.3974999994039536,
+            3.9099999994039534,
+            4.0875
+          ],
+          [
+            2.407499998807907,
+            2.6549999952316283,
+            2.5550000041723253
+          ],
+          [
+            5.0875,
+            2.149999997019768,
+            3.2349999994039536
+          ],
+          [
+            3.4524999976158144,
+            2.989999997615814,
+            4.5775000005960464
+          ],
+          [
+            2.4025000005960466,
+            5.060000002384186,
+            3.2950000017881393
+          ],
+          [
+            4.930000001192093,
+            3.742500001192093,
+            4.194999998807907
+          ],
+          [
+            5.084999996423721,
+            5.582499998807907,
+            4.257499998807907
+          ]
+        ],
+        "optimizedRatio": 1.1028037368831871,
+        "controlRatio": 1.0381451011370453
+      },
+      {
+        "phone": true,
+        "combat": true,
+        "blocks": [
+          [
+            34.3625,
+            37.3625,
+            35.247500002384186
+          ],
+          [
+            37.6375,
+            39.12499999701977,
+            34.869999998807906
+          ],
+          [
+            37.00000000298023,
+            42.05,
+            35.68499999642372
+          ],
+          [
+            44.65,
+            48.272499999403955,
+            39.11249999701977
+          ],
+          [
+            37.74749999642372,
+            37.44499999880791,
+            35.65749999880791
+          ],
+          [
+            42.067500001192094,
+            45.137499997019766,
+            43.86750000417233
+          ],
+          [
+            39.880000001192094,
+            39.50749999880791,
+            38.192500001192094
+          ],
+          [
+            35.83499999642372,
+            38.65249999761581,
+            36.887499997019766
+          ],
+          [
+            37.19499999880791,
+            44.48500000238418,
+            39.45
+          ],
+          [
+            45.627499997615814,
+            50.667500001192096,
+            44.12499999701977
+          ],
+          [
+            47.72000000476837,
+            48.17750000059605,
+            43.68749999701977
+          ],
+          [
+            43.882500004768374,
+            53.40249999761581,
+            47.21500000059605
+          ]
+        ],
+        "optimizedRatio": 1.0811310190236048,
+        "controlRatio": 0.9670702975031603
+      }
+    ]
+  },
+  "sameBuildVisualControl": [
+    {
+      "name": "desktop-idle",
+      "changedOver24": 23,
+      "pixels": 1024000,
+      "maxDelta": 85
+    },
+    {
+      "name": "phone-25d-idle",
+      "changedOver24": 0,
+      "pixels": 329160,
+      "maxDelta": 0
+    }
+  ]
+}
