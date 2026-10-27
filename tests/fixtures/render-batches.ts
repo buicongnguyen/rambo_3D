@@ -163,6 +163,8 @@ export async function checkSpriteGrowth() {
   for (let i = 0; i < old.instanceMatrix.count + 1; i++) {
     const root = new T.Group();
     root.userData.model = "rifleman";
+    root.position.set(i * 0.01, 0, 0);
+    root.userData.fade = 0.6;
     actors.add(root);
   }
   sprites.update(camera, 1 / 60);
@@ -175,6 +177,19 @@ export async function checkSpriteGrowth() {
     sheet.mesh.count === actors.children.length &&
       actors.children.every((o) => o.visible),
     "Sprite growth lost actors or their visibility",
+  );
+  // The first slot was written before the resize, so it must survive that same frame.
+  const first = new T.Matrix4(),
+    last = new T.Matrix4();
+  sheet.mesh.getMatrixAt(0, first);
+  sheet.mesh.getMatrixAt(sheet.mesh.count - 1, last);
+  check(
+    first.elements[0] !== 0 && last.elements[0] !== 0,
+    "Growth lost an already-written transform",
+  );
+  check(
+    sheet.uv.array[2] > 0 && sheet.fade.array[0] === 1,
+    "Growth lost earlier UV/fade slots",
   );
   return true;
 }

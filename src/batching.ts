@@ -1,4 +1,5 @@
 import * as T from "three";
+import { stagingComponents, commitComponents } from "./render-work";
 // Only variants made here share a draw: every property except colour is identical.
 const tintBases = new WeakMap<T.Material, T.MeshStandardMaterial>();
 const tintMaterials = new WeakMap<T.Material, T.MeshStandardMaterial>();
@@ -187,12 +188,18 @@ export class ActorBatches {
       if (mesh.parent !== this.scene) this.scene.add(mesh);
       mesh.visible = true;
       mesh.count = matrices.length;
-      matrices.forEach((matrix, i) => mesh!.setMatrixAt(i, matrix));
-      mesh.instanceMatrix.needsUpdate = true;
+      const matrixData = stagingComponents(mesh.instanceMatrix);
+      matrices.forEach((matrix, i) => matrix.toArray(matrixData, i * 16));
+      commitComponents(mesh.instanceMatrix, matrixData, matrices.length * 16);
       if (colors) {
-        colors.forEach((color, i) => mesh!.setColorAt(i, color));
-        mesh.instanceColor!.setUsage(T.DynamicDrawUsage);
-        mesh.instanceColor!.needsUpdate = true;
+        if (!mesh.instanceColor)
+          mesh.instanceColor = new T.InstancedBufferAttribute(
+            new Float32Array(mesh.instanceMatrix.count * 3),
+            3,
+          ).setUsage(T.DynamicDrawUsage);
+        const colorData = stagingComponents(mesh.instanceColor);
+        colors.forEach((color, i) => color.toArray(colorData, i * 3));
+        commitComponents(mesh.instanceColor, colorData, colors.length * 3);
       }
     }
   }

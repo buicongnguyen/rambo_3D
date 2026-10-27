@@ -1,4 +1,5 @@
 import * as T from "three";
+import { writeComponents } from "./render-work";
 
 /**
  * 2.5D renderer for phones: every actor with a baked sprite sheet (see
@@ -68,6 +69,8 @@ export class SpriteActors {
   private v = new T.Vector3();
   private s = new T.Vector3();
   private e = new T.Euler();
+  private uvValues = new Float64Array(4);
+  private fadeValue = new Float64Array(1);
   /** Actors drawn as sprites in the last frame (for tests and the perf HUD). */
   drawn = 0;
   constructor(private actors: T.Group) {}
@@ -150,6 +153,10 @@ export class SpriteActors {
       old.material as T.ShaderMaterial,
       old.instanceMatrix.count * 2,
     );
+    // Retain slots already written this frame when capacity grows mid-loop.
+    next.mesh.instanceMatrix.array.set(old.instanceMatrix.array);
+    next.uv.array.set(sheet.uv.array);
+    next.fade.array.set(sheet.fade.array);
     old.removeFromParent();
     old.dispose(); // Release the old instance buffer as well as quad attributes.
     old.geometry.dispose();
@@ -221,15 +228,14 @@ export class SpriteActors {
         entry.centre * scale;
       this.s.setScalar(entry.size * scale);
       this.m.compose(this.v, this.q, this.s);
-      sheet.mesh.setMatrixAt(i, this.m);
-      sheet.uv.setXYZW(
-        i,
-        dir / entry.dirs,
-        1 - (frame + 1) / entry.frames,
-        1 / entry.dirs,
-        1 / entry.frames,
-      );
-      sheet.fade.setX(i, fade);
+      writeComponents(sheet.mesh.instanceMatrix, i * 16, this.m.elements);
+      this.uvValues[0] = dir / entry.dirs;
+      this.uvValues[1] = 1 - (frame + 1) / entry.frames;
+      this.uvValues[2] = 1 / entry.dirs;
+      this.uvValues[3] = 1 / entry.frames;
+      writeComponents(sheet.uv, i * 4, this.uvValues);
+      this.fadeValue[0] = fade;
+      writeComponents(sheet.fade, i, this.fadeValue);
       if (fade > 0.5 && this.shadowCount < this.shadow.instanceMatrix.count) {
         const r = (entry.frames > 1 ? 1.1 : entry.size * 0.42) * scale;
         this.m.makeScale(r, 1, r * 0.7);
@@ -238,7 +244,11 @@ export class SpriteActors {
           root.position.y + 0.04,
           root.position.z,
         );
-        this.shadow.setMatrixAt(this.shadowCount++, this.m);
+        writeComponents(
+          this.shadow.instanceMatrix,
+          this.shadowCount++ * 16,
+          this.m.elements,
+        );
       }
       // Hide the rig for this frame (restored after rendering).
       root.visible = false;
@@ -250,15 +260,11 @@ export class SpriteActors {
       if (mesh.parent !== this.actors.parent) this.actors.parent?.add(mesh);
       mesh.count = sheet.count;
       mesh.visible = sheet.count > 0;
-      mesh.instanceMatrix.needsUpdate = true;
-      sheet.uv.needsUpdate = true;
-      sheet.fade.needsUpdate = true;
     }
     if (this.shadow.parent !== this.actors.parent)
       this.actors.parent?.add(this.shadow);
     this.shadow.count = this.shadowCount;
     this.shadow.visible = this.shadowCount > 0;
-    this.shadow.instanceMatrix.needsUpdate = true;
   }
 
   /** Give the rigs back their real visibility after the frame is drawn. */
