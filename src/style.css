@@ -1360,10 +1360,14 @@ input {
   }
 }
 
+/* Condensed webfont with narrow fallbacks: generic monospace is much wider on
+   Linux/Android and cut "SHIELD 80 · ALLIES 3 · ¤9999" off on phones. */
 #shield-text {
   color: #80dcf8;
-  font: 600 11px/1.5 monospace;
-  letter-spacing: 0.06em;
+  font:
+    700 11px/1.5 "Barlow Condensed", "Arial Narrow", "Liberation Sans Narrow",
+    "Roboto Condensed", "DejaVu Sans Condensed", sans-serif;
+  letter-spacing: 0.04em;
   margin-top: 4px;
 }
 
@@ -1776,7 +1780,7 @@ input {
   color: #85e2e9;
 }
 #shield-text {
-  white-space: nowrap;
+  white-space: normal;
 }
 .rescue-result {
   color: #85e2e9;

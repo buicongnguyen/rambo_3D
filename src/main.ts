@@ -656,7 +656,7 @@ document.addEventListener(
 function pause() {
   if (mode !== "playing") return;
   mode = "paused";
-  pausedDrawn = false;
+  redrawPaused();
   clearInput();
   audio.setThemeLevel(0.35);
   const m = MISSIONS[game.index];

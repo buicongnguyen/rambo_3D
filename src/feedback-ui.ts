@@ -86,7 +86,9 @@ export class FeedbackUI {
       crosshair.classList.add(marker);
     }
     if (hurts.length) {
-      this.onHurt?.(Math.max(...hurts.map((h) => h.damage)));
+      let hardest = 0;
+      for (const h of hurts) hardest = Math.max(hardest, h.damage);
+      this.onHurt?.(hardest);
       const at = this.screen(game.pos.x, 1, game.pos.z, world.camera);
       for (const hurt of hurts.slice(-2)) {
         const arc = this.arcs[this.nextArc++ % this.arcs.length];
