@@ -27,6 +27,7 @@ import * as T from "three";
 import "./style.css";
 import "./ui.css";
 import { World, loadAssets, model } from "./world";
+import { heroModel, loadWardrobe, setLook } from "./wardrobe";
 import { Game, type Input } from "./game";
 import { Interpolator } from "./interpolation.mjs";
 import {
@@ -38,6 +39,13 @@ import {
 } from "./director.mjs";
 import { MISSIONS, COVER, BOSS_NAMES } from "./missions";
 import { freshSave, validateSave, advanceCampaign } from "./rules.mjs";
+import {
+  HEROES,
+  OUTFITS,
+  starTotal,
+  unlockOutfits,
+  wear,
+} from "./wardrobe-rules.mjs";
 const $ = <E extends HTMLElement = HTMLElement>(s: string) =>
   document.querySelector<E>(s)!;
 function read(key: string, fallback: unknown) {
@@ -259,6 +267,8 @@ function setText(el: Element, text: string) {
 const coarsePointer = matchMedia("(pointer: coarse)");
 /** Mission index whose battlefield the briefing currently shows. */
 let builtIndex = -1;
+/** The hero standing on the briefing battlefield (swapped when the look changes). */
+let briefingHero: T.Object3D | undefined;
 const stageStars = (stage: number) =>
   [0, 1, 2].reduce((n, level) => n + (save.stars[stage * 3 + level] ?? 0), 0);
 function menu() {
@@ -289,10 +299,8 @@ function menu() {
     game.cleanup();
     world.build(index);
     world.marker.visible = true;
-    world.terrain.add(
-      model("commando", 3, 15),
-      model(m.bossModel, 4, -14, 0.85),
-    );
+    briefingHero = heroModel(3, 15);
+    world.terrain.add(briefingHero, model(m.bossModel, 4, -14, 0.85));
   }
   // The shop and settings open once assets are ready (a purchase re-renders
   // the briefing, which must not race the loading progress label).
@@ -373,6 +381,9 @@ function menu() {
       women: save.women,
       stars: save.stars,
       loadout: save.loadout,
+      hero: save.hero,
+      outfit: save.outfit,
+      outfits: save.outfits,
     });
     if (previewMission !== undefined) {
       save = carried(previewMission);
@@ -391,7 +402,14 @@ function menu() {
         `<span class="eyebrow">NEW CAMPAIGN</span><h2>Back to the beginning?</h2><p>This resets mission progress, upgrades, treasure and your squad. Your best score is kept.</p><button class="primary" id="confirm-new">START OVER <span>↗</span></button><button class="text-button" id="cancel-new">KEEP MY PROGRESS</button>`,
       );
       $("#confirm-new").onclick = () => {
-        save = { ...freshSave(), best: save.best };
+        // The hero's look and unlocked outfits are kept: they were earned.
+        save = {
+          ...freshSave(),
+          best: save.best,
+          hero: save.hero,
+          outfit: save.outfit,
+          outfits: save.outfits,
+        };
         write("nightfall-campaign", save);
         menu();
       };
@@ -433,7 +451,7 @@ function openShop() {
     return `<article class="shop-card ${owned ? "owned" : affordable ? "" : "locked"}"><span class="role">${SUPPLY_ROLES[item.id] ?? ""}</span><img src="${uiIcon("weapon-" + item.id)}" alt=""><b>${spec.name}</b>${statBar("IMPACT", (spec.damage * spec.pellets) / MAX_IMPACT)}${statBar("RATE", Math.log(1 / spec.cool) / Math.log(MAX_RATE))}<button class="${owned ? "steel" : "primary"} buy" data-buy="${item.id}" ${owned || !affordable ? "disabled" : ""} aria-label="${owned ? `${spec.name} packed` : `Buy ${spec.name} for ${item.price} credits`}">${owned ? "PACKED ✓" : `${coin}${item.price}`}</button></article>`;
   }).join("");
   showOverlay(
-    `<div class="modal-head"><span class="eyebrow">QUARTERMASTER</span><button class="steel close" id="close-shop" aria-label="Return to briefing">BACK</button></div><h2>Gear up.</h2><div class="wallet">${coin}<b>${save.credits.toLocaleString()}</b><span>CREDITS</span><em>Banknote 10 · Gold 25 · Diamond 75 · ${STAR_BONUS} per star</em></div>${kit}<p class="shop-note">Supply drops start your next deployments with the weapon and spare magazines, until you win a mission.</p><div class="shop-grid">${supplies}</div>`,
+    `<div class="modal-head"><span class="eyebrow">QUARTERMASTER</span><button class="steel close" id="close-shop" aria-label="Return to briefing">BACK</button></div><h2>Gear up.</h2><div class="wallet">${coin}<b>${save.credits.toLocaleString()}</b><span>CREDITS</span><em>Banknote 10 · Gold 25 · Diamond 75 · ${STAR_BONUS} per star</em></div>${kit}<p class="shop-note">Supply drops start your next deployments with the weapon and spare magazines, until you win a mission.</p><div class="shop-grid">${supplies}</div>${wardrobe()}`,
     "shop-modal",
   );
   const bought = () => {
@@ -454,11 +472,55 @@ function openShop() {
       save = buySupply(save, button.dataset.buy!);
       bought();
     };
+  for (const button of document.querySelectorAll<HTMLButtonElement>(
+    "[data-hero], [data-outfit]",
+  ))
+    button.onclick = () => {
+      if (mode !== "menu") return;
+      const { hero, outfit } = button.dataset;
+      save = wear(save, { hero, outfit });
+      write("nightfall-campaign", save);
+      setLook(save);
+      const swap = () => {
+        if (briefingHero?.parent) {
+          const next = heroModel(3, 15);
+          briefingHero.parent.add(next);
+          briefingHero.removeFromParent();
+          briefingHero = next;
+        }
+        if (mode !== "menu" || $("#overlay").hidden) return;
+        openShop();
+        document
+          .querySelector<HTMLButtonElement>(
+            hero ? `[data-hero="${hero}"]` : `[data-outfit="${outfit}"]`,
+          )
+          ?.focus();
+      };
+      if (save.outfit === "none") swap();
+      else void loadWardrobe().then(swap, swap);
+    };
   $("#close-shop").onclick = () => {
     $("#overlay").hidden = true;
     $("#field-shop").focus();
   };
   $("#close-shop").focus();
+}
+const lookIcon = (hero: string, outfit: string) =>
+  `${import.meta.env.BASE_URL}ui/look-${hero}-${outfit}.webp`;
+/** The quartermaster's wardrobe: Ghost's body, and outfits that unlock with stars. */
+function wardrobe() {
+  const total = starTotal(save.stars);
+  const heroes = HEROES.map(
+    (h) =>
+      `<button type="button" class="hero-card" role="radio" aria-checked="${save.hero === h.id}" data-hero="${h.id}"><img src="${lookIcon(h.id, save.outfit)}" alt=""><b>${h.name.toUpperCase()}</b></button>`,
+  ).join("");
+  const outfits = OUTFITS.map((o) => {
+    const owned = save.outfits.includes(o.id),
+      on = save.outfit === o.id;
+    const state = on ? "WEARING ✓" : owned ? "WEAR" : `★ ${o.stars}`;
+    return `<button type="button" class="look-card ${on ? "on" : owned ? "" : "locked"}" data-outfit="${o.id}" aria-pressed="${on}" ${owned ? "" : "disabled"} aria-label="${owned ? `Wear ${o.name}` : `${o.name}: unlocks at ${o.stars} stars`}"><img src="${lookIcon(save.hero, o.id)}" alt=""><b>${o.name}</b><span>${state}</span></button>`;
+  }).join("");
+  return `<section class="wardrobe" aria-label="Wardrobe"><div class="wardrobe-head"><span class="eyebrow">WARDROBE</span><em>★ ${total} / ${LEVEL_COUNT * 3} · outfits unlock with stars and change only your look</em></div><div class="hero-pick" role="radiogroup" aria-label="Hero">${heroes}</div><div class="look-grid">${outfits}</div></section>`;
 }
 $("#field-shop").onclick = openShop;
 /** Settings rows shared by the briefing's Settings and the pause screen. */
@@ -761,6 +823,7 @@ function end(win: boolean) {
   });
   const tally = rewardBreakdown(game.loot, grade.stars);
   const banked = win ? game.credits + grade.stars * STAR_BONUS : 0;
+  let unlocked: string[] = [];
   if (win) {
     save = advanceCampaign(save, "armor", game.score, {
       credits: banked,
@@ -768,6 +831,7 @@ function end(win: boolean) {
       women: game.squad.women,
     });
     save.stars = recordStars(save.stars, game.index, grade.stars);
+    ({ save, unlocked } = unlockOutfits(save));
     save.loadout = []; // Supply drops are spent once a mission is won.
     write("nightfall-campaign", save);
   }
@@ -809,7 +873,12 @@ function end(win: boolean) {
         `<button data-upgrade="${id}"><img src="${uiIcon("upgrade-" + id)}" alt=""><b>${title}</b><span>${detail}</span></button>`,
     )
     .join("");
-  const debrief = `<div class="debrief"><div class="grade" aria-label="${grade.stars} of 3 stars"><div class="grade-stars">${stars}</div><ul>${criteria}</ul></div><div class="tally">${rows}<div class="tally-total"><img src="${uiIcon("coin")}" alt=""><span>BANKED</span><b id="banked" data-total="${banked}">+${banked}</b><em>BALANCE ${save.credits} CREDITS</em></div></div></div>`;
+  const debrief = `<div class="debrief"><div class="grade" aria-label="${grade.stars} of 3 stars"><div class="grade-stars">${stars}</div><ul>${criteria}</ul></div><div class="tally">${rows}<div class="tally-total"><img src="${uiIcon("coin")}" alt=""><span>BANKED</span><b id="banked" data-total="${banked}">+${banked}</b><em>BALANCE ${save.credits} CREDITS</em></div></div></div>${unlocked
+    .map((id) => {
+      const outfit = OUTFITS.find((o) => o.id === id)!;
+      return `<div class="unlock-note"><img src="${lookIcon(save.hero, id)}" alt=""><span><b>NEW OUTFIT · ${outfit.name.toUpperCase()}</b><small>Unlocked at ${outfit.stars} stars. Wear it from the Quartermaster.</small></span></div>`;
+    })
+    .join("")}`;
   const reveal = () => {
     if (mode !== "result") return;
     const number = String(game.index + 1).padStart(2, "0");
@@ -1524,6 +1593,10 @@ async function init() {
       const load = document.querySelector("#load");
       if (load) load.textContent = `${Math.round(n * 100)}%`;
     });
+    // Stars banked before the wardrobe existed unlock their outfits now.
+    save = unlockOutfits(save).save;
+    setLook(save);
+    if (save.outfit !== "none") await loadWardrobe().catch(() => {});
     game = new Game(world);
     void loadDefeatSheets(import.meta.env.BASE_URL);
     feedback = new FeedbackUI(document.body);

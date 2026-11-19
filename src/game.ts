@@ -69,6 +69,7 @@ import { repaint, HOSTILE_ARMOR } from "./liveries";
 import * as T from "three";
 import { CharacterMotion, FallenBody, VehicleMotion } from "./animation";
 import { World, model } from "./world";
+import { heroModel } from "./wardrobe";
 import {
   MISSIONS,
   COVER,
@@ -662,7 +663,7 @@ export class Game {
     this.destruction = new DestructionEffects(world.actors, (x, z) =>
       world.groundHeight(x, z),
     );
-    this.player = model("commando");
+    this.player = heroModel();
   }
   get mag() {
     return this.weaponSpec.mag;
@@ -918,7 +919,7 @@ export class Game {
       ["ice", "sand", "city"].includes(mission.biome) ? 0xff9418 : 0xffc62b,
     );
     this.refreshCoverGrid();
-    this.player = model("commando", mission.start.x, mission.start.z);
+    this.player = heroModel(mission.start.x, mission.start.z);
     this.world.resetCamera(this.player.position);
     this.lastPos.copy(this.pos);
     this.playerMotion = new CharacterMotion(this.player);

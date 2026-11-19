@@ -16,6 +16,8 @@ type Entry = {
   dirs: number;
   size: number;
   centre: number;
+  /** Hero looks: fetched the first time an actor wears them, not at load. */
+  lazy?: boolean;
 };
 type Sheet = {
   entry: Entry;
@@ -59,6 +61,9 @@ export class SpriteActors {
   ready = false;
   loading?: Promise<void>;
   private sheets = new Map<string, Sheet>();
+  private lazy = new Map<string, Entry>();
+  private fetching = new Set<string>();
+  private base = "";
   private tracks = new WeakMap<T.Object3D, Track>();
   private hidden: T.Object3D[] = [];
   private shadow!: T.InstancedMesh;
@@ -76,24 +81,18 @@ export class SpriteActors {
   constructor(private actors: T.Group) {}
 
   load(base: string) {
+    this.base = base;
     this.loading ??= (async () => {
       const manifest: Record<string, Entry> = await (
         await fetch(`${base}sprites/manifest.json`)
       ).json();
-      const loader = new T.TextureLoader();
+      const entries = Object.entries(manifest);
+      for (const [key, entry] of entries)
+        if (entry.lazy) this.lazy.set(key, entry);
       await Promise.all(
-        Object.entries(manifest).map(async ([key, entry]) => {
-          const map = await loader.loadAsync(`${base}sprites/${entry.file}`);
-          map.colorSpace = T.SRGBColorSpace;
-          map.generateMipmaps = false;
-          map.minFilter = map.magFilter = T.LinearFilter;
-          const material = new T.ShaderMaterial({
-            uniforms: { map: { value: map } },
-            vertexShader: VERTEX,
-            fragmentShader: FRAGMENT,
-          });
-          this.sheets.set(key, this.makeSheet(entry, material, CAPACITY));
-        }),
+        entries
+          .filter(([, entry]) => !entry.lazy)
+          .map(([key, entry]) => this.addSheet(key, entry)),
       );
       const canvas = document.createElement("canvas");
       canvas.width = canvas.height = 64;
@@ -117,6 +116,23 @@ export class SpriteActors {
       this.ready = true;
     })();
     return this.loading;
+  }
+
+  private async addSheet(key: string, entry: Entry) {
+    const map = await new T.TextureLoader().loadAsync(
+      `${this.base}sprites/${entry.file}`,
+    );
+    map.colorSpace = T.SRGBColorSpace;
+    map.generateMipmaps = false;
+    map.minFilter = map.magFilter = T.LinearFilter;
+    const material = new T.ShaderMaterial({
+      uniforms: { map: { value: map } },
+      vertexShader: VERTEX,
+      fragmentShader: FRAGMENT,
+    });
+    // Hero looks have one wearer; everyone else shares big batches.
+    const capacity = entry.lazy ? 4 : CAPACITY;
+    this.sheets.set(key, this.makeSheet(entry, material, capacity));
   }
 
   private makeSheet(
@@ -171,7 +187,14 @@ export class SpriteActors {
     if (!model) return undefined;
     const variant = root.userData.variant as string | undefined;
     const key = variant ? `${model}:${variant}` : model;
-    return this.sheets.has(key) ? key : undefined;
+    if (this.sheets.has(key)) return key;
+    // A hero look's sheet arrives in a moment; the 3D rig draws until then.
+    const entry = this.lazy.get(key);
+    if (entry && !this.fetching.has(key)) {
+      this.fetching.add(key);
+      this.addSheet(key, entry).catch(() => this.fetching.delete(key));
+    }
+    return undefined;
   }
 
   /**

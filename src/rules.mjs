@@ -1,5 +1,6 @@
 import { SpatialGrid } from "./combat.mjs";
 import { LEVEL_COUNT } from "./campaign.mjs";
+import { validLook } from "./wardrobe-rules.mjs";
 /** Earliest segment intersection t in [0,1], or Infinity. Expanded boxes support projectile radii. */
 export function segmentBox(ax, az, bx, bz, box, pad = 0) {
   // Two scalar slab tests; this is the innermost collision primitive, so it
@@ -136,6 +137,8 @@ export function freshSave() {
     fieldKit: 0,
     stars: [],
     loadout: [],
+    // The hero's body and outfit (cosmetic; see wardrobe-rules.mjs).
+    ...validLook(),
   };
 }
 export const SUPPLY_IDS = [
@@ -203,6 +206,7 @@ export function validateSave(raw) {
     mobility: raw.mobility,
     best: raw.best,
     completed: raw.completed,
+    ...validLook(raw),
   };
 }
 export function advanceCampaign(save, upgrade, score, rewards = {}) {

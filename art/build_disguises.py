@@ -6,7 +6,7 @@ One file, public/models/disguises.glb. Each outfit is a root `dz_<id>` whose chi
 `dz_<id>@<Joint>` sit at the commando's joint, so their meshes are in joint space and
 src/wardrobe.ts can hang them on either body's joint of that name.
 
-Contracts (see src/wardrobe.ts and tests/disguises.test.mjs):
+Contracts (see src/wardrobe.ts, art/disguise_dress.py and tests/wardrobe.test.mjs):
 - root extras: `tints` (JSON, body material name -> sRGB hex, the way liveries.ts
   recolours) and `hide` ("Joint:Material|..." body parts the outfit replaces);
 - piece extras: `wear` (joint name) and `fit` (scale that takes the piece from the

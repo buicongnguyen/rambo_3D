@@ -9,10 +9,15 @@ one. Role and livery variants are tinted and equipped exactly like the runtime
 (infantry.ts, liveries.ts). Output: public/sprites/<key>.png sheets (columns =
 directions, rows = frames) and public/sprites/manifest.json with each sheet's
 world size and anchor, which src/sprites.ts uses to draw camera-facing quads.
+The hero's bodies and outfits (disguise_dress.py, as src/wardrobe.ts) get "lazy"
+sheets: the game fetches one only when the player wears that look.
+NIGHTFALL_SPRITES_ONLY=key,key bakes just those keys into the existing manifest.
 """
 import bpy, math, os, sys, json
 import numpy as np
 from mathutils import Vector, Quaternion
+sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
+import disguise_dress
 
 ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 MODELS = os.path.join(ROOT, 'public', 'models')
@@ -214,27 +219,52 @@ def bake(key, model, cell, frames, variant=None):
             'size': round(size, 4), 'centre': round(centre_z, 4)}
 
 
+ONLY = set(filter(None, os.environ.get('NIGHTFALL_SPRITES_ONLY', '').split(',')))
+manifest = {}
+if ONLY:
+    with open(os.path.join(OUT, 'manifest.json')) as f:
+        manifest = json.load(f)
+
+
+def sheet(key, *args, **kwargs):
+    if not ONLY or key in ONLY:
+        manifest[key] = bake(key, *args, **kwargs)
+    return manifest.get(key)
+
+
 ROLE = {'rusher': ('ad4d32', 'weapon_knife', 1), 'swordsman': ('70685c', 'weapon_sword', 1),
         'thrower': ('be903e', 'weapon_knife', 1), 'rocketeer': ('b8642e', 'weapon_missile', 1.2)}
-manifest = {}
 HUMAN, BIG = 96, 192
-manifest['rifleman'] = bake('rifleman', 'rifleman', HUMAN, 4)
+sheet('rifleman', 'rifleman', HUMAN, 4)
 for role, (colour, gear, scale) in ROLE.items():
-    manifest['rifleman:' + role] = bake('rifleman:' + role, 'rifleman', HUMAN, 4,
-                                        lambda objs, c=colour, g=gear, s=scale: (tint(objs, 'Sand canvas', c), equip(objs, g, s)))
-manifest['ninja'] = bake('ninja', 'ninja', HUMAN, 4, lambda objs: equip(objs, 'weapon_katana'))
-manifest['commando'] = bake('commando', 'commando', HUMAN, 4)
-manifest['commando:ally'] = bake('commando:ally', 'commando', HUMAN, 4,
-                                 lambda objs: (tint(objs, 'Hero bandana', '22d3f0'), equip(objs, 'weapon_rifle')))
-manifest['commandoWoman:ally'] = bake('commandoWoman:ally', 'commandoWoman', HUMAN, 4,
-                                      lambda objs: (tint(objs, 'Hero bandana', '22d3f0'), equip(objs, 'weapon_rifle')))
+    sheet('rifleman:' + role, 'rifleman', HUMAN, 4,
+      lambda objs, c=colour, g=gear, s=scale: (tint(objs, 'Sand canvas', c), equip(objs, g, s)))
+sheet('ninja', 'ninja', HUMAN, 4, lambda objs: equip(objs, 'weapon_katana'))
+sheet('commando', 'commando', HUMAN, 4)
+sheet('commando:ally', 'commando', HUMAN, 4,
+      lambda objs: (tint(objs, 'Hero bandana', '22d3f0'), equip(objs, 'weapon_rifle')))
+sheet('commandoWoman:ally', 'commandoWoman', HUMAN, 4,
+      lambda objs: (tint(objs, 'Hero bandana', '22d3f0'), equip(objs, 'weapon_rifle')))
 for name in ('captive', 'captiveWoman'):
-    manifest[name] = bake(name, name, HUMAN, 1)
+    sheet(name, name, HUMAN, 1)
 for name in ('tank', 'jeep', 'motorcycle', 'gunship', 'spider', 'laserTank', 'quadMech', 'rocketMech',
              'missileTruck', 'skyWraith', 'walker'):
-    manifest[name] = bake(name, name, BIG, 1)
-manifest['tank:hostile'] = bake('tank:hostile', 'tank', BIG, 1,
-                                lambda objs: (tint(objs, 'Vehicle paint', 'c9964a'), tint(objs, 'Vehicle trim', '6e4f2b')))
+    sheet(name, name, BIG, 1)
+sheet('tank:hostile', 'tank', BIG, 1,
+      lambda objs: (tint(objs, 'Vehicle paint', 'c9964a'), tint(objs, 'Vehicle trim', '6e4f2b')))
+# The player's own looks: each body in each outfit, holding the rifle.
+for body in disguise_dress.BODIES:
+    for look in disguise_dress.LOOKS:
+        if body == 'commando' and look == 'none':
+            continue  # the plain commando sheet above
+        key = body if look == 'none' else '%s:look-%s' % (body, look)
+
+        def wear(objs, body=body, look=look):
+            disguise_dress.dress(objs, body, look)
+            if body == 'commandoWoman':
+                equip(objs, 'weapon_rifle')
+        if sheet(key, body, HUMAN, 4, wear):
+            manifest[key]['lazy'] = True
 with open(os.path.join(OUT, 'manifest.json'), 'w') as f:
     json.dump(manifest, f, indent=1)
 for name in os.listdir(TMP):

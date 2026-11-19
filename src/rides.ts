@@ -2,6 +2,7 @@ import { isSmallTree } from "./environment.mjs";
 import { WORLD_BOUNDS } from "./campaign.mjs";
 import * as T from "three";
 import { model } from "./world";
+import { heroModel } from "./wardrobe";
 import { COVER } from "./missions";
 import { moveCircle, segmentBox } from "./rules.mjs";
 import { VEHICLES, type VehicleKind } from "./arsenal";
@@ -33,7 +34,7 @@ export class Ride {
       if (String(o.userData.joint).startsWith("Wheel")) this.wheels.push(o);
       if (o.userData.joint === "Turret") this.turret = o;
     });
-    this.rider = model("commando");
+    this.rider = heroModel();
     this.rider.scale.setScalar(0.83);
     this.rider.position.set(
       kind === "jeep" ? -0.45 : 0,

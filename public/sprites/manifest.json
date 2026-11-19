@@ -182,5 +182,122 @@
   "dirs": 8,
   "size": 9.8075,
   "centre": 1.7752
+ },
+ "commando:look-navy": {
+  "file": "commando-look-navy.webp",
+  "cell": 96,
+  "frames": 4,
+  "dirs": 8,
+  "size": 3.0654,
+  "centre": 0.9463,
+  "lazy": true
+ },
+ "commando:look-pirate": {
+  "file": "commando-look-pirate.webp",
+  "cell": 96,
+  "frames": 4,
+  "dirs": 8,
+  "size": 3.0654,
+  "centre": 0.95,
+  "lazy": true
+ },
+ "commando:look-knight": {
+  "file": "commando-look-knight.webp",
+  "cell": 96,
+  "frames": 4,
+  "dirs": 8,
+  "size": 3.0988,
+  "centre": 1.0087,
+  "lazy": true
+ },
+ "commando:look-aodai": {
+  "file": "commando-look-aodai.webp",
+  "cell": 96,
+  "frames": 4,
+  "dirs": 8,
+  "size": 3.0713,
+  "centre": 0.99,
+  "lazy": true
+ },
+ "commando:look-vietnam": {
+  "file": "commando-look-vietnam.webp",
+  "cell": 96,
+  "frames": 4,
+  "dirs": 8,
+  "size": 3.0654,
+  "centre": 0.935,
+  "lazy": true
+ },
+ "commando:look-mecha": {
+  "file": "commando-look-mecha.webp",
+  "cell": 96,
+  "frames": 4,
+  "dirs": 8,
+  "size": 3.0688,
+  "centre": 1.055,
+  "lazy": true
+ },
+ "commandoWoman": {
+  "file": "commandoWoman.webp",
+  "cell": 96,
+  "frames": 4,
+  "dirs": 8,
+  "size": 2.7,
+  "centre": 0.919,
+  "lazy": true
+ },
+ "commandoWoman:look-navy": {
+  "file": "commandoWoman-look-navy.webp",
+  "cell": 96,
+  "frames": 4,
+  "dirs": 8,
+  "size": 2.7,
+  "centre": 0.9351,
+  "lazy": true
+ },
+ "commandoWoman:look-pirate": {
+  "file": "commandoWoman-look-pirate.webp",
+  "cell": 96,
+  "frames": 4,
+  "dirs": 8,
+  "size": 2.7,
+  "centre": 0.9387,
+  "lazy": true
+ },
+ "commandoWoman:look-knight": {
+  "file": "commandoWoman-look-knight.webp",
+  "cell": 96,
+  "frames": 4,
+  "dirs": 8,
+  "size": 2.7,
+  "centre": 0.9957,
+  "lazy": true
+ },
+ "commandoWoman:look-aodai": {
+  "file": "commandoWoman-look-aodai.webp",
+  "cell": 96,
+  "frames": 4,
+  "dirs": 8,
+  "size": 2.7,
+  "centre": 0.9775,
+  "lazy": true
+ },
+ "commandoWoman:look-vietnam": {
+  "file": "commandoWoman-look-vietnam.webp",
+  "cell": 96,
+  "frames": 4,
+  "dirs": 8,
+  "size": 2.7,
+  "centre": 0.919,
+  "lazy": true
+ },
+ "commandoWoman:look-mecha": {
+  "file": "commandoWoman-look-mecha.webp",
+  "cell": 96,
+  "frames": 4,
+  "dirs": 8,
+  "size": 2.7,
+  "centre": 1.0405,
+  "lazy": true
  }
 }
