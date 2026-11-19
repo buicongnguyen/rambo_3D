@@ -61,12 +61,12 @@ Size and cost: the 44 GLBs now total about 4.2 MB, against 9.2 MB before. Soldie
 ## Vehicles, finishing and the volcano
 
 - **Vehicle loadouts.** Jeeps and tanks add their mounted gun (jeep shotgun, 16-shell tank cannon, up from 6) to your collected weapons instead of locking you to it. Boarding, pickups and empty magazines always select the strongest weapon that still has ammunition. An empty mounted gun falls back to a carried one.
-- **All clear.** When a kill leaves no hostile alive and none still to come (finales need their command bosses spawned and dead), the mission ends immediately, as if you had reached extraction.
+- **All clear.** Secure the relay and defeat its response. If the sector is then clear, Vale collects the squad immediately. Otherwise the squad can leave on foot at green extraction.
 - **Cinderfall rockfall.** One rock on the player and one on the nearest enemy every 9 s, down from three every 5 s. The warning is 3 s instead of 1.8 s, and the rock descends visibly over the whole warning.
 
 ## Debrief and quartermaster
 
-`src/debrief.mjs` (unit-tested) grades each level with up to three stars: complete it, beat a par time derived from the route length (75 s + 0.9 s per metre, +90 s for finales), and finish above 50% health. The debrief tallies banknotes ×10, gold ×25, diamonds ×75 and 10 credits per star, counts the banked total up and saves each level's best stars; stage cards show ★ n/9. The quartermaster shop presents Field Kit ranks and one-mission weapon supply drops as icon cards with a credit wallet. `art/build_ui_icons.py` renders the stars, coin, treasure, upgrade emblems and weapon icons in Blender from the same kit and GLBs.
+`src/debrief.mjs` (unit-tested) grades each level with up to three stars: complete it, meet the route par (75 s + 0.9 s per metre, +90 s for finales) or free a prisoner, and finish with at least 50% health. The debrief tallies banknotes ×10, gold ×25, diamonds ×75 and 10 credits per star, counts the banked total up and saves each level's best stars; stage cards show ★ n/9. The quartermaster shop presents Field Kit ranks and one-mission weapon supply drops as icon cards with a credit wallet. `art/build_ui_icons.py` renders the stars, coin, treasure, upgrade emblems and weapon icons in Blender from the same kit and GLBs.
 
 ## Game UI (UI 2.0)
 

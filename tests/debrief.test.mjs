@@ -10,7 +10,7 @@ import {
 import { SUPPLIES, buySupply } from "../src/economy.mjs";
 import { SUPPLY_IDS, freshSave, validateSave } from "../src/rules.mjs";
 
-test("three stars: complete, beat par, finish above half health", () => {
+test("three stars: complete, meet par or rescue, finish with at least half health", () => {
   const par = missionPar(164);
   assert.equal(par, 223);
   assert.equal(missionPar(372, true), 500);
@@ -20,6 +20,11 @@ test("three stars: complete, beat par, finish above half health", () => {
   assert.equal(grade(300, 0.9), 2);
   assert.equal(grade(300, 0.2), 1);
   assert.equal(grade(100, 1, false), 0);
+  const rescue = { elapsed: par + 30, par, hpRatio: 0.5, rescued: 1 };
+  assert.equal(missionGrade({ ...rescue, win: true }).stars, 3);
+  assert.equal(missionGrade({ ...rescue, win: false }).stars, 0);
+  assert.equal(missionGrade({ ...rescue, win: true, hpRatio: 0.49 }).stars, 2);
+  assert.equal(missionGrade({ ...rescue, win: true, elapsed: par }).stars, 3);
 });
 
 test("the tally multiplies treasure by value and adds the star bonus", () => {

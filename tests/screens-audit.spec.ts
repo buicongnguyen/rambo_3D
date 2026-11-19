@@ -1,3 +1,4 @@
+import { reachOpeningCounterattack } from "./opening-response";
 import { test, expect, type Browser, type Page } from "@playwright/test";
 
 /**
@@ -126,6 +127,7 @@ for (const [w, h, touch] of SIZES)
     expect(await audit(page), "manual").toEqual(clean);
     await page.keyboard.press("Escape");
     await page.locator("#deploy").click();
+    await reachOpeningCounterattack(page);
     await page.evaluate(async () => {
       const { game: g, input } = (window as any).__nightfall;
       const { WEAPONS } = await import("/src/arsenal.ts");
@@ -270,6 +272,7 @@ test("a debrief that lands mid-fight ignores taps and Enter until it settles", a
   await page.goto("/");
   await expect(page.locator("#deploy")).toBeEnabled();
   await page.locator("#deploy").click();
+  await reachOpeningCounterattack(page);
   // Ghost is firing with Space when the last enemy falls.
   await page.keyboard.down("Space");
   // Checked in the same task as the reveal, so a slow machine cannot let

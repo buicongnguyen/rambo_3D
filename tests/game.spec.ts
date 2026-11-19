@@ -234,8 +234,7 @@ test("short opening can be completed on Easy through simulated movement and norm
       companion: g.companion?.position.toArray(),
     };
   });
-  console.log("Story route simulation:", result);
-  expect(result.phase).toBe("won");
+  expect(result).toMatchObject({ phase: "won", objective: true, bossDead: true });
 });
 
 test("Retry appears promptly when rendering is throttled to two frames per second", async ({

@@ -73,28 +73,41 @@ export const MISSIONS: Mission[] = STAGES.flatMap((s, stage) =>
   Array.from({ length: LEVELS_PER_STAGE }, (_, level) => {
     const plan = routePlan(stage, level);
     const story = missionStory(stage, level);
+    const finale = level === LEVELS_PER_STAGE - 1;
+    const opening = stage === 0 && level === 0;
+    const lead = BOSS_NAMES[s.boss];
+    const response = finale
+      ? `Draw out ${lead} at the yellow relay and defeat every command unit that answers.`
+      : "Approach the yellow relay to secure it, then defeat the guards coming from the houses.";
+    const approach = opening
+      ? "Ghost, there is an M249 cache on the way to the yellow relay."
+      : plan.shape === "O"
+        ? "Either arm of the loop leads to the yellow relay."
+        : "Ghost, approach the yellow relay.";
     return {
       ...plan,
       name: s.name,
       stage,
       level,
       biome: s.biome,
-      finale: level === 2,
+      finale,
       region: s.name.toUpperCase(),
       tag: ["BREACH / APPROACH", "RECOVER / HOLD", "COMMAND / FINALE"][level],
       description: s.tip,
-      brief:
-        stage === 0 && level === 0
-          ? `${story.stakes} Reach the yellow radio relay, defeat its two response guards, then reach green extraction. Rifle ammunition is unlimited; four frag grenades are ready. An early M249 cache and blue prison door offer optional bonuses: approach the door to free a soldier who follows and fires with you. Clearing every patrol is optional.`
-          : `${story.stakes} ${story.action}. ${s.tip} Follow the ${plan.shape.toLowerCase()} road${plan.shape === "O" ? " — choose either arm around the central woodland" : ""}, fight for vehicles and weapon caches, secure the relay, ${level === 2 ? "destroy the command bosses" : "defeat the relay guards"} and reach extraction. Free prisoners at blue doors to grow your squad; extract treasure to upgrade your field kit. Vale is coordinating the evacuation from the air.`,
-      radio:
-        stage === 0 && level === 0
-          ? "Vale: Find their signal. Reach the yellow relay, clear two response guards, then follow green extraction. Blue prison doors rescue allies automatically. Collect the nearby M249 cache; clearing other patrols is optional."
-          : `${s.name}. ${s.tip} Follow the ${plan.direction.toLowerCase()}. ${plan.shape === "O" ? "Both sides of the loop lead to the relay. Choose your approach. " : ""}Patrols hold vehicles and weapon caches ahead. Shoot small trees to open firing lanes. Approach the yellow relay to secure it automatically; response guards leave nearby houses.`,
+      brief: `${story.stakes} ${response} ${
+        opening
+          ? "Reach green extraction on foot, or clear every remaining hostile for pickup in the field. A blue-door rescue can earn the time star on a slower run."
+          : "Reach green extraction on foot."
+      }`,
+      radio: `${approach} ${
+        finale
+          ? `Expect ${lead} when you bring it online.`
+          : "Watch the house doors for guards once the signal is up."
+      }`,
       success: story.success,
       action: story.action,
       boss:
-        BOSS_NAMES[s.boss] +
+        lead +
         ("escort" in s && s.escort ? " + " + BOSS_NAMES[s.escort] : ""),
       bossModel: s.boss,
       bossEscort: "escort" in s ? s.escort : undefined,

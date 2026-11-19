@@ -162,6 +162,7 @@ export class Squad {
             x: target.x + ((q.x - target.x) * remaining) / d,
             z: target.z + ((q.z - target.z) * remaining) / d,
           };
+          remaining = 0;
           break;
         }
         remaining -= d;

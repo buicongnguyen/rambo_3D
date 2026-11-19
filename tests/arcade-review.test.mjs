@@ -98,6 +98,27 @@ test("opening progression is gentler while later density and causal mission outc
   assert.equal(outcomes.size, 21);
 });
 
+test("mission briefs match the relay response across the campaign", async () => {
+  const { MISSIONS, BOSS_NAMES } = await import("../src/missions.ts");
+  const dispatches = MISSIONS.map((m) => missionStory(m.stage, m.level).stakes);
+  assert.equal(new Set(dispatches).size, MISSIONS.length);
+  for (const m of MISSIONS) {
+    assert.match(m.brief, /yellow relay/i);
+    assert.match(m.brief, /extraction on foot/i);
+    if (m.finale) {
+      assert.ok(m.radio.includes(BOSS_NAMES[m.bossModel]));
+      assert.match(m.brief, /every command unit/i);
+      assert.doesNotMatch(m.radio, /house|guard/i);
+    } else {
+      assert.match(m.brief, /guards.*houses/i);
+      assert.doesNotMatch(m.brief + m.radio, /two (response )?guards/i);
+    }
+    if (m.shape === "O") assert.match(m.radio, /either arm/i);
+  }
+  assert.match(MISSIONS[0].brief, /clear every remaining hostile/i);
+  assert.match(MISSIONS[0].brief, /rescue.*star/i);
+});
+
 test("every city level contains four compounds and permanent relay houses", async () => {
   const { MISSIONS, COVER, buildLayout } = await import("../src/missions.ts");
   for (const m of MISSIONS.filter((m) => m.biome === "city")) {

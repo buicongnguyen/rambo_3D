@@ -568,7 +568,7 @@ h1 em {
   color: #7bb397;
   text-decoration: line-through;
 }
-#objectives .current {
+#objectives [aria-current="step"] {
   color: var(--lime);
 }
 .hud-right {
@@ -1700,8 +1700,7 @@ input {
     font-size: 16px;
     margin: 0 0 3px;
   }
-  #objectives span.done,
-  #objectives span:not(.done) ~ span {
+  #objectives span:not([aria-current="step"]) {
     display: none;
   }
   #objectives {
@@ -1788,6 +1787,7 @@ input {
 @media (pointer: coarse) {
   #shield-text {
     font-size: 11px;
+    line-height: 1.15;
     letter-spacing: 0;
   }
 }

@@ -72,6 +72,16 @@ export function difficultyConfig(value) {
     DIFFICULTIES[value === "story" ? "easy" : value] ?? DIFFICULTIES.normal
   );
 }
+/** The force that answers this stage's final relay, in spawn order. */
+export function finaleRoster(stage, difficulty) {
+  const { boss, escort } = STAGES[stage];
+  const config = difficultyConfig(difficulty);
+  const kinds = escort && config !== DIFFICULTIES.easy ? [boss, escort] : [boss];
+  return Array.from(
+    { length: Math.max(config.bosses, kinds.length) },
+    (_, i) => kinds[i % kinds.length],
+  );
+}
 export function terrainFactor(kind, depth = 0) {
   return kind === "sand"
     ? 0.25

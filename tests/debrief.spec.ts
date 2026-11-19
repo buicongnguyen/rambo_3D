@@ -1,3 +1,4 @@
+import { reachOpeningCounterattack } from "./opening-response";
 import { test, expect } from "@playwright/test";
 async function ready(page: any) {
   await page.goto("/");
@@ -5,22 +6,33 @@ async function ready(page: any) {
   await page.locator("#deploy").click();
 }
 
-test("the last kill ends the stage, the debrief grades stars and banks treasure plus the star bonus", async ({
+test("patrol clearance waits for the relay, then the last kill extracts and banks the mission reward", async ({
   page,
 }) => {
   await ready(page);
+  const patrolOnly = await page.evaluate(() => {
+    const h = (window as any).__nightfall;
+    const { game, input } = h;
+    for (const enemy of game.enemies) if (enemy.hp > 0) game.hurt(enemy, 9999);
+    game.update(1 / 60, { ...input, fire: false });
+    return { phase: game.phase, goal: game.goal?.kind, mission: h.save.mission };
+  });
+  expect(patrolOnly).toEqual({ phase: "playing", goal: "relay", mission: 0 });
+  await reachOpeningCounterattack(page);
   const phase = await page.evaluate(async () => {
     const { game: g } = (window as any).__nightfall;
     const { WEAPONS } = await import("/src/arsenal.ts");
     g.invincible = 1000;
     g.loot = { money: 2, gold: 1, diamond: 1 };
     g.credits = 2 * 10 + 25 + 75;
-    // Kill every hostile for real: no pending guards, so the stage is clear.
+    // The relay response is now the only force keeping Vale from landing.
     for (const e of g.enemies) if (e.hp > 0) g.hurt(e, 999, WEAPONS[0]);
     g.update(1 / 60, { ...(window as any).__nightfall.input, fire: false });
     return g.phase;
   });
   expect(phase).toBe("won");
+  const dispatch = await page.evaluate(async () => (await import("/src/missions.ts")).MISSIONS[0].success);
+  await expect(page.locator(".mission-outcome")).toHaveText(dispatch);
   await expect(page.locator(".grade-star")).toHaveCount(3);
   const earned = await page.locator(".grade-star.earned").count();
   expect(earned).toBeGreaterThanOrEqual(1);
@@ -59,6 +71,24 @@ test("the last kill ends the stage, the debrief grades stars and banks treasure 
   });
   expect(deployed.inventory).toContain(2);
   expect(deployed.weapon).toBe(2); // The M249 outranks the starter rifle.
+});
+
+test("a short touch viewport opens the debrief at its story", async ({ browser }) => {
+  const page = await browser.newPage({
+    viewport: { width: 320, height: 568 }, isMobile: true, hasTouch: true,
+  });
+  await ready(page);
+  await reachOpeningCounterattack(page);
+  await page.evaluate(() => {
+    const { game, input } = (window as any).__nightfall;
+    for (const enemy of game.enemies) if (enemy.hp > 0) game.hurt(enemy, 99999);
+    game.update(1 / 60, { ...input, fire: false });
+  });
+  await expect(page.locator("#overlay h2")).toBeFocused();
+  await expect(page.locator(".mission-outcome")).toBeInViewport({ ratio: 1 });
+  await page.locator('[data-upgrade="armor"]').tap();
+  await expect(page.locator("#deploy")).toBeVisible();
+  await page.context().close();
 });
 
 test("volcano rockfalls are fewer and give a longer warning", async ({

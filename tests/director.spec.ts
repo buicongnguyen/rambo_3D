@@ -1,3 +1,4 @@
+import { reachOpeningCounterattack } from "./opening-response";
 import { test, expect, type Page } from "@playwright/test";
 async function ready(page: Page) {
   await page.goto("/");
@@ -59,6 +60,7 @@ test("the mission's final kill plays in slow motion before the debrief appears",
   page,
 }) => {
   await ready(page);
+  await reachOpeningCounterattack(page);
   const at = await page.evaluate(async () => {
     const { game: g, input } = (window as any).__nightfall;
     const { WEAPONS } = await import("/src/arsenal.ts");

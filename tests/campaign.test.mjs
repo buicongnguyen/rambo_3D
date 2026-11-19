@@ -2,6 +2,7 @@ import { test } from "node:test";
 import assert from "node:assert/strict";
 import {
   difficultyConfig,
+  finaleRoster,
   STAGES,
   LEVEL_COUNT,
   WORLD_BOUNDS,
@@ -31,6 +32,18 @@ test("seven stages have 21 levels and exact soldier and boss multipliers", () =>
     difficultyConfig("easy").health > difficultyConfig("normal").health,
   );
   assert.equal(terrainFactor("sand"), 0.25);
+});
+test("finales use the stage lead and add its escort from Normal onward", () => {
+  assert.deepEqual(finaleRoster(0, "normal"), ["gunship"]);
+  assert.deepEqual(finaleRoster(0, "hard"), ["gunship", "gunship"]);
+  for (const stage of [5, 6]) {
+    const { boss, escort } = STAGES[stage];
+    assert.deepEqual(finaleRoster(stage, "easy"), [boss]);
+    assert.deepEqual(finaleRoster(stage, "story"), [boss]);
+    assert.deepEqual(finaleRoster(stage, "normal"), [boss, escort]);
+    assert.deepEqual(finaleRoster(stage, "hard"), [boss, escort]);
+    assert.deepEqual(finaleRoster(stage, "crazy"), [boss, escort, boss, escort]);
+  }
 });
 test("long map movement and navigation reach northern extraction without escaping bounds", () => {
   assert.equal(moveCircle(0, -80, 0, -50, 0.5, [], WORLD_BOUNDS).z, -114.5);

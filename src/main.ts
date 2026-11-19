@@ -10,7 +10,7 @@ import {
   rewardBreakdown,
 } from "./debrief.mjs";
 import { routeLength } from "./routes.mjs";
-import { WEAPONS } from "./arsenal";
+import { VEHICLES, WEAPONS } from "./arsenal";
 import { FeedbackUI } from "./feedback-ui";
 import { GameAudio } from "./audio";
 import { themeFor } from "./music.mjs";
@@ -20,6 +20,7 @@ import {
   STAGES,
   LEVEL_COUNT,
   difficultyConfig,
+  finaleRoster,
   WORLD_BOUNDS,
 } from "./campaign.mjs";
 import * as T from "three";
@@ -81,6 +82,7 @@ const wants25d = () =>
   prefs.view === "25d" ||
   (prefs.view === "auto" && matchMedia("(pointer: coarse)").matches);
 let previewMission: number | undefined;
+const briefingIndex = () => previewMission ?? (save.completed ? 0 : save.mission);
 let difficulty = ["easy", "normal", "hard", "crazy"].includes(
     String(rawPrefs.difficulty),
   )
@@ -91,14 +93,14 @@ let difficulty = ["easy", "normal", "hard", "crazy"].includes(
   radioUntil = 0;
 const app = $("#app");
 app.innerHTML = `
-<canvas id="scene" aria-label="Three-dimensional mission battlefield"></canvas>
+<canvas id="scene" tabindex="-1" aria-label="Three-dimensional mission battlefield"></canvas>
 <div class="vignette"></div><div id="crosshair" hidden><i></i></div>
 <header id="brand"><a href="#" id="home" aria-label="Operation Nightfall briefing"><span class="brand-mark">R<span>///</span></span><span class="brand-name">RAMBO <b>3D</b><small>OPERATION NIGHTFALL</small></span></a><div class="header-right"><span id="wallet-chip" class="wallet-chip" title="Credits"><i aria-hidden="true"></i><b id="wallet-credits">0</b><small>CREDITS</small></span><button id="sound" class="icon-button sound-toggle" aria-label="Toggle sound">SOUND ON</button></div></header>
-<main id="menu" class="menu"><section class="hero"><div class="eyebrow"><span></span> BEHIND ENEMY LINES. AGAIN.</div><h1>THE MISSION <br>IS <em>PERSONAL.</em></h1><p class="hero-copy">They left your people behind.<br>You came back for them.</p><div class="hero-rule"></div><div class="operation-line"><span>01—21</span><p>SEVEN STAGES. THREE LEVELS EACH.<br>EVERYONE COMES HOME.</p></div><div id="launch-area"><button class="primary" disabled id="deploy">PREPARING FIELD KIT <span id="load">0%</span></button></div><div class="menu-tiles"><button id="field-shop" class="tile" disabled><img src="${import.meta.env.BASE_URL}ui/field-kit.png" alt=""><b>QUARTERMASTER</b><small id="shop-tile-note">FIELD KIT</small></button><button id="menu-settings" class="tile" disabled><img src="${import.meta.env.BASE_URL}ui/menu-settings.png" alt=""><b>SETTINGS</b><small>SOUND · GRAPHICS</small></button><button id="controls-open" class="tile"><img src="${import.meta.env.BASE_URL}ui/menu-manual.png" alt=""><b>FIELD MANUAL</b><small>CONTROLS · TIPS</small></button></div><div class="difficulty" role="group" aria-label="Engagement"><span>ENGAGEMENT</span><button data-difficulty="easy">EASY</button><button data-difficulty="normal" class="selected">NORMAL</button><button data-difficulty="hard">HARD</button><button data-difficulty="crazy">CRAZY</button></div><p class="small-note" id="difficulty-note">New player? Try Easy. Unlimited rifle reloads in every mode; Hard and Crazy give less special ammo.</p></section>
+<main id="menu" class="menu"><section class="hero"><div class="eyebrow"><span></span> BEHIND ENEMY LINES. AGAIN.</div><h1>THE MISSION <br>IS <em>PERSONAL.</em></h1><p class="hero-copy">They left your people behind.<br>You came back for them.</p><div class="hero-rule"></div><div class="operation-line"><span>01—21</span><p>SEVEN STAGES. THREE LEVELS EACH.<br>GET THE CONVOY THROUGH.</p></div><div id="launch-area"><button class="primary" disabled id="deploy">PREPARING FIELD KIT <span id="load">0%</span></button></div><div class="menu-tiles"><button id="field-shop" class="tile" disabled><img src="${import.meta.env.BASE_URL}ui/field-kit.png" alt=""><b>QUARTERMASTER</b><small id="shop-tile-note">FIELD KIT</small></button><button id="menu-settings" class="tile" disabled><img src="${import.meta.env.BASE_URL}ui/menu-settings.png" alt=""><b>SETTINGS</b><small>SOUND · GRAPHICS</small></button><button id="controls-open" class="tile"><img src="${import.meta.env.BASE_URL}ui/menu-manual.png" alt=""><b>FIELD MANUAL</b><small>CONTROLS · TIPS</small></button></div><div class="difficulty" role="group" aria-label="Engagement"><span>ENGAGEMENT</span><button data-difficulty="easy">EASY</button><button data-difficulty="normal" class="selected">NORMAL</button><button data-difficulty="hard">HARD</button><button data-difficulty="crazy">CRAZY</button></div><p class="small-note" id="difficulty-note">New player? Try Easy. Unlimited rifle reloads in every mode; Hard and Crazy give less special ammo.</p></section>
 <aside class="intel"><div class="intel-top"><span class="live-dot"></span> LIVE RECON <span id="intel-stage">STAGE 1</span></div><div class="intel-map"><div class="scan"></div><div class="map-line l1"></div><div class="map-line l2"></div><span class="map-dot d1"></span><span class="map-dot d2"></span><span class="map-dot d3"></span><span class="map-label">KHE SAN VALLEY</span></div><div class="intel-bottom"><span>MISSION BRIEF / <b id="brief-number">01</b></span><h2 id="brief-title">Emerald Killbox</h2><p id="brief-copy"></p><div class="intel-meta"><span>◆ SOLO CAMPAIGN</span><span>● 3D TACTICAL ACTION</span></div></div></aside>
 <section class="campaign" aria-label="Campaign missions"><div class="campaign-heading"><span>CHOOSE YOUR NEXT FRONT</span><span>CAMPAIGN / NIGHTFALL</span></div><div id="mission-cards" class="mission-cards"></div></section>
 <footer class="menu-footer"><span>AN ORIGINAL LOW-POLY COMBAT EXPERIENCE <b id="best-score"></b></span><span>BUILT WITH BLENDER + THREE.JS</span></footer></main>
-<section id="hud" hidden aria-label="Mission status"><div class="hud-top"><div class="objective-panel"><span class="eyebrow" id="mission-label"></span><h2 id="mission-title"></h2><div id="objectives"></div></div><div class="hud-right"><button class="icon-button" id="pause">Ⅱ <span>PAUSE</span></button><canvas id="minimap" width="144" height="144" aria-label="Tactical map: road pale green, player white, enemies orange, weapons purple, medical green, shields blue, relay yellow, prisons and allies cyan, treasure gold"></canvas><span class="map-caption" id="route-direction">NORTHBOUND ROUTE</span></div></div><div id="hud-feed"><div id="boss-panel" hidden><div><b id="boss-name"></b><span id="boss-phase">ARMORED TARGET</span></div><div class="boss-track"><i id="boss-bar"></i></div></div><div id="combat-notice" role="status" hidden></div><div id="interact-prompt" hidden></div><div id="radio" role="status"><span>VALE / RADIO</span><p></p></div></div><div class="hud-bottom"><div class="health-panel"><div class="hud-kicker">GHOST <span id="health-text"></span></div><div class="health-track"><i id="health-bar"></i></div><div id="shield-text" aria-label="Shield, allies and field credits">SHIELD 0 / 80</div><div id="awareness">UNSEEN · FLANK FOR REAR HITS</div><div class="health-meta"><span id="dash-text">DODGE READY</span><span id="score">000000</span></div></div><div class="controls-strip"><button id="turbo" aria-label="Activate Turbo" aria-keyshortcuts="F">F · TURBO READY</button> <kbd>WASD</kbd> MOVE <kbd>B</kbd> BLAST <kbd>SPACE</kbd> AUTO FIRE <kbd>E</kbd> INTERACT <kbd>SHIFT</kbd> DODGE</div><div class="ammo-panel"><div id="weapon-name">M4 / ASSAULT RIFLE</div><strong id="ammo">24</strong><span id="ammo-reserve">/ ∞</span><small id="reload-label">R RELOAD · Q SWITCH</small><button id="weapon-swap" aria-label="Switch weapon" aria-keyshortcuts="Q" title="Press Q to cycle collected weapons">Q - SWAP WEAPON</button></div></div><div id="touch"><div id="move-pad" aria-label="Movement joystick: drag to walk or run" role="group"><span class="stick-nub"></span><small>MOVE</small></div><div class="touch-actions"><button data-action="swap" aria-label="Switch weapon" class="swap-weapon">SWAP</button><button data-action="reload" aria-label="Reload">RELOAD</button><button data-action="interact" aria-label="Board, exit or use">USE</button><button data-action="dodge" aria-label="Dodge roll">DODGE</button><button data-action="turbo" aria-label="Activate Turbo" class="turbo">TURBO</button><button data-hold="blast" class="blast" aria-label="Target explosive stores" title="Hold to fire at a safe explosive store">BLAST</button><button data-hold="fire" class="fire" aria-label="Fire">FIRE</button></div></div></section><div id="boss-intro" aria-live="polite"><i class="letterbox top"></i><i class="letterbox bottom"></i><div class="boss-card"><span>COMMAND BOSS INBOUND</span><h2 id="boss-intro-name"></h2><p id="boss-intro-tip"></p></div></div>
+<section id="hud" hidden aria-label="Mission status"><div class="hud-top"><div class="objective-panel"><span class="eyebrow" id="mission-label"></span><h2 id="mission-title"></h2><div id="objectives"><span></span><span></span><span></span></div></div><div class="hud-right"><button class="icon-button" id="pause" aria-label="Pause mission">Ⅱ <span>PAUSE</span></button><canvas id="minimap" width="144" height="144" aria-label="Tactical map: road pale green, player white, enemies orange, weapons purple, medical green, shields blue, relay yellow, prisons and allies cyan, treasure gold"></canvas><span class="map-caption" id="route-direction">NORTHBOUND ROUTE</span></div></div><div id="hud-feed"><div id="boss-panel" hidden><div><b id="boss-name"></b><span id="boss-phase">ARMORED TARGET</span></div><div class="boss-track"><i id="boss-bar"></i></div></div><div id="combat-notice" role="status" hidden></div><div id="interact-prompt" hidden></div><div id="radio" role="status"><span>VALE / RADIO</span><p></p></div></div><div class="hud-bottom"><div class="health-panel"><div class="hud-kicker">GHOST <span id="health-text"></span></div><div class="health-track"><i id="health-bar"></i></div><div id="shield-text" aria-label="Shield, allies and field credits">SHIELD 0 / 80</div><div id="awareness">UNSEEN · FLANK FOR REAR HITS</div><div class="health-meta"><span id="dash-text">DODGE READY</span><span id="score">000000</span></div></div><div class="controls-strip"><button id="turbo" aria-label="Activate Turbo" aria-keyshortcuts="F">F · TURBO READY</button> <kbd>WASD</kbd> MOVE <kbd>B</kbd> BLAST <kbd>SPACE</kbd> AUTO FIRE <kbd>E</kbd> INTERACT <kbd>SHIFT</kbd> DODGE</div><div class="ammo-panel"><div id="weapon-name">M4 / ASSAULT RIFLE</div><strong id="ammo">24</strong><span id="ammo-reserve">/ ∞</span><small id="reload-label">R RELOAD · Q SWITCH</small><button id="weapon-swap" aria-label="Switch weapon" aria-keyshortcuts="Q" title="Press Q to cycle collected weapons">Q - SWAP WEAPON</button></div></div><div id="touch"><div id="move-pad" aria-label="Movement joystick: drag to walk or run" role="group"><span class="stick-nub"></span><small>MOVE</small></div><div class="touch-actions"><button data-action="swap" aria-label="Switch weapon" class="swap-weapon">SWAP</button><button data-action="reload" aria-label="Reload">RELOAD</button><button data-action="interact" aria-label="Board, exit or use">USE</button><button data-action="dodge" aria-label="Dodge roll">DODGE</button><button data-action="turbo" aria-label="Activate Turbo" class="turbo">TURBO</button><button data-hold="blast" class="blast" aria-label="Target explosive stores" title="Hold to fire at a safe explosive store">BLAST</button><button data-hold="fire" class="fire" aria-label="Fire">FIRE</button></div></div></section><div id="boss-intro" aria-live="polite"><i class="letterbox top"></i><i class="letterbox bottom"></i><div class="boss-card"><span>COMMAND BOSS INBOUND</span><h2 id="boss-intro-name"></h2><p id="boss-intro-tip"></p></div></div>
 <div id="overlay" class="overlay" hidden></div><div id="toast" role="status" hidden></div>`;
 const canvas = $<HTMLCanvasElement>("#scene");
 let world: World, game: Game, feedback: FeedbackUI;
@@ -275,8 +277,9 @@ function menu() {
   $("#overlay").hidden = true;
   $("#crosshair").hidden = true;
   document.body.classList.remove("in-game");
-  const index = previewMission ?? (save.completed ? 0 : save.mission),
+  const index = briefingIndex(),
     m = MISSIONS[index];
+  showDifficulty();
   // Render the next stage theme while the briefing is open.
   audio.prefetch(themeFor(m.biome));
   // Rebuild the briefing battlefield only when the shown mission changes (not
@@ -335,15 +338,6 @@ function menu() {
       lane = strip.getBoundingClientRect();
     strip.scrollLeft += card.left - lane.left - (lane.width - card.width) / 2;
   }
-  document
-    .querySelectorAll<HTMLButtonElement>("[data-difficulty]")
-    .forEach((b) => {
-      b.classList.toggle("selected", b.dataset.difficulty === difficulty);
-      b.setAttribute(
-        "aria-pressed",
-        String(b.dataset.difficulty === difficulty),
-      );
-    });
   const deployLabel =
     previewMission !== undefined
       ? `DEPLOY TO STAGE ${Math.floor(previewMission / 3) + 1}`
@@ -354,7 +348,18 @@ function menu() {
           : "DEPLOY · STAGE 1";
   const levelStars = save.stars[index] ?? 0;
   $("#launch-area").innerHTML =
-    `<div class="mission-now"><span>STAGE ${m.stage + 1} · LEVEL ${m.level + 1} / 3${m.finale ? " · BOSS FINALE" : ""}</span><b>${m.name}</b><i aria-label="${levelStars} of 3 stars">${"★".repeat(levelStars)}${"☆".repeat(3 - levelStars)}</i></div><button class="primary" id="deploy" ${ready ? "" : "disabled"}>${deployLabel} <span>↗</span></button>${previewMission !== undefined && (save.mission > 0 || save.completed) ? '<p class="small-note" id="stage-switch-note">Starts this stage at level 1. Credits, Field Kit and squad carry over; level upgrades restart.</p>' : ""}${save.mission > 0 && !save.completed ? '<button class="text-button" id="new-campaign">START NEW CAMPAIGN</button>' : ""}`;
+    `<div class="mission-now"><span>STAGE ${m.stage + 1} · LEVEL ${m.level + 1} / 3${m.finale ? " · BOSS FINALE" : ""}</span><b>${m.name}</b><i aria-label="${levelStars} of 3 stars">${"★".repeat(levelStars)}${"☆".repeat(3 - levelStars)}</i><button type="button" id="mission-orders" class="steel" aria-haspopup="dialog">ORDERS</button></div><button class="primary" id="deploy" ${ready ? "" : "disabled"}>${deployLabel} <span>↗</span></button>${previewMission !== undefined && (save.mission > 0 || save.completed) ? '<p class="small-note" id="stage-switch-note">Starts this stage at level 1. Credits, Field Kit and squad carry over; level upgrades restart.</p>' : ""}${save.mission > 0 && !save.completed ? '<button class="text-button" id="new-campaign">START NEW CAMPAIGN</button>' : ""}`;
+  $("#mission-orders").onclick = () => {
+    showOverlay(
+      `<span class="eyebrow">MISSION ORDERS · STAGE ${m.stage + 1}, LEVEL ${m.level + 1}</span>
+       <h2>${m.action}</h2><p id="mission-orders-copy">${m.brief}</p>
+       <button id="close-orders" class="primary">BACK TO BRIEFING</button>`,
+    );
+    $("#close-orders").onclick = () => {
+      $("#overlay").hidden = true;
+      $("#mission-orders").focus();
+    };
+  };
   $("#deploy").onclick = () => {
     // Changing stage or replaying restarts level progression, but recovered
     // treasure, permanent Field Kit ranks and rescued allies are kept.
@@ -578,6 +583,7 @@ function start(fromRelay = false) {
   // The stage theme fades in under the deploy fanfare; finales pre-render the
   // boss version so it can take over the moment the bosses arrive.
   const mission = MISSIONS[save.mission];
+  audio.setThemeLevel(1);
   audio.playTheme(themeFor(mission.biome), false, 1.2);
   if (mission.finale) audio.prefetch(themeFor(mission.biome), true);
   canvas.focus();
@@ -607,16 +613,25 @@ function showOverlay(html: string, variant = "", settle = false) {
   overlay.innerHTML = `<section class="modal ${variant}" role="dialog" aria-modal="true" aria-label="Mission panel">${html}</section>`;
   overlay.hidden = false;
   clearTimeout(settleTimer);
-  keyGuard = settle;
+  keyGuard = settle || mode === "paused";
   freshKeys.clear();
-  const focus = () =>
-    overlay.querySelector<HTMLButtonElement>("button:not(:disabled)")?.focus();
+  const focus = () => {
+    // Touch debriefs often extend below the fold. Read the report before its actions.
+    if (settle && coarsePointer.matches) {
+      const heading = overlay.querySelector<HTMLElement>("h2")!;
+      heading.tabIndex = -1;
+      heading.focus({ preventScroll: true });
+    } else {
+      overlay.querySelector<HTMLButtonElement>("button:not(:disabled)")?.focus();
+    }
+  };
   if (!settle) {
     overlay.classList.remove("settling");
     focus();
     return;
   }
   (document.activeElement as HTMLElement | null)?.blur?.();
+  overlay.scrollTop = 0;
   overlay.classList.add("settling");
   settleTimer = window.setTimeout(() => {
     overlay.classList.remove("settling");
@@ -625,9 +640,9 @@ function showOverlay(html: string, variant = "", settle = false) {
 }
 const OVERLAY_SETTLE_MS = 450;
 /**
- * Debriefs guard Space and Enter: a key held from the fight (Space fires)
+ * Pause and debrief panels guard Space and Enter. A key held from the fight
  * must not press a panel button, neither by auto-repeat nor on release once
- * a button has focus. Only presses that start after the panel settled count.
+ * a button has focus. A fresh press can activate a focused control.
  * Other panels (manual, settings) keep normal key repeat and scrolling.
  */
 let keyGuard = false;
@@ -677,6 +692,7 @@ function resume() {
   audio.setThemeLevel(1);
   mode = "playing";
   $("#overlay").hidden = true;
+  canvas.focus();
 }
 $("#pause").onclick = pause;
 $("#home").onclick = (e) => {
@@ -691,8 +707,8 @@ $("#controls-open").onclick = () => {
     <p>The rifle has unlimited reloads. Four frag grenades are ready before field-kit upgrades. Find the early M249 cache for 60 bonus rounds. Easy gives extra health with the same enemies; it is a good place to start.</p>
     <details class="manual-section"><summary>Smart moves & rewards</summary><p>Hold B / BLAST to target a visible fuel drum or red EXPLOSIVE crate. Its explosion hurts nearby enemies and you; solid cover shields the blast. Chain kills grant +75 score per additional enemy and up to +15 shield. Rear bullet hits deal 1.75× damage to soldiers; a rear-hit finish adds +50 score and +5 shield. Enemy tank armor is weaker from behind. Bosses have no rear-hit bonus.</p><p>Grenades arc over low cover. Q / SWAP selects them; mouse aim sets the landing distance, or mobile FIRE targets an enemy. Shoot cracked masonry to open a route through roofless city compounds. Solid houses and perimeter walls remain cover.</p></details>
     <details class="manual-section"><summary>Enemy soldiers & counters</summary><p>Riflemen keep their distance. Rust-red knife rushers are fragile but run fast once alarmed: backstep or dodge their warned stab. Long-sword soldiers have a wider orange sweep; get outside the arc, then attack during recovery. Ochre knife throwers strafe and throw one visible blade at a time; sidestep or use cover. Orange rocket troops carry a launcher and spare tube: their orange aiming line locks before firing, so move sideways or break sight behind solid cover. Blades barely scratch a tank.</p><p>Mission one introduces rushers, mission two adds swords and throwing knives, and rockets arrive at the first finale. There can be only one infantry rocket aiming or flying at once on Easy/Normal, or two on Hard/Crazy. Ordinary gunfire, tanks and bosses keep their own attacks. All specialist attacks stop when their soldier is killed; already airborne projectiles still travel.</p></details>
-    <details class="manual-section"><summary>Weapons, vehicles & advanced controls</summary><div class="manual-grid"><span>R / RELOAD</span><b>Reload</b><span>SHIFT / DODGE</span><b>Dodge while moving</b><span>E / USE</span><b>Board or exit a vehicle</b><span>F / TURBO</span><b>Two weapons for 3 seconds</b><span>ESC / PAUSE</span><b>Settings</b></div><p>Bikes and jeeps arrive in mission two; tanks and the full arsenal arrive at the first finale. Tanks start with six ready explosive cannon shells and 1,680 armor. Q / SWAP cycles the cannon and collected weapons. Jeeps carry 20 shotgun rounds. Tanks and jeeps crush soldiers while moving; tanks crush small trees at half speed.</p><p>The M249 fires 30 rounds per second with 10 damage per round, a 120-round belt and a 2.8-second reload. The rifle deals 28 per round. Small arms deal only 20% damage to enemy tank armor; use rockets, explosives or laser. Strongest usable weapons equip automatically; manual switching stays available. Turbo consumes both weapons' ammunition, then cools for 14 seconds. Tuned Weapons unlocks extra vehicle guns and extends Turbo; Light Kit reduces its cooldown.</p></details>
-    <details class="manual-section"><summary>Difficulty, supplies & campaign</summary><p>Rescued allies are protected support, so you never lose a mission because of an escort. Banknotes, gold and rescue diamonds are worth 10, 25 and 75 credits. Only successful extraction saves treasure and your squad. Spend credits at the briefing Field Kit shop for up to three permanent ranks: +10 starting shield and +1 frag per rank. Unrescued prisoners remain optional; extra rescues after three allies evacuate directly.</p><p>Every defeated enemy has an independent one-in-three chance to drop one package. Half are olive ammo boxes, a third are shields (+20) and a sixth are medical kits (+15). An ammo box refills one owned special weapon and also restocks a boarded jeep (+10 rounds) or tank (+4 shells). Easy and Normal give one magazine. Hard gives 20% and Crazy 10%, rounded up to at least one round. The selected eligible weapon gets priority; otherwise the least stocked weapon gets the refill. Packages expire after 45 seconds, with at most 48 on the map.</p><p>The first two stages stay gentle. From stage 3, more sword soldiers join the patrols; from stage 5, ninjas sprint in at nearly three times rifleman speed, zig-zagging to dodge fire. Stages 6 and 7 add the IRON SOVEREIGN six-legged walker to the finale (not on Easy), and stage 7 is led by the SKY WRAITH attack helicopter. Hard doubles soldiers; Crazy quadruples soldiers and has four finale bosses. Longer O, U and S routes arrive after the compact opening. On O routes, either arm reaches the relay. Snow slides, sand slows, mud sinks, and quake dust warns that ground enemies will briefly freeze. Leave orange danger rings before missiles, lasers or volcanic rocks land. Defeat every finale boss and exit your vehicle to extract.</p></details>
+    <details class="manual-section"><summary>Weapons, vehicles & advanced controls</summary><div class="manual-grid"><span>R / RELOAD</span><b>Reload</b><span>SHIFT / DODGE</span><b>Dodge while moving</b><span>E / USE</span><b>Board or exit a vehicle</b><span>F / TURBO</span><b>Two weapons for 3 seconds</b><span>ESC / PAUSE</span><b>Settings</b></div><p>Bikes and jeeps arrive in mission two; tanks and the full arsenal arrive at the first finale. Tanks start with ${VEHICLES.tank.ammo} cannon shells and ${VEHICLES.tank.hp.toLocaleString("en-US")} armor. Q / SWAP cycles the cannon and collected weapons. Jeeps carry ${VEHICLES.jeep.ammo} shotgun rounds. Tanks and jeeps crush soldiers while moving; tanks crush small trees at half speed.</p><p>The M249 fires 30 rounds per second with 10 damage per round, a 120-round belt and a 2.8-second reload. The rifle deals 28 per round. Small arms deal only 20% damage to enemy tank armor; use rockets, explosives or laser. Strongest usable weapons equip automatically; manual switching stays available. Turbo consumes both weapons' ammunition, then cools for 14 seconds. Tuned Weapons unlocks extra vehicle guns and extends Turbo; Light Kit reduces its cooldown.</p></details>
+    <details class="manual-section"><summary>Difficulty, supplies & campaign</summary><p>Rescued allies are protected support, so you never lose a mission because of an escort. Banknotes, gold and rescue diamonds are worth 10, 25 and 75 credits. Only successful extraction saves treasure and your squad. Spend credits at the briefing Field Kit shop for up to three permanent ranks: +10 starting shield and +1 frag per rank. Free one prisoner to earn the par star even on a slower run. After three allies join you, further rescues evacuate directly.</p><p>Every defeated enemy has an independent one-in-three chance to drop one package. Half are olive ammo boxes, a third are shields (+20) and a sixth are medical kits (+15). An ammo box refills one owned special weapon and also restocks a boarded jeep (+10 rounds) or tank (+4 shells). Easy and Normal give one magazine. Hard gives 20% and Crazy 10%, rounded up to at least one round. The selected eligible weapon gets priority; otherwise the least stocked weapon gets the refill. Packages expire after 45 seconds, with at most 48 on the map.</p><p>The first two stages stay gentle. From stage 3, more sword soldiers join the patrols; from stage 5, ninjas sprint in at nearly three times rifleman speed, zig-zagging to dodge fire. Stages 6 and 7 add the IRON SOVEREIGN six-legged walker to the finale (not on Easy), and stage 7 is led by the SKY WRAITH attack helicopter. Hard doubles soldiers; Crazy quadruples soldiers and has four finale bosses. Longer O, U and S routes arrive after the compact opening. On O routes, either arm reaches the relay. Snow slides, sand slows, mud sinks, and quake dust warns that ground enemies will briefly freeze. Leave orange danger rings before missiles, lasers or volcanic rocks land. Defeat every finale boss and exit your vehicle to extract.</p></details>
     <button id="close-manual" class="primary">READY FOR THE FIELD <span>↗</span></button>`,
   );
   $("#close-manual").onclick = () => {
@@ -700,31 +716,30 @@ $("#controls-open").onclick = () => {
     $("#controls-open").focus();
   };
 };
-for (const button of document.querySelectorAll<HTMLButtonElement>(
-  "[data-difficulty]",
-))
+const difficultyButtons = document.querySelectorAll<HTMLButtonElement>("[data-difficulty]");
+function showDifficulty() {
+  for (const button of difficultyButtons) {
+    const selected = button.dataset.difficulty === difficulty;
+    button.classList.toggle("selected", selected);
+    button.setAttribute("aria-pressed", String(selected));
+  }
+  const config = difficultyConfig(difficulty);
+  const count = finaleRoster(MISSIONS[briefingIndex()].stage, difficulty).length;
+  const advice = {
+    easy: "Slower reactions and extra health for new players.",
+    normal: "Full special ammo. Soldiers alert nearby squadmates.",
+    hard: "Less special ammo. Soldiers lead shots and flank.",
+    crazy: "Scarce special ammo. Squads flank in numbers.",
+  }[difficulty];
+  $("#difficulty-note").textContent =
+    `${difficulty.toUpperCase()} · ${config.health} HP · ${config.soldiers}× soldiers · ${count} boss${count === 1 ? "" : "es"} in this finale. ${advice ?? ""}`;
+}
+showDifficulty();
+for (const button of difficultyButtons)
   button.onclick = () => {
     difficulty = button.dataset.difficulty!;
     write("nightfall-prefs", { ...prefs, difficulty });
-    const config = difficultyConfig(difficulty);
-    $("#difficulty-note").textContent =
-      `${difficulty.toUpperCase()}: ${config.health} health / ${config.soldiers}x soldiers / ${config.bosses} boss${config.bosses > 1 ? "es" : ""} per finale. ${difficulty === "easy" || difficulty === "normal" ? "Full special-ammo rewards." : "Smaller special-ammo rewards."} ${
-        {
-          easy: "Soldiers react slowly and aim loosely.",
-          normal: "Soldiers call out your position to nearby squadmates.",
-          hard: "Soldiers lead their shots, call out your position and flank.",
-          crazy:
-            "Soldiers lead hard, call out across the street and flank in numbers.",
-        }[difficulty] ?? ""
-      }`;
-    document
-      .querySelectorAll("[data-difficulty]")
-      .forEach((b) =>
-        b.classList.toggle(
-          "selected",
-          (b as HTMLElement).dataset.difficulty === difficulty,
-        ),
-      );
+    showDifficulty();
   };
 function end(win: boolean) {
   if (mode === "result") return;
@@ -742,6 +757,7 @@ function end(win: boolean) {
     elapsed: game.elapsed,
     par,
     hpRatio: game.hp / game.maxHp,
+    rescued: game.rescued,
   });
   const tally = rewardBreakdown(game.loot, grade.stars);
   const banked = win ? game.credits + grade.stars * STAR_BONUS : 0;
@@ -761,12 +777,14 @@ function end(win: boolean) {
         `<img class="grade-star ${i < grade.stars ? "earned" : ""}" style="--i:${i}" src="${uiIcon(i < grade.stars ? "star" : "star-empty")}" alt="">`,
     )
     .join("");
-  const criteria = grade.criteria
-    .map(
-      (c) =>
-        `<li class="${c.met ? "met" : ""}">${c.met ? "✓" : "✗"} ${c.label}${c.id === "par" ? ` · ${formatTime(game.elapsed)} / ${formatTime(par)}` : c.id === "health" ? ` · ${Math.round((100 * game.hp) / game.maxHp)}%` : ""}</li>`,
-    )
-    .join("");
+  const paceResult = game.rescued
+    ? `${game.rescued} rescued`
+    : `${formatTime(game.elapsed)} / ${formatTime(par)}`;
+  const criteria = grade.criteria.map((criterion) => {
+    const detail = criterion.id === "par" ? paceResult
+      : criterion.id === "health" ? `${Math.round(100 * game.hp / game.maxHp)}%` : "";
+    return `<li class="${criterion.met ? "met" : ""}">${criterion.met ? "✓" : "✗"} ${criterion.label}${detail ? " · " + detail : ""}</li>`;
+  }).join("");
   const rows = tally.rows
     .map(
       (r) =>
@@ -794,8 +812,29 @@ function end(win: boolean) {
   const debrief = `<div class="debrief"><div class="grade" aria-label="${grade.stars} of 3 stars"><div class="grade-stars">${stars}</div><ul>${criteria}</ul></div><div class="tally">${rows}<div class="tally-total"><img src="${uiIcon("coin")}" alt=""><span>BANKED</span><b id="banked" data-total="${banked}">+${banked}</b><em>BALANCE ${save.credits} CREDITS</em></div></div></div>`;
   const reveal = () => {
     if (mode !== "result") return;
+    const number = String(game.index + 1).padStart(2, "0");
+    const title = win ? (final ? "The convoy is clear." : "Mission accomplished.") : "Ghost is down.";
+    const report = win
+      ? `<p class="mission-outcome">${m.success}</p>${debrief}`
+      : defeatCard(game.lastHit, { base: import.meta.env.BASE_URL, glyph: uiIcon("hud-blast") }, BOSS_TIPS[game.lastHit?.boss ?? ""]);
+    const recovery = win
+      ? `${game.rescued} rescued · ${game.squad.allies.length} ${game.squad.allies.length === 1 ? "ally" : "allies"} returning · ${game.credits} credits recovered`
+      : game.checkpoint
+        ? "Retry from the relay to keep the squad and supplies you had when you secured it. Retry Mission starts you back at insertion."
+        : "This mission’s recoveries were lost. Your previously banked credits and squad are safe.";
+    const actions = win && !final
+      ? `<span class="eyebrow">CHOOSE YOUR NEXT ADVANTAGE · ARMOR SAVED BY DEFAULT</span><div class="upgrades">${upgrades}</div>`
+      : win
+        ? '<button id="result-primary" class="primary">RETURN TO BRIEFING <span>↗</span></button>'
+        : `${game.checkpoint ? '<button id="result-checkpoint" class="primary">RETRY FROM RELAY <span>↗</span></button>' : ""}
+          <button id="result-primary" class="${game.checkpoint ? "secondary-action" : "primary"}">RETRY MISSION <span>↗</span></button>
+          <button id="result-menu" class="text-button">MISSION BRIEFING</button>`;
     showOverlay(
-      `<span class="eyebrow">${win ? "TRANSMISSION RECEIVED" : "SIGNAL LOST"} / 0${game.index + 1}</span><h2>${final ? "Everyone comes home." : win ? "Mission accomplished." : "Not your last stand."}</h2>${win ? debrief : defeatCard(game.lastHit, { base: import.meta.env.BASE_URL, glyph: uiIcon("hud-blast") }, BOSS_TIPS[game.lastHit?.boss ?? ""]) + `<p class="defeat-progress">${game.checkpoint ? "The relay is secured: you can retry from it." : "Your completed campaign progress is safe."}</p>`}<p class="rescue-result">${win ? `${game.rescued} rescued · ${game.squad.allies.length} allies returning · ${game.credits} credits recovered` : "Unbanked mission treasure is lost. Your saved squad and field kit return on retry."}</p><div class="result-stats"><div><b>${game.score.toLocaleString()}</b><span>MISSION SCORE</span></div><div><b>${game.kills}</b><span>TARGETS DOWN</span></div><div><b>${formatTime(game.elapsed)}</b><span>FIELD TIME</span></div></div>${win && !final ? `<span class="eyebrow">CHOOSE YOUR NEXT ADVANTAGE · ARMOR SAVED BY DEFAULT</span><div class="upgrades">${upgrades}</div>` : `${!win && game.checkpoint ? '<button id="result-checkpoint" class="primary">RETRY FROM RELAY <span>↗</span></button>' : ""}<button id="result-primary" class="${!win && game.checkpoint ? "secondary-action" : "primary"}">${win ? "RETURN TO BRIEFING" : "RETRY MISSION"} <span>↗</span></button>`}${!win ? '<button id="result-menu" class="text-button">MISSION BRIEFING</button>' : ""}`,
+      `<span class="eyebrow">${win ? "TRANSMISSION RECEIVED" : "SIGNAL LOST"} / ${number}</span>
+      <h2>${title}</h2>${report}<p class="${win ? "rescue-result" : "defeat-progress"}">${recovery}</p>
+      <div class="result-stats"><div><b>${game.score.toLocaleString()}</b><span>MISSION SCORE</span></div>
+      <div><b>${game.kills}</b><span>TARGETS DOWN</span></div>
+      <div><b>${formatTime(game.elapsed)}</b><span>FIELD TIME</span></div></div>${actions}`,
       win ? "debrief-modal" : "",
       true,
     );
@@ -850,6 +889,9 @@ function formatTime(t: number) {
 }
 const map = $<HTMLCanvasElement>("#minimap"),
   ctx = map.getContext("2d")!;
+const objectiveSteps = Array.from(
+  document.querySelectorAll<HTMLSpanElement>("#objectives > span"),
+);
 function updateHud() {
   const m = MISSIONS[game.index];
   $("#mission-label").textContent =
@@ -860,8 +902,33 @@ function updateHud() {
   const metres = goal
     ? ` · ${Math.round(Math.hypot(goal.x - game.pos.x, goal.z - game.pos.z))} M`
     : "";
-  $("#objectives").innerHTML =
-    `<span class="${game.objective ? "done" : ""}">${game.objective ? "✓" : "◇"} ${m.action}${game.objective ? "" : " · APPROACH" + metres}</span><span class="${game.bossDead ? "done" : ""}">${game.bossDead ? "✓" : "◇"} Neutralize ${m.finale ? "all command bosses" : "relay guards"}${game.pendingGuards ? ` · ${game.pendingGuards} incoming` : ""}${game.objective && !game.bossDead ? metres : ""}</span><span class="${game.bossDead ? "current" : ""}">◇ Reach extraction${game.bossDead ? metres : ""}</span>`;
+  const ride = game.riding;
+  const coarse = coarsePointer.matches;
+  const activeStep = game.bossDead ? 2 : game.objective ? 1 : 0;
+  const extraction =
+    ride && game.bossDead
+      ? coarse
+        ? "Tap EXIT at extraction"
+        : "Press E at extraction"
+      : "Reach extraction";
+  const steps = [
+    m.action + (activeStep === 0 ? " · APPROACH" : ""),
+    `Neutralize ${m.finale ? "all command bosses" : "relay guards"}` +
+      (game.pendingGuards ? ` · ${game.pendingGuards} incoming` : ""),
+    extraction,
+  ];
+  objectiveSteps.forEach((row, index) => {
+    const current = index === activeStep;
+    row.classList.toggle("done", index < activeStep);
+    if (current && !row.hasAttribute("aria-current"))
+      row.setAttribute("aria-current", "step");
+    if (!current && row.hasAttribute("aria-current"))
+      row.removeAttribute("aria-current");
+    setText(
+      row,
+      `${index < activeStep ? "✓" : "◇"} ${steps[index]}${current ? metres : ""}`,
+    );
+  });
   $("#route-direction").textContent = m.direction + " ROUTE";
   $("#health-text").textContent = `${Math.ceil(game.hp)} / ${game.maxHp}`;
   $("#shield-text").title =
@@ -884,7 +951,6 @@ function updateHud() {
     !!game.riding || game.dashCooldown > 0,
   );
   $("#score").textContent = `${game.score.toString().padStart(6, "0")} PTS`;
-  const ride = game.riding;
   const personalWeapon = game.usesPersonalWeapon;
   $("#weapon-name").textContent = ride
     ? ride.spec.name +
@@ -905,16 +971,23 @@ function updateHud() {
   $("#ammo").textContent = (personalWeapon ? game.ammo : ride!.ammo)
     .toString()
     .padStart(2, "0");
-  $("#reload-label").textContent =
+  const reloadTime =
     game.reloadTime > 0
-      ? `RELOADING ${game.reloadTime.toFixed(1)}s`
-      : ride?.kind === "tank"
-        ? personalWeapon
-          ? `R RELOAD · CANNON ${ride.ammo} SHELLS`
-          : "Q / SWAP TO USE COLLECTED WEAPONS"
-        : !personalWeapon
-          ? "LIMITED AMMO · USE TO EXIT"
-          : "R RELOAD · Q SWITCH";
+      ? `${(Math.ceil(game.reloadTime * 10) / 10).toFixed(1)}s`
+      : "";
+  const reloadButton = $('[data-action="reload"]');
+  setText(reloadButton, reloadTime || "RELOAD");
+  if (reloadButton.getAttribute("aria-busy") !== String(!!reloadTime))
+    reloadButton.setAttribute("aria-busy", String(!!reloadTime));
+  $("#reload-label").textContent = reloadTime
+    ? `RELOADING ${reloadTime}`
+    : ride?.kind === "tank"
+      ? personalWeapon
+        ? `R RELOAD · CANNON ${ride.ammo} SHELLS`
+        : "Q / SWAP TO USE COLLECTED WEAPONS"
+      : !personalWeapon
+        ? "LIMITED AMMO · USE TO EXIT"
+        : "R RELOAD · Q SWITCH";
   for (const button of [$("#turbo"), $('[data-action="turbo"]')]) {
     (button as HTMLButtonElement).disabled = !game.canTurbo;
     setText(
@@ -928,7 +1001,6 @@ function updateHud() {
       "Hold FIRE during Turbo. Two guns for 3s; Tuned Weapons unlocks vehicle guns and extends duration. Light Kit reduces cooldown.";
   }
   const notice = $("#combat-notice");
-  const coarse = coarsePointer.matches;
   const teaching = game.index === 0 && !game.objective && game.elapsed < 35;
   const moved = Math.hypot(game.pos.x, game.pos.z - 18) > 3;
   const nearbyPrison = game.prisons.find(
@@ -973,29 +1045,20 @@ function updateHud() {
     blastButton,
     input.blast ? (game.blastTarget ? "TARGET" : "NO TARGET") : "BLAST",
   );
-  const mountedGun = !game.canSwapWeapon;
+  const swapLocked = !game.canSwapWeapon;
   for (const button of [$("#weapon-swap"), $('[data-action="swap"]')]) {
-    (button as HTMLButtonElement).disabled = mountedGun;
-    button.title = mountedGun
-      ? game.turboTime > 0
-        ? "Weapon switching resumes after Turbo"
-        : "Exit the vehicle to switch personal weapons"
+    (button as HTMLButtonElement).disabled = swapLocked;
+    button.title = swapLocked
+      ? "Weapon switching resumes after Turbo"
       : ride && ride.kind !== "motorcycle"
         ? `Cycle ${ride.kind === "tank" ? "cannon" : "mounted gun"} and collected weapons (Q on keyboard)`
         : "Cycle collected weapons (Q on keyboard)";
   }
   setText(
     $("#weapon-swap"),
-    mountedGun
-      ? game.turboTime > 0
-        ? "TURBO / LOADOUT LOCKED"
-        : "MOUNTED GUN - EXIT TO SWAP"
-      : "Q - SWAP WEAPON",
+    swapLocked ? "TURBO / LOADOUT LOCKED" : "Q - SWAP WEAPON",
   );
-  setText(
-    $('[data-action="swap"]'),
-    mountedGun ? (game.turboTime > 0 ? "TURBO" : "MOUNTED") : "SWAP",
-  );
+  setText($('[data-action="swap"]'), swapLocked ? "TURBO" : "SWAP");
   const boss = game.boss;
   $("#boss-panel").hidden = !boss;
   if (boss) {
@@ -1016,19 +1079,19 @@ function updateHud() {
     $("#boss-panel").classList.toggle("enraged", enraged);
   }
   const prompt = $("#interact-prompt");
-  const hintKey = game.riding
-    ? `exit:${game.rides.indexOf(game.riding)}`
-    : game.nearestRide
-      ? `board:${game.rides.indexOf(game.nearestRide)}`
-      : null;
+  const interactRide = ride ?? game.nearestRide;
+  const rideAction = ride ? "EXIT" : "BOARD";
+  const hintKey = interactRide
+    ? `${rideAction}:${game.rides.indexOf(interactRide)}`
+    : null;
   const changed = interactionHint.key !== hintKey;
   prompt.hidden = !interactionHint.update(hintKey, performance.now());
   // Show the key on keyboards and the button on touch screens, and only touch
   // the DOM when the prompt changes.
-  const promptHtml = game.interaction
+  const promptHtml = interactRide
     ? coarse
-      ? `${game.interaction} <span>· TAP USE</span>`
-      : `<kbd>E</kbd> ${game.interaction}`
+      ? `${interactRide.spec.name} <span>· TAP ${rideAction}</span>`
+      : `<kbd>E</kbd> ${rideAction} ${interactRide.spec.name}`
     : "";
   if (prompt.dataset.html !== promptHtml) {
     prompt.dataset.html = promptHtml;
@@ -1045,10 +1108,7 @@ function updateHud() {
       { duration: 1000 },
     );
   }
-  setText(
-    $('[data-action="interact"]'),
-    game.riding ? "EXIT" : game.nearestRide ? "BOARD" : "USE",
-  );
+  setText($('[data-action="interact"]'), interactRide ? rideAction : "USE");
   $("#radio").classList.toggle("visible", performance.now() < radioUntil);
   ctx.fillStyle = "#152723";
   ctx.fillRect(0, 0, 144, 144);
@@ -1175,6 +1235,7 @@ window.addEventListener("keydown", (e) => {
   }
   if (e.code === "Escape") {
     e.preventDefault();
+    if (e.repeat) return;
     if (mode === "playing") pause();
     else if (mode === "paused") resume();
     else if (mode === "menu" && !$("#overlay").hidden) {
@@ -1208,23 +1269,11 @@ window.addEventListener("keydown", (e) => {
   }
 });
 window.addEventListener("keyup", (e) => keys.delete(e.code));
-window.addEventListener("blur", () => {
-  clearInput();
-  pause();
-});
-window.addEventListener('pagehide', () => {
-  clearInput();
-  pause();
-});
-window.addEventListener('mobile-game-interruption', () => {
-  clearInput();
-  pause();
-});
+for (const event of ["blur", "pagehide", "mobile-game-interruption"])
+  window.addEventListener(event, pause);
 document.addEventListener("visibilitychange", () => {
-  if (document.hidden) {
-    clearInput();
-    pause();
-  } else redrawPaused(); // The OS may have dropped the frame while away.
+  if (document.hidden) pause();
+  else redrawPaused(); // The OS may have dropped the frame while away.
 });
 window.addEventListener("pageshow", redrawPaused);
 canvas.addEventListener("webglcontextrestored", redrawPaused);

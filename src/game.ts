@@ -52,7 +52,7 @@ import {
   SOVEREIGN,
 } from "./bosses.mjs";
 import { routeFormation } from "./routes.mjs";
-import { difficultyConfig, terrainFactor, WORLD_BOUNDS } from "./campaign.mjs";
+import { difficultyConfig, finaleRoster, terrainFactor, WORLD_BOUNDS } from "./campaign.mjs";
 import { WEAPONS, ENEMY_WEAPONS, type WeaponSpec } from "./arsenal";
 import { Ride } from "./rides";
 import { ImpactEffects } from "./impacts";
@@ -483,22 +483,23 @@ export class Game {
     }
   }
   get nearestRide() {
-    return this.rides.find(
-      (v) =>
-        v.hp > 0 &&
-        Math.hypot(
-          v.mesh.position.x - this.pos.x,
-          v.mesh.position.z - this.pos.z,
-        ) <
-          v.spec.radius + 1.8,
-    );
-  }
-  get interaction() {
-    return this.riding
-      ? "EXIT " + this.riding.spec.name
-      : this.nearestRide
-        ? "BOARD " + this.nearestRide.spec.name
-        : "";
+    let closest: Ride | undefined;
+    let bestGap = 1.8;
+    for (const ride of this.rides) {
+      if (ride.hp <= 0) continue;
+      const { x, z } = ride.mesh.position;
+      const gap = Math.hypot(x - this.pos.x, z - this.pos.z) - ride.spec.radius;
+      if (gap >= bestGap) continue;
+      if (
+        COVER.some(
+          (box) => segmentBox(this.pos.x, this.pos.z, x, z, box) !== Infinity,
+        )
+      )
+        continue;
+      closest = ride;
+      bestGap = gap;
+    }
+    return closest;
   }
   weapon = 0;
   reloadTime = 0;
@@ -695,24 +696,18 @@ export class Game {
     this.objective = true;
     this.world.marker.visible = false;
     if (capture) this.captureCheckpoint();
+    const signal = capture ? "Relay secured." : "Back at the relay.";
     if (mission.finale) {
-      // Late stages add an escort boss (never on Easy); kinds alternate.
-      const kinds = [mission.bossModel];
-      if (mission.bossEscort && this.difficulty !== "easy")
-        kinds.push(mission.bossEscort);
-      const count = Math.max(
-        kinds.length,
-        difficultyConfig(this.difficulty).bosses,
-      );
-      for (let n = 0; n < count; n++) {
-        const p = routeFormation(mission.route, 0.9, count)[n];
-        this.spawn(p.x, p.z, true, 100 + n, kinds[n % kinds.length]);
+      const roster = finaleRoster(mission.stage, this.difficulty);
+      const formation = routeFormation(mission.route, 0.9, roster.length);
+      for (const [n, kind] of roster.entries()) {
+        const p = formation[n];
+        this.spawn(p.x, p.z, true, 100 + n, kind);
       }
       this.bossSpawned = true;
+      const callsigns = [...new Set(roster)].map((kind) => BOSS_NAMES[kind]);
       this.onRadio(
-        kinds.length > 1
-          ? `${kinds.map((k) => BOSS_NAMES[k]).join(" and ")} inbound. Defeat every command boss to open extraction.`
-          : `${count} command boss${count > 1 ? "es" : ""} inbound. Defeat them all to open extraction.`,
+        `${signal} ${callsigns.join(" and ")} inbound. Defeat the command force to open extraction.`,
       );
     } else {
       this.pendingGuards =
@@ -720,7 +715,7 @@ export class Game {
         difficultyConfig(this.difficulty).soldiers;
       this.reinforcementClock = 0.8;
       this.onRadio(
-        "Relay secured. Guards are leaving the nearby houses. Clear the counterattack to open extraction.",
+        `${signal} Guards are leaving the nearby houses. Clear the counterattack to open extraction.`,
       );
     }
   }
@@ -776,7 +771,8 @@ export class Game {
   restoreCheckpoint(save: Parameters<Game["start"]>[1], difficulty: string) {
     const c = this.checkpoint;
     if (!c) return this.start(this.index, save, difficulty);
-    this.start(c.index, save, difficulty, c.seed);
+    // The checkpoint squad deploys at the relay after the saved vehicles are restored.
+    this.start(c.index, { ...save, squad: 0 }, difficulty, c.seed);
     this.checkpoint = c;
     for (const i of c.dead) {
       const e = this.enemies[i];
@@ -818,20 +814,15 @@ export class Game {
       if (r.hp <= 0) this.world.actors.remove(v.mesh);
     });
     const relay = MISSIONS[c.index].objective;
-    this.pos.set(relay.x, 0, relay.z + 1.5);
-    this.player.position.copy(this.pos);
+    const obstacles = [
+      ...COVER,
+      ...this.rides.filter((v) => v.hp > 0).map((v) => v.box),
+    ];
+    const spawn = resolveOverlap(relay.x, relay.z + 1.5, 0.48, obstacles);
+    this.pos.set(spawn.x, this.world.groundHeight(spawn.x, spawn.z), spawn.z);
     this.world.resetCamera(this.pos);
     this.lastPos.copy(this.pos);
-    while (this.squad.allies.length < c.squad)
-      if (
-        !this.squad.add(
-          relay.x + 1.5,
-          relay.z + 2.5,
-          undefined,
-          this.squad.women < c.women,
-        )
-      )
-        break;
+    this.squad.deploy(c.squad, this.pos, obstacles, c.women);
     Object.assign(this, {
       hp: c.hp,
       shield: c.shield,
@@ -850,9 +841,6 @@ export class Game {
     this.shownWeapon = -1;
     this.invincible = 1.5;
     this.secureRelay(false);
-    this.onRadio(
-      "Vale: Back at the relay. The counterattack is coming. Hold this position.",
-    );
   }
   /** Nearest living, visible hostile within an ally's 18 m engagement range. */
   private allyTarget(x: number, z: number) {
@@ -1917,12 +1905,9 @@ export class Game {
     } else this.spark(e.x, e.z);
     if (e.hp <= 0) {
       this.kills++;
-      if (
-        !this.enemies.some((o) => o.hp > 0) &&
-        this.pendingGuards === 0 &&
-        (!MISSIONS[this.index].finale || this.bossSpawned)
-      )
-        this.allClear = true;
+      if (e.boss || this.guardIds.has(e)) this.checkExtraction();
+      // Vale can collect the squad here once the relay response and patrols are clear.
+      this.allClear = this.bossDead && !this.enemies.some((other) => other.hp > 0);
       // The final kill (last command boss, or the mission's last hostile) gets
       // a slow-motion beat from the presentation director.
       if (
@@ -1996,9 +1981,6 @@ export class Game {
         this.world.actors.remove(e.beam);
         e.beam.material.dispose();
         e.beam = undefined;
-      }
-      if (e.boss || this.guardIds.has(e)) {
-        this.checkExtraction();
       }
       const loot = enemyLoot();
       if (loot) {
@@ -3184,10 +3166,7 @@ export class Game {
       this.onSound("reload");
     }
     input.reload = false;
-    if (input.interact && (this.riding || this.nearestRide)) {
-      this.useRide();
-      input.interact = false;
-    }
+    if (input.interact) this.useRide();
     this.showWeapon();
     let dx = input.x,
       dz = input.z;

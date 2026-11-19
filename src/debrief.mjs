@@ -12,14 +12,18 @@ export function missionPar(routeMetres, finale = false) {
   return Math.round(75 + routeMetres * 0.9 + (finale ? 90 : 0));
 }
 
-/** One star each: complete the mission, beat par, finish above half health. */
-export function missionGrade({ win, elapsed, par, hpRatio }) {
+/** A rescue earns the time star even when the detour takes the player over par. */
+export function missionGrade({ win, elapsed, par, hpRatio, rescued = 0 }) {
   const criteria = [
     { id: "complete", label: "Mission complete", met: !!win },
-    { id: "par", label: "Beat par time", met: !!win && elapsed <= par },
+    {
+      id: "par",
+      label: "Meet par or free a prisoner",
+      met: !!win && (elapsed <= par || rescued > 0),
+    },
     {
       id: "health",
-      label: "Finish above 50% health",
+      label: "Finish with at least 50% health",
       met: !!win && hpRatio >= 0.5,
     },
   ];
