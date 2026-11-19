@@ -71,6 +71,14 @@ The first draft changed when it met the code.
 - **Night.** A dark finale could hurt readability and fairness. Night keeps strong moonlight (at least 45% of the day key) and a hero light. The finale's bosses and warning rings are emissive. A test checks that the night key never drops below that floor.
 - **Phase 3** needs a new truck model, escort pathing and fail rules. It moved out of this pass rather than being rushed.
 
-## 6. Status
+## 6. Status (2026-11-19)
 
-See the end of this file, updated as each phase lands.
+| Phase | State | Evidence |
+| --- | --- | --- |
+| 0. Codex's campaign story (18 Nov, never committed) | Committed as its own change after a type check and 87 node tests | `c2ef4e7` |
+| 1. Hero and wardrobe | Done | `tests/wardrobe.test.mjs` (rules, the GLB contract for both bodies, cards, lazy sheets) and `tests/wardrobe.spec.ts` (shop, save, a dressed rig in the mission) |
+| 2. Nightfall light and living air | Done | `tests/atmosphere.test.mjs` (day to dusk, one night, the moonlight floor, bounded motes). Captures of all 14 level-1 and finale missions were reviewed. |
+| 3. Convoy | Not started | Needs a truck model plus escort pathing and fail rules |
+| 4. Depth | Not started | Squad specialists, material sounds, the dossier card, real-phone playtests |
+
+Costs: the air layer is one draw call (520 motes at most, half on Low, hidden with reduced motion). The night light joins the scene only for the last finale, so daytime shaders keep their light count. The outfit file adds no boot bytes.

@@ -636,6 +636,15 @@ h1 em {
   backdrop-filter: blur(6px);
   padding: 16px;
 }
+/* Centre with auto margins, not grid alignment: a dialog taller than the screen
+   (the shop with its wardrobe) then starts at the top instead of overflowing
+   above it, where its BACK button could not be scrolled to. */
+.overlay {
+  place-items: start center;
+}
+.overlay > .modal {
+  margin-block: auto;
+}
 .modal {
   position: relative;
   width: min(560px, 100%);

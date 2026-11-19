@@ -12,6 +12,12 @@ Approach cyan prison doors to free soldiers automatically. About half the cells 
 
 The opening has an early M249 cache with 60 bonus rounds. Collect banknotes (10 credits), gold (25) and rescue diamonds (75). Each successful mission is graded with up to three stars: complete it, meet the route’s par time or free a prisoner, and finish with at least 50% health. Every star banks 10 bonus credits. The debrief itemises banknotes, gold and diamonds before banking, and each level keeps its best grade on the stage cards. The briefing quartermaster sells three permanent Field Kit ranks, each giving +10 starting shield and +1 frag per mission, for 100 / 200 / 300 credits. It also sells one-mission weapon supply drops: shotgun 40, M249 70, grenade launcher 90, anti-armor missile 120 and laser 180 credits. These are delivered at every deployment until a mission is won. Enemies still drop a package one time in three. Half of those drops are olive ammo boxes with a brass belt, a third are shields and a sixth are medical kits. An ammo box refills a special weapon and also restocks a boarded jeep (+10 rounds) or tank (+4 shells). Difficulty-scaled special-ammo rewards are unchanged. See the [rescue design, balance and verification plan](docs/RESCUE_SQUAD_PLAN.md).
 
+## Wardrobe, light and air
+
+Pick Ghost's body in the quartermaster's Wardrobe: the commando or the commando woman. Six outfits unlock with campaign stars and only change your look: sailor (3 stars), pirate captain (6), sun knight (12), áo dài with nón lá (18), golden star (27) and battle robot (40). Unlocks are kept when you start a new campaign. The outfits are built in Blender for this rig (`art/build_disguises.py`), and `disguises.glb` loads only when an outfit is worn. On phones, the 2.5D renderer loads only the sprite sheet of the look you wear.
+
+Each stage starts in daylight at level 1 and reaches dusk by its finale. The last finale, Mire Crossing, is fought at night by moonlight, with a light on the hero. Each biome also has its own motes in the air: snow, embers, blowing sand, pollen, city dust, tremor dust or fireflies. The plan and evaluation behind this are in [the November 2026 AAA plan](docs/AAA_PLAN_2026_11.md).
+
 ## Campaign
 
 | Stage          | Terrain and combat                                                               |

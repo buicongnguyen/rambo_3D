@@ -1,6 +1,8 @@
 import { followAxis } from "./camera-follow.mjs";
 import { ActorBatches } from "./batching";
 import { SpriteActors } from "./sprites";
+import { Air } from "./air";
+import { AIR, gradeFor } from "./atmosphere.mjs";
 import { WORLD_BOUNDS } from "./campaign.mjs";
 import { sampleRoute, routeLength } from "./routes.mjs";
 import { segmentBox } from "./rules.mjs";
@@ -261,6 +263,16 @@ export class World {
   decor: T.Object3D[] = [];
   destructibles: { box: Box; mesh: T.Group; hp: number; kind: string }[] = [];
   sun: T.DirectionalLight;
+  /** Sky and ground fill; graded per mission with the key (atmosphere.mjs). */
+  fill: T.HemisphereLight;
+  /** The key light's offset from the view target: high by day, low at dusk. */
+  private sunOffset = [-20, 35, 12];
+  /** Warm light carried by the hero, only in the scene at night (a light count
+   * change recompiles shaders, so it happens at build time, never mid-fight). */
+  heroLight = new T.PointLight(0xffd9a0, 0, 15, 1.4);
+  /** Snow, embers, sand, pollen, dust or fireflies (src/air.ts). */
+  air = new Air();
+  private airSpec?: (typeof AIR)[keyof typeof AIR];
   marker: T.Mesh;
   exit: T.Mesh;
   water?: T.Mesh;
@@ -287,7 +299,8 @@ export class World {
     studio.dispose();
     pmrem.dispose();
     // Cool sky fill and warm bounce under a warm key: the hand-painted light rig.
-    this.scene.add(new T.HemisphereLight(0xd6ecff, 0x6b5436, 1.25));
+    this.fill = new T.HemisphereLight(0xd6ecff, 0x6b5436, 1.25);
+    this.scene.add(this.fill, this.air.points);
     this.sun = new T.DirectionalLight(0xffdca8, 3.0);
     this.sun.position.set(-20, 35, 12);
     this.sun.castShadow = true;
@@ -449,8 +462,26 @@ export class World {
       biome = mission.biome;
     buildLayout(mission);
     this.rescueFloors = COVER.filter((b) => b.kind === "prison");
-    this.scene.background = new T.Color(mission.fog);
-    this.scene.fog = new T.FogExp2(mission.fog, 0.006);
+    // Night falls as the stage goes on; the last finale is fought by moonlight.
+    const light = gradeFor(
+      biome,
+      mission.level,
+      mission.finale && index === MISSIONS.length - 1,
+    );
+    this.scene.background = new T.Color(light.fog);
+    this.scene.fog = new T.FogExp2(light.fog, light.density);
+    this.sun.color.setHex(light.key);
+    this.sun.intensity = light.keyI;
+    this.sunOffset = light.sun;
+    this.fill.color.setHex(light.sky);
+    this.fill.groundColor.setHex(light.ground);
+    this.fill.intensity = light.fill;
+    this.renderer.toneMappingExposure = light.exposure;
+    this.scene.environmentIntensity = light.env;
+    this.heroLight.intensity = light.heroLight;
+    if (light.heroLight > 0) this.scene.add(this.heroLight);
+    else this.heroLight.removeFromParent();
+    this.airSpec = AIR[biome as keyof typeof AIR];
     const width = WORLD_BOUNDS.x * 2,
       depth = WORLD_BOUNDS.maxZ - WORLD_BOUNDS.minZ;
     const centerZ = (WORLD_BOUNDS.maxZ + WORLD_BOUNDS.minZ) / 2;
@@ -902,6 +933,7 @@ export class World {
       }
     });
     this.renderer.shadowMap.enabled = !low;
+    this.air.set(this.airSpec, low);
 
     this.resize();
   }
@@ -995,8 +1027,12 @@ export class World {
     const target = menu
       ? new T.Vector3(menuFocus.x, 0, menuFocus.z)
       : this.followTarget;
-    this.sun.position.set(target.x - 20, 35, target.z + 12);
+    const [sx, sy, sz] = this.sunOffset;
+    this.sun.position.set(target.x + sx, sy, target.z + sz);
     this.sun.target.position.copy(target);
+    this.heroLight.position.set(focus.x, 3.2, focus.z + 0.6);
+    this.air.points.visible = !!this.airSpec && !reduced;
+    this.air.update(time, target, this.renderer, this.camera);
     this.playerIndicator.position.set(
       focus.x,
       this.groundHeight(focus.x, focus.z) + 0.07,
