@@ -33,13 +33,11 @@ export function loadWardrobe() {
     });
   return loading;
 }
-export const wardrobeReady = () => !!kit;
 /** The look every new hero rig gets (the player, vehicle riders, the briefing). */
 export function setLook(look: Look) {
   current = { hero: look.hero, outfit: look.outfit };
   if (current.outfit !== "none") void loadWardrobe().catch(() => {});
 }
-export const currentLook = () => current;
 
 /** A hero rig in the current look. */
 export function heroModel(x = 0, z = 0, look = current) {
@@ -57,7 +55,7 @@ function joints(root: T.Object3D) {
 }
 
 /** Put `look.outfit` on a fresh hero rig; waits for the outfit file if needed. */
-export function dress(root: T.Object3D, look: Look) {
+function dress(root: T.Object3D, look: Look) {
   if (look.outfit === "none") return root;
   root.userData.variant = lookVariant(look.outfit); // the 2.5D sheet
   if (!kit) {

@@ -1,6 +1,8 @@
 import { expect, test } from "@playwright/test";
 
-test("holding Escape or releasing fire cannot dismiss pause", async ({ page }) => {
+test("holding Escape or releasing fire cannot dismiss pause", async ({
+  page,
+}) => {
   await page.goto("/");
   await page.locator("#deploy").click();
   await page.keyboard.down("Space");
@@ -18,7 +20,9 @@ test("holding Escape or releasing fire cannot dismiss pause", async ({ page }) =
   await expect(page.locator("#scene")).toBeFocused();
 });
 
-test("restarting from pause restores the mission music level", async ({ page }) => {
+test("restarting from pause restores the mission music level", async ({
+  page,
+}) => {
   await page.goto("/");
   await page.locator("#deploy").click();
   const themeLevel = () =>

@@ -1,4 +1,4 @@
-import './mobile-game-init.mjs';
+import "./mobile-game-init.mjs";
 import { defeatCard, loadDefeatSheets } from "./defeat";
 import { Haptics } from "./haptics";
 import { buyFieldKit, buySupply, fieldKitCost, SUPPLIES } from "./economy.mjs";
@@ -90,7 +90,8 @@ const wants25d = () =>
   prefs.view === "25d" ||
   (prefs.view === "auto" && matchMedia("(pointer: coarse)").matches);
 let previewMission: number | undefined;
-const briefingIndex = () => previewMission ?? (save.completed ? 0 : save.mission);
+const briefingIndex = () =>
+  previewMission ?? (save.completed ? 0 : save.mission);
 let difficulty = ["easy", "normal", "hard", "crazy"].includes(
     String(rawPrefs.difficulty),
   )
@@ -684,7 +685,9 @@ function showOverlay(html: string, variant = "", settle = false) {
       heading.tabIndex = -1;
       heading.focus({ preventScroll: true });
     } else {
-      overlay.querySelector<HTMLButtonElement>("button:not(:disabled)")?.focus();
+      overlay
+        .querySelector<HTMLButtonElement>("button:not(:disabled)")
+        ?.focus();
     }
   };
   if (!settle) {
@@ -710,9 +713,7 @@ const OVERLAY_SETTLE_MS = 450;
 let keyGuard = false;
 const freshKeys = new Set<string>();
 const guarded = (e: KeyboardEvent) =>
-  keyGuard &&
-  (e.key === " " || e.key === "Enter") &&
-  !$("#overlay").hidden;
+  keyGuard && (e.key === " " || e.key === "Enter") && !$("#overlay").hidden;
 document.addEventListener(
   "keydown",
   (e) => {
@@ -778,7 +779,8 @@ $("#controls-open").onclick = () => {
     $("#controls-open").focus();
   };
 };
-const difficultyButtons = document.querySelectorAll<HTMLButtonElement>("[data-difficulty]");
+const difficultyButtons =
+  document.querySelectorAll<HTMLButtonElement>("[data-difficulty]");
 function showDifficulty() {
   for (const button of difficultyButtons) {
     const selected = button.dataset.difficulty === difficulty;
@@ -786,7 +788,10 @@ function showDifficulty() {
     button.setAttribute("aria-pressed", String(selected));
   }
   const config = difficultyConfig(difficulty);
-  const count = finaleRoster(MISSIONS[briefingIndex()].stage, difficulty).length;
+  const count = finaleRoster(
+    MISSIONS[briefingIndex()].stage,
+    difficulty,
+  ).length;
   const advice = {
     easy: "Slower reactions and extra health for new players.",
     normal: "Full special ammo. Soldiers alert nearby squadmates.",
@@ -844,11 +849,17 @@ function end(win: boolean) {
   const paceResult = game.rescued
     ? `${game.rescued} rescued`
     : `${formatTime(game.elapsed)} / ${formatTime(par)}`;
-  const criteria = grade.criteria.map((criterion) => {
-    const detail = criterion.id === "par" ? paceResult
-      : criterion.id === "health" ? `${Math.round(100 * game.hp / game.maxHp)}%` : "";
-    return `<li class="${criterion.met ? "met" : ""}">${criterion.met ? "✓" : "✗"} ${criterion.label}${detail ? " · " + detail : ""}</li>`;
-  }).join("");
+  const criteria = grade.criteria
+    .map((criterion) => {
+      const detail =
+        criterion.id === "par"
+          ? paceResult
+          : criterion.id === "health"
+            ? `${Math.round((100 * game.hp) / game.maxHp)}%`
+            : "";
+      return `<li class="${criterion.met ? "met" : ""}">${criterion.met ? "✓" : "✗"} ${criterion.label}${detail ? " · " + detail : ""}</li>`;
+    })
+    .join("");
   const rows = tally.rows
     .map(
       (r) =>
@@ -882,20 +893,29 @@ function end(win: boolean) {
   const reveal = () => {
     if (mode !== "result") return;
     const number = String(game.index + 1).padStart(2, "0");
-    const title = win ? (final ? "The convoy is clear." : "Mission accomplished.") : "Ghost is down.";
+    const title = win
+      ? final
+        ? "The convoy is clear."
+        : "Mission accomplished."
+      : "Ghost is down.";
     const report = win
       ? `<p class="mission-outcome">${m.success}</p>${debrief}`
-      : defeatCard(game.lastHit, { base: import.meta.env.BASE_URL, glyph: uiIcon("hud-blast") }, BOSS_TIPS[game.lastHit?.boss ?? ""]);
+      : defeatCard(
+          game.lastHit,
+          { base: import.meta.env.BASE_URL, glyph: uiIcon("hud-blast") },
+          BOSS_TIPS[game.lastHit?.boss ?? ""],
+        );
     const recovery = win
       ? `${game.rescued} rescued · ${game.squad.allies.length} ${game.squad.allies.length === 1 ? "ally" : "allies"} returning · ${game.credits} credits recovered`
       : game.checkpoint
         ? "Retry from the relay to keep the squad and supplies you had when you secured it. Retry Mission starts you back at insertion."
         : "This mission’s recoveries were lost. Your previously banked credits and squad are safe.";
-    const actions = win && !final
-      ? `<span class="eyebrow">CHOOSE YOUR NEXT ADVANTAGE · ARMOR SAVED BY DEFAULT</span><div class="upgrades">${upgrades}</div>`
-      : win
-        ? '<button id="result-primary" class="primary">RETURN TO BRIEFING <span>↗</span></button>'
-        : `${game.checkpoint ? '<button id="result-checkpoint" class="primary">RETRY FROM RELAY <span>↗</span></button>' : ""}
+    const actions =
+      win && !final
+        ? `<span class="eyebrow">CHOOSE YOUR NEXT ADVANTAGE · ARMOR SAVED BY DEFAULT</span><div class="upgrades">${upgrades}</div>`
+        : win
+          ? '<button id="result-primary" class="primary">RETURN TO BRIEFING <span>↗</span></button>'
+          : `${game.checkpoint ? '<button id="result-checkpoint" class="primary">RETRY FROM RELAY <span>↗</span></button>' : ""}
           <button id="result-primary" class="${game.checkpoint ? "secondary-action" : "primary"}">RETRY MISSION <span>↗</span></button>
           <button id="result-menu" class="text-button">MISSION BRIEFING</button>`;
     showOverlay(

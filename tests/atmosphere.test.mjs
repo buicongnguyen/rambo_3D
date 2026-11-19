@@ -11,7 +11,10 @@ test("every stage moves from day at level 1 to a lower, warmer dusk at its final
     assert.deepEqual(gradeFor(biome, 0), { ...day, heroLight: 0 }, biome);
     const last = gradeFor(biome, 2);
     assert.equal(last.key, dusk.key, biome);
-    assert.ok(last.sun[1] < day.sun[1] || biome === "city", `${biome} sun sets`);
+    assert.ok(
+      last.sun[1] < day.sun[1] || biome === "city",
+      `${biome} sun sets`,
+    );
     assert.ok(last.keyI < day.keyI, `${biome} key dims`);
     // The middle level is halfway, so the light falls as the stage goes on.
     const mid = gradeFor(biome, 1);

@@ -151,7 +151,9 @@ test("stage cards pick the stage; the briefing battlefield rebuilds only when th
   await expect(page.locator("#deploy")).toContainText("DEPLOY TO STAGE 4");
   await page.locator("#mission-orders").tap();
   const selectedOrders = await page.locator("#brief-copy").textContent();
-  await expect(page.locator("#mission-orders-copy")).toHaveText(selectedOrders!);
+  await expect(page.locator("#mission-orders-copy")).toHaveText(
+    selectedOrders!,
+  );
   await page.locator("#close-orders").tap();
   await expect(page.locator("#mission-orders")).toBeFocused();
   await expect(page.locator('[data-stage="3"]')).toHaveAttribute(
@@ -301,7 +303,9 @@ test("the quartermaster shows stats, prices on the buy buttons and clear owned a
   await expect(page.locator("#buy-kit")).toBeDisabled();
 });
 
-test("difficulty selection announces the active rules and survives a reload", async ({ page }) => {
+test("difficulty selection announces the active rules and survives a reload", async ({
+  page,
+}) => {
   await page.goto("/");
   const hard = page.getByRole("button", { name: "HARD", exact: true });
   await hard.focus();
@@ -310,7 +314,9 @@ test("difficulty selection announces the active rules and survives a reload", as
   for (const reload of [false, true]) {
     if (reload) await page.reload();
     await expect(hard).toHaveAttribute("aria-pressed", "true");
-    await expect(page.locator("[data-difficulty][aria-pressed=true]")).toHaveCount(1);
+    await expect(
+      page.locator("[data-difficulty][aria-pressed=true]"),
+    ).toHaveCount(1);
     await expect(page.locator("#difficulty-note")).toContainText("2× soldiers");
   }
   await page.getByRole("button", { name: "NORMAL", exact: true }).click();

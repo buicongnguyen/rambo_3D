@@ -50,7 +50,6 @@ export type Mission = {
   bossEscort?: string;
   color: number;
   ground: number;
-  fog: number;
   route: { x: number; z: number }[];
   roads: { x: number; z: number }[][];
   start: { x: number; z: number };
@@ -107,13 +106,11 @@ export const MISSIONS: Mission[] = STAGES.flatMap((s, stage) =>
       success: story.success,
       action: story.action,
       boss:
-        lead +
-        ("escort" in s && s.escort ? " + " + BOSS_NAMES[s.escort] : ""),
+        lead + ("escort" in s && s.escort ? " + " + BOSS_NAMES[s.escort] : ""),
       bossModel: s.boss,
       bossEscort: "escort" in s ? s.escort : undefined,
       color: 0xe1ed98,
       ground: s.ground,
-      fog: s.fog,
     };
   }),
 );

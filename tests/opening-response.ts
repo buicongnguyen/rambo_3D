@@ -8,11 +8,22 @@ export async function reachOpeningCounterattack(page: Page) {
     const { x, z } = MISSIONS[0].objective;
     game.invincible = 1e6;
     game.pos.set(x, 0, z);
-    const idle = { ...input, x: 0, z: 0, fire: false, assist: false, blast: false };
+    const idle = {
+      ...input,
+      x: 0,
+      z: 0,
+      fire: false,
+      assist: false,
+      blast: false,
+    };
     game.update(1 / 60, idle);
     for (let i = 0; i < 360 && game.pendingGuards > 0; i++)
       game.update(1 / 60, idle);
-    return { secured: game.objective, waiting: game.pendingGuards, guards: game.guardIds.size };
+    return {
+      secured: game.objective,
+      waiting: game.pendingGuards,
+      guards: game.guardIds.size,
+    };
   });
   expect(response).toEqual({ secured: true, waiting: 0, guards: 2 });
 }

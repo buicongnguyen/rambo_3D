@@ -4,7 +4,6 @@ export const STAGES = [
     biome: "ice",
     boss: "gunship",
     ground: 0xe4eff5,
-    fog: 0xc9e1ef,
     tip: "Ice carries your momentum. Snow-covered trees shelter fuel depots.",
   },
   {
@@ -12,7 +11,6 @@ export const STAGES = [
     biome: "volcano",
     boss: "spider",
     ground: 0x4f3a33,
-    fog: 0xa87a64,
     tip: "Volcanic rockfalls strike both sides. Leave the orange warning rings.",
   },
   {
@@ -20,7 +18,6 @@ export const STAGES = [
     biome: "sand",
     boss: "missileTruck",
     ground: 0xe2b873,
-    fog: 0xf0cf95,
     tip: "Sand traps slow movement to one quarter. Follow the firm routes.",
   },
   {
@@ -28,7 +25,6 @@ export const STAGES = [
     biome: "jungle",
     boss: "quadMech",
     ground: 0x4f8c35,
-    fog: 0x9cc58a,
     tip: "Dense trees block movement and gunfire. Blast a path through the jungle.",
   },
   {
@@ -36,7 +32,6 @@ export const STAGES = [
     biome: "city",
     boss: "laserTank",
     ground: 0xaaa295,
-    fog: 0xc4c9c6,
     tip: "Patrols flank through streets. Use buildings and barricades against laser fire.",
   },
   {
@@ -45,7 +40,6 @@ export const STAGES = [
     boss: "rocketMech",
     escort: "walker",
     ground: 0xb5936a,
-    fog: 0xd9bd93,
     tip: "Dust plumes warn of tremors. Soldiers and ground bosses freeze for 1–2 seconds.",
   },
   {
@@ -54,7 +48,6 @@ export const STAGES = [
     boss: "skyWraith",
     escort: "walker",
     ground: 0x5f6d3b,
-    fog: 0xa2b184,
     tip: "Dark water holes pull you down. Keep moving to escape the mud.",
   },
 ];
@@ -76,7 +69,8 @@ export function difficultyConfig(value) {
 export function finaleRoster(stage, difficulty) {
   const { boss, escort } = STAGES[stage];
   const config = difficultyConfig(difficulty);
-  const kinds = escort && config !== DIFFICULTIES.easy ? [boss, escort] : [boss];
+  const kinds =
+    escort && config !== DIFFICULTIES.easy ? [boss, escort] : [boss];
   return Array.from(
     { length: Math.max(config.bosses, kinds.length) },
     (_, i) => kinds[i % kinds.length],

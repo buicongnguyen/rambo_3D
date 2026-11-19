@@ -58,8 +58,14 @@ test("the wardrobe dresses Ghost: body and star-unlocked outfit carry into the m
       // Webbing whose nearest joint is the spine: the rifle sling the sailor collar replaces.
       let joint = o.parent;
       while (joint && !joint.userData.joint) joint = joint.parent;
-      if (o.isMesh && joint?.userData.joint === "Spine" && o.material.name === "Webbing tan") pack++;
-      if (o.isMesh && o.material.name === "Hero fatigues") tint = o.material.color.getHexString();
+      if (
+        o.isMesh &&
+        joint?.userData.joint === "Spine" &&
+        o.material.name === "Webbing tan"
+      )
+        pack++;
+      if (o.isMesh && o.material.name === "Hero fatigues")
+        tint = o.material.color.getHexString();
     });
     return {
       model: game.player.userData.model,

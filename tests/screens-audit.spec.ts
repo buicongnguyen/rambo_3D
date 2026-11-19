@@ -39,17 +39,23 @@ const audit = (page: Page) =>
     };
     // Carousels hold content off screen on purpose.
     const inScroller = (el: Element) => {
-      for (let p = el.parentElement; p && p !== document.body; p = p.parentElement) {
+      for (
+        let p = el.parentElement;
+        p && p !== document.body;
+        p = p.parentElement
+      ) {
         const ox = getComputedStyle(p).overflowX;
         if (ox !== "visible" && p.scrollWidth > p.clientWidth + 1) return true;
       }
       return false;
     };
     const coarse = matchMedia("(pointer: coarse)").matches;
-    const scope = document.querySelector("#overlay:not([hidden])") ?? document.body;
+    const scope =
+      document.querySelector("#overlay:not([hidden])") ?? document.body;
     for (const el of scope.querySelectorAll<HTMLElement>("*")) {
       const r = el.getBoundingClientRect();
-      if (!r.width || !r.height || r.bottom < 0 || r.top > innerHeight) continue;
+      if (!r.width || !r.height || r.bottom < 0 || r.top > innerHeight)
+        continue;
       const cs = getComputedStyle(el);
       if (cs.visibility === "hidden" || Number(cs.opacity) === 0) continue;
       const own = [...el.childNodes].some(
@@ -66,15 +72,23 @@ const audit = (page: Page) =>
         !el.closest(".brand-mark") &&
         !inScroller(el)
       )
-        out.clipped.push(`${el.id || el.className || el.tagName}:${el.scrollWidth}/${el.clientWidth}`);
+        out.clipped.push(
+          `${el.id || el.className || el.tagName}:${el.scrollWidth}/${el.clientWidth}`,
+        );
       if (!coarse) continue;
-      if (!el.matches("button, a[href], summary, select, [role=radio], [role=button], input"))
+      if (
+        !el.matches(
+          "button, a[href], summary, select, [role=radio], [role=button], input",
+        )
+      )
         continue;
       // A switch inside a full-row label is tapped through its label.
       const target = el.closest("label") ?? el;
       const t = target.getBoundingClientRect();
       if (t.height < 44 || t.width < 44)
-        out.taps.push(`${el.id || el.textContent!.trim()}:${t.width}x${t.height}`);
+        out.taps.push(
+          `${el.id || el.textContent!.trim()}:${t.width}x${t.height}`,
+        );
     }
     return out;
   });
@@ -319,7 +333,12 @@ test("a debrief that lands mid-fight ignores taps and Enter until it settles", a
   await page.evaluate(() => {
     const armor = document.activeElement!;
     armor.dispatchEvent(
-      new KeyboardEvent("keydown", { key: " ", repeat: true, bubbles: true, cancelable: true }),
+      new KeyboardEvent("keydown", {
+        key: " ",
+        repeat: true,
+        bubbles: true,
+        cancelable: true,
+      }),
     );
   });
   await page.keyboard.up("Space");
@@ -328,7 +347,11 @@ test("a debrief that lands mid-fight ignores taps and Enter until it settles", a
     "result",
   );
   const blocked = await page.evaluate(() => {
-    const up = new KeyboardEvent("keyup", { key: " ", bubbles: true, cancelable: true });
+    const up = new KeyboardEvent("keyup", {
+      key: " ",
+      bubbles: true,
+      cancelable: true,
+    });
     document.activeElement!.dispatchEvent(up);
     return up.defaultPrevented;
   });

@@ -52,7 +52,12 @@ import {
   SOVEREIGN,
 } from "./bosses.mjs";
 import { routeFormation } from "./routes.mjs";
-import { difficultyConfig, finaleRoster, terrainFactor, WORLD_BOUNDS } from "./campaign.mjs";
+import {
+  difficultyConfig,
+  finaleRoster,
+  terrainFactor,
+  WORLD_BOUNDS,
+} from "./campaign.mjs";
 import { WEAPONS, ENEMY_WEAPONS, type WeaponSpec } from "./arsenal";
 import { Ride } from "./rides";
 import { ImpactEffects } from "./impacts";
@@ -1908,7 +1913,8 @@ export class Game {
       this.kills++;
       if (e.boss || this.guardIds.has(e)) this.checkExtraction();
       // Vale can collect the squad here once the relay response and patrols are clear.
-      this.allClear = this.bossDead && !this.enemies.some((other) => other.hp > 0);
+      this.allClear =
+        this.bossDead && !this.enemies.some((other) => other.hp > 0);
       // The final kill (last command boss, or the mission's last hostile) gets
       // a slow-motion beat from the presentation director.
       if (

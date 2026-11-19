@@ -42,7 +42,12 @@ test("finales use the stage lead and add its escort from Normal onward", () => {
     assert.deepEqual(finaleRoster(stage, "story"), [boss]);
     assert.deepEqual(finaleRoster(stage, "normal"), [boss, escort]);
     assert.deepEqual(finaleRoster(stage, "hard"), [boss, escort]);
-    assert.deepEqual(finaleRoster(stage, "crazy"), [boss, escort, boss, escort]);
+    assert.deepEqual(finaleRoster(stage, "crazy"), [
+      boss,
+      escort,
+      boss,
+      escort,
+    ]);
   }
 });
 test("long map movement and navigation reach northern extraction without escaping bounds", () => {
